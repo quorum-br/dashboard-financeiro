@@ -21,88 +21,3093 @@
   window.__QUORUM_API__ = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-base?k=" + encodeURIComponent(new URLSearchParams(window.location.search).get("k") || "");
 </script>
 <script>
-var QuorumPainel=(()=>{var qo=Object.create;var Be=Object.defineProperty;var jo=Object.getOwnPropertyDescriptor;var Bo=Object.getOwnPropertyNames;var Uo=Object.getPrototypeOf,_o=Object.prototype.hasOwnProperty;var Ze=(t,n)=>()=>{try{return n||t((n={exports:{}}).exports,n),n.exports}catch(i){throw n=0,i}},Ho=(t,n)=>{for(var i in n)Be(t,i,{get:n[i],enumerable:!0})},go=(t,n,i,h)=>{if(n&&typeof n=="object"||typeof n=="function")for(let $ of Bo(n))!_o.call(t,$)&&$!==i&&Be(t,$,{get:()=>n[$],enumerable:!(h=jo(n,$))||h.enumerable});return t};var Ue=(t,n,i)=>(i=t!=null?qo(Uo(t)):{},go(n||!t||!t.__esModule?Be(i,"default",{value:t,enumerable:!0}):i,t)),Vo=t=>go(Be({},"__esModule",{value:!0}),t);var bo=Ze((ft,ho)=>{ho.exports=window.React});var yo=Ze((gt,vo)=>{vo.exports=window.XLSX});var Ke=Ze((ht,So)=>{function xo(t,n,i){return i!==void 0&&(n=Object.assign({},n,{key:i})),window.React.createElement(t,n)}So.exports={jsx:xo,jsxs:xo,Fragment:window.React.Fragment}});var ut={};Ho(ut,{default:()=>$o});var E=Ue(bo()),Oe=Ue(yo()),e=Ue(Ke()),o={bg:"#EEF1F5",surface:"#FFFFFF",surfaceAlt:"#E3E8EF",line:"#CBD3DE",lineSoft:"#E1E6ED",text:"#1B2230",dim:"#4E586B",faint:"#7A8598",brass:"#8A6A16",brassSoft:"rgba(138,106,22,0.10)",mint:"#0D7A52",mintSoft:"rgba(13,122,82,0.10)",coral:"#B23A2F",coralSoft:"rgba(178,58,47,0.10)",ink:"#D8DEE7"},Ve=[{g:"Receita de Patroc\xEDnio",i:[["Patroc\xEDnio | Evento Spot",!0],["Patroc\xEDnio | Cota Master",!0]]},{g:"Receita de Eventos Abertos",i:[["Eventos Abertos | Venda de Ingressos",!0],["Eventos Abertos | Sponsorships",!0]]},{g:"Receita de Evento Fechado",i:[["Evento Fechado | Sponsorships",!0]]},{g:"Receita de Quorum House",i:[["Quorum House | Evento Fechado",!0],["Quorum House | Eventos Abertos",!0]]},{g:"Receita de Assinaturas",i:[["QR Review | Subscription",!0],["QR Insights | Subscription",!0]]},{g:"Receita de Advisory",i:[["QR Advisory",!0]]},{g:"Receita de Comiss\xF5es",i:[["Comiss\xE3o sobre Neg\xF3cios Originados",!0]]},{g:"Receitas Financeiras",i:[["Descontos Obtidos",!0],["Juros Recebidos",!0],["Rendimentos de Aplica\xE7\xF5es",!0],["Multas Recebidas",!0]]},{g:"Outras Receitas Operacionais",i:[["Recupera\xE7\xE3o de Despesas",!0],["Reembolso de Despesas",!0]]},{g:"Resultado N\xE3o Operacional (Receitas)",i:[["Ganho na Venda de Ativos",!0]]},{g:"Movimenta\xE7\xF5es do Passivo - Entradas",i:[["Adiantamento de Clientes",!0],["M\xFAtuo de S\xF3cios (Entrada)",!0],["AFAC - S\xF3cios",!0],["Empr\xE9stimos Banc\xE1rios - Capta\xE7\xE3o",!0]]},{g:"Custo de Patroc\xEDnio",i:[["Happy Hour Quorum",!0],["Happy Hour Spot",!0],["Outros Custos de Patroc\xEDnio",!0]]},{g:"Custo de Eventos Abertos",i:[["Quorum Day",!0],["Lan\xE7amento Quorum",!0],["Outros Custos de Eventos Abertos",!0]]},{g:"Custo de Evento Fechado",i:[["Quorum Roundtable",!0],["Outros Custos de Evento Fechado",!0]]},{g:"Custo de Quorum House",i:[["Aluguel e Infraestrutura Quorum House",!0],["Reforma Quorum House",!0],["Outros Custos de Quorum House",!0]]},{g:"Custo de Assinaturas",i:[["Take Rate LMS - Hotmart (Custo de Assinaturas)",!0],["Plataforma LMS (Custo de Assinaturas)",!0],["Agentes IA (Custo de Assinaturas)",!0],["Outros Custos de Assinaturas",!0]]},{g:"Custo de Advisory",i:[["Pagamento a Advisors (Presta\xE7\xE3o de Servi\xE7o)",!0],["Outros Custos de Advisory",!0]]},{g:"Outros Custos dos Servi\xE7os",i:[["Outros Custos N\xE3o Listados",!0]]},{g:"Despesas com Pessoal",i:[["Outros Benef\xEDcios",!0],["Seguro de Vida",!0],["Vale Refei\xE7\xE3o",!0],["Vale Transporte",!0],["Assist\xEAncia M\xE9dica",!0],["Pens\xE3o Aliment\xEDcia",!0],["IRRF sobre Folha",!0],["FGTS",!0],["INSS sobre Folha",!0],["13\xBA Sal\xE1rio",!0],["Rescis\xF5es",!0],["F\xE9rias",!0],["Adiantamento de Sal\xE1rio",!0],["Sal\xE1rios e Pr\xF3-labore",!0]]},{g:"Despesas Administrativas",i:[["Ferramentas e Software",!0],["Limpeza",!0],["Seguran\xE7a",!0],["Advogados",!0],["Contabilidade",!0],["IPTU",!0],["Seguros",!0],["Manuten\xE7\xE3o de Imobilizado",!0],["Material de Escrit\xF3rio",!0],["Telefonia e Internet",!0],["Energia El\xE9trica",!0],["\xC1gua e Esgoto",!0],["Condom\xEDnio",!0],["Aluguel (Escrit\xF3rio)",!0],["Seguro Homem-Chave",!0],["Taxas (TFE e outras municipais)",!0]]},{g:"Despesas de Vendas e Marketing",i:[["Produ\xE7\xE3o de Conte\xFAdo | Freela Edi\xE7\xE3o e Grava\xE7\xE3o",!0],["Produ\xE7\xE3o de Conte\xFAdo | Aluguel de Est\xFAdio",!0],["M\xEDdia | Aquisi\xE7\xE3o QR Review",!0],["M\xEDdia | Aquisi\xE7\xE3o QR Insights",!0],["M\xEDdia | PR Agency",!0],["M\xEDdia | Impulsionamento",!0],["Despesas de Viagens",!0],["Marketing (Geral)",!0],["Brindes e Materiais Promocionais",!0]]},{g:"Despesas com Tecnologia",i:[["Take Rate LMS - Hotmart (Despesa de Tecnologia)",!0],["Plataforma LMS (Despesa de Tecnologia)",!0],["Agentes IA (Despesa de Tecnologia)",!0]]},{g:"Despesas Comerciais e de Representa\xE7\xE3o",i:[["Comiss\xE3o de S\xF3cios Advisors",!0],["Despesas Comerciais Diversas",!0]]},{g:"Despesas Financeiras",i:[["IOF",!0],["Tarifas Banc\xE1rias",!0],["Multas Pagas",!0],["Juros sobre Empr\xE9stimos",!0],["Descontos Concedidos",!0]]},{g:"Impostos e Taxas",i:[["Simples Nacional (DAS)",!0],["ISS (reserva - regime futuro)",!1],["PIS (reserva - regime futuro)",!1],["COFINS (reserva - regime futuro)",!1],["CSLL (reserva - regime futuro)",!1],["IRPJ (reserva - regime futuro)",!1]]},{g:"Impostos sobre o Lucro (regime futuro)",i:[["CSLL sobre o Lucro (regime futuro)",!1],["IRPJ sobre o Lucro (regime futuro)",!1]]},{g:"Lucros/Dividendos a Distribuir a S\xF3cios",i:[["Div. a Pagar - Carlo Merquior Worms Till",!0],["Div. a Pagar - Alex Armstrong de Sousa",!0],["Div. a Pagar - Alex Reche Franco (Minorit\xE1rio)",!0],["Div. a Pagar - Luiz Augusto Martins (Minorit\xE1rio)",!0],["Div. a Pagar - Tatiana Pinheiro de Oliveira (Minorit\xE1rio)",!0]]},{g:"Movimenta\xE7\xF5es do Passivo - Sa\xEDdas",i:[["M\xFAtuo de S\xF3cios (Devolu\xE7\xE3o)",!0],["Partes Relacionadas (a Pagar)",!0],["Empr\xE9stimos Banc\xE1rios - Amortiza\xE7\xE3o",!0],["Provis\xF5es Diversas",!0]]},{g:"Movimenta\xE7\xE3o do Ativo",i:[["Adiantamento a Fornecedores",!0],["Adiantamento a Funcion\xE1rios",!0],["Partes Relacionadas (a Receber)",!0],["Despesas Antecipadas",!0],["Aplica\xE7\xF5es de Liquidez Imediata",!0]]},{g:"Investimentos em Imobilizado e Intang\xEDvel",i:[["Compra de Equipamentos de Inform\xE1tica",!0],["Compra de M\xF3veis e Utens\xEDlios",!0],["Compra de M\xE1quinas e Equipamentos",!0],["Compra de Instala\xE7\xF5es",!0],["Aquisi\xE7\xE3o de Software e Licen\xE7as (Capitaliz\xE1vel)",!0],["Registro de Marcas e Patentes",!0]]},{g:"Resultado N\xE3o Operacional (Despesas)",i:[["Perda na Venda de Ativos",!0]]},{g:"Transfer\xEAncia",i:[["Entrada de Transfer\xEAncia",!0],["Sa\xEDda de Transfer\xEAncia",!0]]}],Qo=(()=>{let t=new Map;return Ve.forEach(n=>n.i.forEach(([i])=>t.set(n.g+"||"+i,!0))),t})(),z=[{key:"receita",label:"Receita Bruta",sign:1,groups:["Receita de Patroc\xEDnio","Receita de Eventos Abertos","Receita de Evento Fechado","Receita de Quorum House","Receita de Assinaturas","Receita de Advisory","Receita de Comiss\xF5es"]},{key:"impostos",label:"Impostos e Dedu\xE7\xF5es",sign:-1,groups:["Impostos e Taxas"]},{key:"custo",label:"Custo dos Servi\xE7os Prestados",sign:-1,groups:["Custo de Patroc\xEDnio","Custo de Eventos Abertos","Custo de Evento Fechado","Custo de Quorum House","Custo de Assinaturas","Custo de Advisory","Outros Custos dos Servi\xE7os"]},{key:"despesas",label:"Despesas Fixas",sign:-1,groups:["Despesas com Pessoal","Despesas Administrativas","Despesas de Vendas e Marketing","Despesas com Tecnologia","Despesas Comerciais e de Representa\xE7\xE3o"]},{key:"finRec",label:"Receitas Financeiras",sign:1,groups:["Receitas Financeiras"]},{key:"finDesp",label:"Despesas Financeiras",sign:-1,groups:["Despesas Financeiras"]},{key:"outrasRec",label:"Outras Receitas e N\xE3o Operacional",sign:1,groups:["Outras Receitas Operacionais","Resultado N\xE3o Operacional (Receitas)"]},{key:"outrasDesp",label:"Resultado N\xE3o Operacional (Despesas)",sign:-1,groups:["Resultado N\xE3o Operacional (Despesas)"]},{key:"impLucro",label:"Impostos sobre o Lucro",sign:-1,groups:["Impostos sobre o Lucro (regime futuro)"]}],Wo=z.reduce((t,n)=>t.concat(n.groups),[]),to=[{key:"entradas",label:"Entradas N\xE3o Operacionais",sign:1,groups:["Movimenta\xE7\xF5es do Passivo - Entradas"]},{key:"saidas",label:"Sa\xEDdas N\xE3o Operacionais",sign:-1,groups:["Movimenta\xE7\xF5es do Passivo - Sa\xEDdas","Lucros/Dividendos a Distribuir a S\xF3cios"]},{key:"ativo",label:"Movimenta\xE7\xE3o do Ativo",sign:-1,groups:["Movimenta\xE7\xE3o do Ativo"]},{key:"capex",label:"Investimentos",sign:-1,groups:["Investimentos em Imobilizado e Intang\xEDvel"]},{key:"transf",label:"Transfer\xEAncias entre Contas",sign:1,groups:["Transfer\xEAncia"]}],Xo=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];function Ae(t){return!(t instanceof Date)||isNaN(t)?null:t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")}function pe(t){let[n,i]=t.split("-");return Xo[Number(i)-1]+"/"+n.slice(2)}function P(t,n){if(t==null||isNaN(t))return"-";let i=Number(t);if(Math.abs(i)<.005)return"-";let h=Math.abs(i).toLocaleString("pt-BR",{minimumFractionDigits:n===void 0?0:n,maximumFractionDigits:n===void 0?0:n});return i<0?"("+h+")":h}function Go(t){return t===null||!isFinite(t)||Math.abs(t)<5e-5?"-":(t*100).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"}function ao(t){if(t instanceof Date)return isNaN(t)?null:t.getUTCHours()===0&&t.getUTCMinutes()===0&&t.getUTCSeconds()===0?new Date(t.getUTCFullYear(),t.getUTCMonth(),t.getUTCDate()):new Date(t.getFullYear(),t.getMonth(),t.getDate());if(typeof t=="number"){let n=new Date(Math.round((t-25569)*86400*1e3));return isNaN(n)?null:new Date(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate())}if(typeof t=="string"){let n=t.trim();if(!n||n==="N/D")return null;let i=n.match(/^(\d{4})-(\d{2})-(\d{2})/);if(i)return new Date(Number(i[1]),Number(i[2])-1,Number(i[3]));if(i=n.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/),i){let h=Number(i[1]),$=Number(i[2]),x=(h>12||$>12,h),m=h>12?$:$>12?h:$;return new Date(Number(i[3]),m-1,x)}}return null}function _e(t){if(typeof t=="number")return t;if(typeof t=="string"){let n=t.trim().replace(/\s|R\$/g,"");if(!n)return 0;n.indexOf(",")>=0&&(n=n.replace(/\./g,"").replace(",",".")),n=n.replace(/[^\d.\-]/g,"");let i=Number(n);return isNaN(i)?0:i}return 0}var Jo={"Tarifas Banc\xE1rias":"Omie.CASH - tarifa",IOF:"Receita Federal - IOF","Descontos Obtidos":"Omie.CASH - cashback","Rendimentos de Aplica\xE7\xF5es":"Omie.CASH - rendimento","Simples Nacional (DAS)":"Receita Federal - DAS","Entrada de Transfer\xEAncia":"Transfer\xEAncia entre contas pr\xF3prias","Sa\xEDda de Transfer\xEAncia":"Transfer\xEAncia entre contas pr\xF3prias"};function eo(t,n){for(let i of n)if(t[i]!==void 0)return t[i]}function Yo(t,n){let i=Oe.utils.sheet_to_json(t,{header:1,defval:null,blankrows:!0});for(let h=0;h<Math.min(i.length,15);h++){let $=(i[h]||[]).map(x=>String(x===null?"":x).trim().toLowerCase());if(n.every(x=>$.some(m=>m===x.toLowerCase())))return h}return null}function Zo(t){let n=null,i=null;for(let l of t.SheetNames){let v=Yo(t.Sheets[l],["Saldo (R$)","Data"]);if(v!==null){n=l,i=v;break}}if(n===null)return{saldos:{},contas:[]};let h=Oe.utils.sheet_to_json(t.Sheets[n],{defval:null,range:i}),$={},x=new Set,m=null;return h.forEach(l=>{let v=ao(eo(l,["Data"]));if(!v)return;let S=eo(l,["Conta Corrente"]);if(S&&(m=String(S).trim()),!m)return;let D=eo(l,["Saldo (R$)"]);D==null||D===""||(x.add(m),$[m+"||"+Ae(v)]=_e(D))}),{saldos:$,contas:Array.from(x)}}function Ko(t,n){let i=n==="caixa"?"dPag":"dEmi",h=t.filter(r=>r[i]),$=t.filter(r=>!r[i]),x=new Set;h.forEach(r=>x.add(Ae(r[i])));let m=Array.from(x).sort(),l=new Map,v=new Map,S=new Map;h.forEach(r=>{let F=Ae(r[i]),k=r.grupo+"||"+r.categoria+"||"+F;l.set(k,(l.get(k)||0)+r.valor);let j=r.conta+"||"+F;v.set(j,(v.get(j)||0)+r.valor),S.set(F,(S.get(F)||0)+r.valor)});let D=(r,F,k)=>l.get(r+"||"+F+"||"+k)||0;function K(r,F){let k=Ve.find(j=>j.g===r);return k?k.i.reduce((j,[te])=>j+D(r,te,F),0):0}function q(r,F){return r.key==="transf"?D("Transfer\xEAncia","Entrada de Transfer\xEAncia",F)+D("Transfer\xEAncia","Sa\xEDda de Transfer\xEAncia",F):r.groups.reduce((k,j)=>k+K(j,F),0)}let L={};[...z,...to].forEach(r=>{L[r.key]={},m.forEach(F=>L[r.key][F]=q(r,F))});let C=r=>{let F={};return m.forEach(k=>F[k]=r(k)),F},U=C(r=>L.receita[r]+L.impostos[r]),O=C(r=>U[r]+L.custo[r]),ue=C(r=>O[r]+L.despesas[r]),ee=C(r=>L.finRec[r]+L.finDesp[r]),Ee=C(r=>L.outrasRec[r]+L.outrasDesp[r]),$e=C(r=>ue[r]+ee[r]+Ee[r]),De=C(r=>$e[r]+L.impLucro[r]),Le=C(r=>De[r]+L.entradas[r]+L.saidas[r]+L.ativo[r]+L.capex[r]+L.transf[r]),ye=0,xe={};m.forEach(r=>{ye+=De[r],xe[r]=ye});let ne=Array.from(new Set(h.map(r=>r.conta))).sort(),Se={},re={};ne.forEach(r=>{Se[r]={},re[r]={};let F=0;m.forEach(k=>{let j=v.get(r+"||"+k)||0;Se[r][k]=j,F+=j,re[r][k]=F})});let Ce=C(r=>Math.round(((S.get(r)||0)-Le[r])*100)/100),Qe=z[0].groups.concat(z[4].groups,z[6].groups),u=z[1].groups.concat(z[2].groups,z[3].groups,z[5].groups,z[7].groups,z[8].groups),ze=["CEO","CFO","Adm&Fin","QR Insights","QR Review","QR Advisory","Comercial","Contabilidade","Jur\xEDdico","Outros n\xE3o listados"];function fe(r,F){let k=F==="projeto"?"Sem projeto":"Sem centro de custo",j=r.filter(oe=>oe!==k),te=r.length!==j.length,B;if(F==="projeto"){let oe=j.filter(a=>a.toUpperCase()==="QUORUM"),M=j.filter(a=>a.toUpperCase()!=="QUORUM").sort((a,d)=>a.localeCompare(d,"pt-BR"));B=oe.concat(M)}else{let oe=M=>{let a=ze.findIndex(d=>d.toLowerCase()===M.toLowerCase());return a<0?ze.length:a};B=j.slice().sort((M,a)=>{let d=oe(M)-oe(a);return d!==0?d:M.localeCompare(a,"pt-BR")})}return te?B.concat([k]):B}function Te(r){let F=new Map,k=new Set;h.forEach(M=>{let a=Qe.indexOf(M.grupo)>=0,d=u.indexOf(M.grupo)>=0;if(!a&&!d)return;let f=M[r];k.add(f);let N=f+"||"+Ae(M[i])+"||"+(a?"r":"s");F.set(N,(F.get(N)||0)+M.valor)});let j=fe(Array.from(k),r),te={},B={},oe={};return j.forEach(M=>{te[M]={},B[M]={},oe[M]={},m.forEach(a=>{te[M][a]=F.get(M+"||"+a+"||r")||0,B[M][a]=F.get(M+"||"+a+"||s")||0,oe[M][a]=te[M][a]+B[M][a]})}),{lista:j,rec:te,sai:B,res:oe}}let T=Te("projeto"),_=Te("centro"),p=[],ie=new Map;t.forEach(r=>{if(!Qo.has(r.grupo+"||"+r.categoria)){let F=r.grupo+" > "+r.categoria;ie.set(F,(ie.get(F)||0)+r.valor)}}),ie.forEach((r,F)=>p.push({nivel:"erro",titulo:"Categoria fora do plano de contas",detalhe:F+" - "+P(r,2)})),$.length&&p.push({nivel:"alerta",titulo:"Lan\xE7amento sem data no regime escolhido",detalhe:$.length+" lan\xE7amento(s), somando "+P($.reduce((r,F)=>r+F.valor,0),2)+", ficam fora do per\xEDodo"});let ge=new Map;return h.forEach(r=>{let F=Ae(r[i])+"|"+r[i].getDate()+"|"+r.categoria+"|"+r.valor.toFixed(2)+"|"+r.conta;ge.has(F)||ge.set(F,[]),ge.get(F).push(r)}),ge.forEach(r=>{r.length>1&&p.push({nivel:"alerta",titulo:"Poss\xEDvel duplicidade",detalhe:r.length+"x "+r[0].categoria+" de "+P(r[0].valor,2)+" em "+r[0][i].toLocaleDateString("pt-BR")+" ("+r[0].conta+")"})}),h.forEach(r=>{/cancel/i.test(r.situacao)&&p.push({nivel:"alerta",titulo:"Lan\xE7amento cancelado ainda na base",detalhe:r.categoria+" - "+P(r.valor,2)+" - "+r.situacao})}),m.forEach(r=>{Math.abs(Ce[r])>=.01&&p.push({nivel:"erro",titulo:"Base n\xE3o fecha com o fluxo",detalhe:pe(r)+" tem diferen\xE7a de "+P(Ce[r],2)+" entre a soma da base e o fluxo de caixa"})}),{meses:m,bruto:D,grupoMes:K,S:L,receitaLiquida:U,lucroBruto:O,ebitda:ue,resultadoFin:ee,outras:Ee,ebit:$e,lucroLiquido:De,acumulado:xe,fcl:Le,contas:ne,movConta:Se,saldoConta:re,integridade:Ce,totalMes:S,achados:p,usadas:h,semData:$,porProjeto:T,porCentro:_,campo:i}}var et={secao:{bg:"#E3E8EF",cor:"#1B2230",peso:600,pad:"pl-3",fs:12.5},grupo:{bg:"transparent",cor:"#3C465A",peso:500,pad:"pl-6",fs:12},item:{bg:"transparent",cor:"#7A8598",peso:400,pad:"pl-10",fs:11.5},total:{bg:"rgba(138,106,22,0.12)",cor:"#7A5C10",peso:700,pad:"pl-3",fs:13},pct:{bg:"transparent",cor:"#7A8598",peso:400,pad:"pl-3",fs:11}};function w({label:t,valores:n,meses:i,nivel:h,casas:$,formato:x,acumulado:m,aoAbrir:l,sufixo:v}){let S=et[h||"item"],D=$===void 0?2:$,[K,q]=(0,E.useState)(!1),L=m!==void 0?m:i.reduce((O,ue)=>O+(n[ue]||0),0),C=typeof l=="function",U={color:S.cor,fontWeight:S.peso,fontSize:S.fs,fontVariantNumeric:"tabular-nums"};return(0,e.jsxs)("tr",{onMouseEnter:()=>q(!0),onMouseLeave:()=>q(!1),style:{background:K&&C?"rgba(138,106,22,0.07)":S.bg,cursor:C?"pointer":"default"},children:[(0,e.jsxs)("td",{className:S.pad+" py-1 whitespace-nowrap overflow-hidden",style:{color:S.cor,fontWeight:S.peso,fontSize:S.fs},onClick:C?()=>l(null):void 0,title:C?"Abrir os lan\xE7amentos desta linha":void 0,children:[(0,e.jsx)("span",{className:"inline-block align-middle truncate",style:{maxWidth:"72%"},title:t,children:t}),v,(0,e.jsx)("span",{className:"align-middle",style:{color:o.brass,fontSize:10,marginLeft:6,opacity:C&&K?1:0},children:"ver lan\xE7amentos"})]}),i.map(O=>(0,e.jsx)("td",{className:"px-3 py-1 text-right whitespace-nowrap",style:U,onClick:C?()=>l(O):void 0,title:C?"Abrir os lan\xE7amentos de "+pe(O):void 0,children:x==="pct"?Go(n[O]):P(n[O],D)},O)),(0,e.jsx)("td",{className:"px-3 py-1 text-right whitespace-nowrap",style:{...U,borderLeft:"1px solid "+o.line},children:x==="pct"?"":P(L,D)})]})}function we({rotulo:t,valor:n,sub:i,tom:h,casas:$,ajuda:x}){let[m,l]=(0,E.useState)(!1),v=h==="neg"?o.coral:h==="pos"?o.mint:o.text;return(0,e.jsxs)("div",{className:"rounded px-4 py-3 relative",style:{background:o.surface,border:"1px solid "+(m?o.brass:o.line),minHeight:112},onMouseEnter:()=>l(!0),onMouseLeave:()=>l(!1),children:[(0,e.jsxs)("div",{className:"uppercase flex items-center gap-1",style:{fontSize:10,letterSpacing:"0.12em",color:o.faint},children:[t,x&&(0,e.jsx)("span",{className:"inline-flex items-center justify-center rounded-full",style:{width:13,height:13,border:"1px solid "+o.faint,fontSize:9,lineHeight:"11px",color:o.faint},children:"?"})]}),(0,e.jsx)("div",{className:"mt-1",style:{fontSize:24,color:v,fontWeight:600,fontVariantNumeric:"tabular-nums"},children:P(n,$===void 0?0:$)}),i&&(0,e.jsx)("div",{className:"mt-1 leading-snug",style:{fontSize:11,color:o.faint},children:i}),x&&m&&(0,e.jsx)("div",{className:"absolute left-0 right-0 rounded p-3 z-20",style:{top:"100%",marginTop:6,background:o.text,color:"#F4F6F9",fontSize:11,lineHeight:1.5,boxShadow:"0 8px 24px rgba(15,22,35,0.25)"},children:x})]})}function ot({meses:t}){return(0,e.jsx)("thead",{children:(0,e.jsxs)("tr",{style:{background:o.ink},children:[(0,e.jsx)("th",{className:"pl-3 py-2 text-left uppercase",style:{fontSize:10,letterSpacing:"0.12em",color:o.dim},children:"Linha"}),t.map(n=>(0,e.jsx)("th",{className:"px-3 py-2 text-right uppercase whitespace-nowrap",style:{fontSize:10,letterSpacing:"0.12em",color:o.dim},children:pe(n)},n)),(0,e.jsx)("th",{className:"px-3 py-2 text-right uppercase whitespace-nowrap",style:{fontSize:10,letterSpacing:"0.12em",color:o.brass,borderLeft:"1px solid "+o.line},children:"Acumulado"})]})})}function tt({ctx:t,linhas:n,aoFechar:i}){if(!t)return null;let h=n.filter(l=>!(t.grupo&&l.grupo!==t.grupo||t.categoria&&l.categoria!==t.categoria||t.grupos&&t.grupos.indexOf(l.grupo)<0||t.projeto&&l.projeto!==t.projeto||t.centro&&l.centro!==t.centro||t.somenteResultado&&t.gruposResultado.indexOf(l.grupo)<0||t.mes&&Ae(l[t.campo])!==t.mes)),$=new Map;h.forEach(l=>{let v=l.contraparte;$.has(v)||$.set(v,{soma:0,n:0,origem:l.contraOrigem});let S=$.get(v);S.soma+=l.valor,S.n+=1,S.origem!==l.contraOrigem&&(S.origem="misto")});let x=Array.from($.entries()).sort((l,v)=>Math.abs(v[1].soma)-Math.abs(l[1].soma)),m=h.reduce((l,v)=>l+v.valor,0);return(0,e.jsx)("div",{className:"fixed inset-0 z-40 flex justify-end",style:{background:"rgba(20,26,38,0.35)"},onClick:i,children:(0,e.jsxs)("div",{className:"h-full overflow-y-auto",style:{width:640,maxWidth:"100%",background:o.surface,borderLeft:"1px solid "+o.line},onClick:l=>l.stopPropagation(),children:[(0,e.jsxs)("div",{className:"sticky top-0 px-5 py-4",style:{background:o.surface,borderBottom:"1px solid "+o.line},children:[(0,e.jsxs)("div",{className:"flex items-start gap-3",children:[(0,e.jsxs)("div",{className:"flex-1",children:[(0,e.jsx)("div",{className:"uppercase",style:{fontSize:10,letterSpacing:"0.12em",color:o.brass},children:"Lan\xE7amentos"}),(0,e.jsx)("div",{style:{fontSize:15,fontWeight:600,color:o.text},children:t.titulo}),(0,e.jsxs)("div",{style:{fontSize:11,color:o.faint},children:[t.mes?pe(t.mes):"todo o per\xEDodo"," \xB7 ",h.length," lan\xE7amento(s) \xB7 ",t.campo==="dPag"?"por data de pagamento":"por data de emiss\xE3o"]})]}),(0,e.jsx)("button",{onClick:i,className:"px-3 py-1 rounded",style:{border:"1px solid "+o.line,color:o.dim,fontSize:11},children:"Fechar"})]}),(0,e.jsxs)("div",{className:"mt-3 flex justify-between",style:{fontSize:13,fontWeight:700,color:m<0?o.coral:o.mint},children:[(0,e.jsx)("span",{children:"Total"}),(0,e.jsx)("span",{style:{fontVariantNumeric:"tabular-nums"},children:P(m,2)})]})]}),(0,e.jsxs)("div",{className:"px-5 py-4",children:[(0,e.jsx)("div",{className:"uppercase mb-2",style:{fontSize:10,letterSpacing:"0.12em",color:o.faint},children:"Por contraparte"}),x.map(([l,v])=>(0,e.jsxs)("div",{className:"flex justify-between py-1",style:{fontSize:12,color:o.dim,borderBottom:"1px solid "+o.lineSoft},children:[(0,e.jsxs)("span",{className:"pr-3",children:[l,v.n>1?"  ("+v.n+"x)":"",(v.origem==="nota"||v.origem==="natureza")&&(0,e.jsx)("span",{style:{fontSize:9,color:o.brass,marginLeft:6,border:"1px solid "+o.brass,borderRadius:3,padding:"0 4px"},title:v.origem==="natureza"?"Fornecedor n\xE3o cadastrado no Omie. O painel usou a natureza do lan\xE7amento, porque a observa\xE7\xE3o traz a opera\xE7\xE3o de origem e n\xE3o quem recebeu.":"Fornecedor n\xE3o cadastrado no Omie. O painel leu o nome na observa\xE7\xE3o do lan\xE7amento.",children:v.origem==="natureza"?"por natureza":"lido da observa\xE7\xE3o"})]}),(0,e.jsx)("span",{style:{fontVariantNumeric:"tabular-nums",color:o.text},children:P(v.soma,2)})]},l)),(0,e.jsx)("div",{className:"uppercase mt-6 mb-2",style:{fontSize:10,letterSpacing:"0.12em",color:o.faint},children:"Linha a linha"}),(0,e.jsx)("table",{className:"w-full",style:{borderCollapse:"collapse"},children:(0,e.jsx)("tbody",{children:h.slice().sort((l,v)=>(l[t.campo]||0)-(v[t.campo]||0)).map(l=>(0,e.jsxs)("tr",{style:{borderBottom:"1px solid "+o.lineSoft},children:[(0,e.jsx)("td",{className:"py-1 pr-2 whitespace-nowrap",style:{fontSize:11,color:o.faint},children:l[t.campo]?l[t.campo].toLocaleDateString("pt-BR"):"-"}),(0,e.jsxs)("td",{className:"py-1 pr-2",style:{fontSize:11.5,color:o.text},children:[(0,e.jsxs)("div",{style:{whiteSpace:"normal",wordBreak:"break-word"},children:[l.contraparte,(l.contraOrigem==="nota"||l.contraOrigem==="natureza")&&(0,e.jsx)("span",{style:{fontSize:9,color:o.brass,marginLeft:6,border:"1px solid "+o.brass,borderRadius:3,padding:"0 4px"},children:l.contraOrigem==="natureza"?"por natureza":"lido da observa\xE7\xE3o"})]}),(0,e.jsxs)("div",{style:{fontSize:10,color:o.faint},children:[l.categoria,l.situacao?" \xB7 "+l.situacao:""]}),l.nota&&(0,e.jsx)("div",{style:{fontSize:10,color:o.faint,lineHeight:1.45,whiteSpace:"normal",wordBreak:"break-word"},children:l.nota})]}),(0,e.jsx)("td",{className:"py-1 pr-2 whitespace-nowrap",style:{fontSize:10,color:o.faint},children:l.conta}),(0,e.jsx)("td",{className:"py-1 text-right whitespace-nowrap",style:{fontSize:12,fontVariantNumeric:"tabular-nums",color:l.valor<0?o.coral:o.mint},children:P(l.valor,2)})]},l.id))})})]})]})})}var at=(()=>{let t=new Uint32Array(256);for(let n=0;n<256;n++){let i=n;for(let h=0;h<8;h++)i=i&1?3988292384^i>>>1:i>>>1;t[n]=i>>>0}return t})();function st(t){let n=4294967295;for(let i=0;i<t.length;i++)n=at[(n^t[i])&255]^n>>>8;return(n^4294967295)>>>0}function rt(t){let n=new TextEncoder,i=[],h=[],$=0,x=C=>[C&255,C>>8&255],m=C=>[C&255,C>>8&255,C>>16&255,C>>>24&255];t.forEach(C=>{let U=n.encode(C.nome),O=n.encode(C.conteudo),ue=st(O),ee=[].concat(m(67324752),x(20),x(0),x(0),x(0),x(0),m(ue),m(O.length),m(O.length),x(U.length),x(0));i.push(new Uint8Array(ee),U,O),h.push([].concat(m(33639248),x(20),x(20),x(0),x(0),x(0),x(0),m(ue),m(O.length),m(O.length),x(U.length),x(0),x(0),x(0),x(0),m(0),m($)),U),$+=ee.length+U.length+O.length});let l=[],v=0;for(let C=0;C<h.length;C+=2){let U=new Uint8Array(h[C]);l.push(U,h[C+1]),v+=U.length+h[C+1].length}let S=new Uint8Array([].concat(m(101010256),x(0),x(0),x(t.length),x(t.length),m(v),m($),x(0))),D=i.concat(l,[S]),K=D.reduce((C,U)=>C+U.length,0),q=new Uint8Array(K),L=0;return D.forEach(C=>{q.set(C,L),L+=C.length}),q}var so=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");function oo(t){let n=Date.UTC(1899,11,30),i=Date.UTC(t.getFullYear(),t.getMonth(),t.getDate());return Math.round((i-n)/864e5)}var nt=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="4">
-<numFmt numFmtId="164" formatCode="#,##0.00;[Red]\\(#,##0.00\\);&quot;-&quot;"/>
-<numFmt numFmtId="165" formatCode="0.0%;[Red]\\-0.0%;&quot;-&quot;"/>
-<numFmt numFmtId="166" formatCode="mmm\\-yy"/>
-<numFmt numFmtId="167" formatCode="dd/mm/yyyy"/>
-</numFmts>
-<fonts count="6">
-<font><sz val="12"/><name val="Calibri"/></font>
-<font><b/><sz val="12"/><name val="Calibri"/></font>
-<font><i/><sz val="11"/><color rgb="FF44546A"/><name val="Calibri"/></font>
-<font><i/><sz val="10"/><color rgb="FF808080"/><name val="Calibri"/></font>
-<font><sz val="10"/><color rgb="FF595959"/><name val="Calibri"/></font>
-<font><b/><sz val="11"/><name val="Calibri"/></font>
-</fonts>
-<fills count="7">
-<fill><patternFill patternType="none"/></fill>
-<fill><patternFill patternType="gray125"/></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFBFBFBF"/><bgColor indexed="64"/></patternFill></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFD8D8D8"/><bgColor indexed="64"/></patternFill></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFA5A5A5"/><bgColor indexed="64"/></patternFill></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>
-</fills>
-<borders count="2">
-<border><left/><right/><top/><bottom/><diagonal/></border>
-<border><left/><right/><top style="thin"><color rgb="FF808080"/></top><bottom/><diagonal/></border>
-</borders>
-<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="20">
-<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
-<xf numFmtId="164" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
-<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>
-<xf numFmtId="164" fontId="0" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>
-<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/>
-<xf numFmtId="164" fontId="0" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>
-<xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
-<xf numFmtId="164" fontId="1" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
-<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="165" fontId="2" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
-<xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
-<xf numFmtId="166" fontId="1" fillId="5" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="164" fontId="0" fillId="6" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>
-<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf numFmtId="0" fontId="5" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
-<xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-</cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-<dxfs count="0"/>
-<tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
-</styleSheet>`,A={secao:[1,2],grupo:[3,4],item:[5,6],total:[7,8],pct:[9,10],cabLabel:[11,12],texto:[13,13],input:[5,14],bdCab:[16,16],bd:[19,18]};function it(t){let n=t.cols.map((m,l)=>`<col min="${l+1}" max="${l+1}" width="${m}" customWidth="1"/>`).join(""),i=t.linhas.slice().sort((m,l)=>m.r-l.r).map(m=>(m.celulas.sort((l,v)=>l.col-v.col),m)).map(m=>{let l=m.celulas.map(S=>{let D=He(S.col)+m.r,K=S.s===void 0?0:S.s;return S.f!==void 0?`<c r="${D}" s="${K}"><f>${so(S.f)}</f></c>`:S.v===void 0||S.v===null||S.v===""?`<c r="${D}" s="${K}"/>`:typeof S.v=="number"?`<c r="${D}" s="${K}"><v>${S.v}</v></c>`:`<c r="${D}" s="${K}" t="inlineStr"><is><t xml:space="preserve">${so(S.v)}</t></is></c>`}).join(""),v=[`r="${m.r}"`];return m.outline&&v.push(`outlineLevel="${m.outline}"`),m.altura&&v.push(`ht="${m.altura}" customHeight="1"`),`<row ${v.join(" ")}>${l}</row>`}).join(""),h=t.linhas.reduce((m,l)=>Math.max(m,l.r),1),$=t.linhas.reduce((m,l)=>Math.max(m,l.celulas.reduce((v,S)=>Math.max(v,S.col),1)),1),x=t.freeze?`<pane xSplit="${t.freeze.x}" ySplit="${t.freeze.y}" topLeftCell="${He(t.freeze.x+1)}${t.freeze.y+1}" activePane="bottomRight" state="frozen"/>`:"";return`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetPr><outlinePr summaryBelow="0" summaryRight="0"/></sheetPr>
-<dimension ref="A1:${He($)}${h}"/>
-<sheetViews><sheetView workbookViewId="0" showGridLines="0">${x}</sheetView></sheetViews>
-<sheetFormatPr defaultRowHeight="15" outlineLevelRow="${t.niveis||1}"/>
-<cols>${n}</cols>
-<sheetData>${i}</sheetData>
-</worksheet>`}function He(t){let n="",i=t;for(;i>0;){let h=(i-1)%26;n=String.fromCharCode(65+h)+n,i=Math.floor((i-1)/26)}return n}function lt(t,n){let i=t.map(v=>v.nome),h=[{nome:"[Content_Types].xml",conteudo:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-${t.map((v,S)=>`<Override PartName="/xl/worksheets/sheet${S+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}
-<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-</Types>`},{nome:"_rels/.rels",conteudo:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`},{nome:"xl/workbook.xml",conteudo:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets>${i.map((v,S)=>`<sheet name="${so(v)}" sheetId="${S+1}" r:id="rId${S+1}"/>`).join("")}</sheets>
-</workbook>`},{nome:"xl/_rels/workbook.xml.rels",conteudo:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-${t.map((v,S)=>`<Relationship Id="rId${S+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${S+1}.xml"/>`).join("")}
-<Relationship Id="rId${t.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>`},{nome:"xl/styles.xml",conteudo:nt}].concat(t.map((v,S)=>({nome:`xl/worksheets/sheet${S+1}.xml`,conteudo:it(v)}))),$=rt(h),x=new Blob([$],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),m=URL.createObjectURL(x),l=document.createElement("a");l.href=m,l.download=n,document.body.appendChild(l),l.click(),document.body.removeChild(l),setTimeout(()=>URL.revokeObjectURL(m),2e3)}var ve={getItem(t){try{return window.localStorage.getItem(t)}catch{return null}},setItem(t,n){try{window.localStorage.setItem(t,n)}catch{}}},Co=window.__QUORUM_API__||"";function ct(t){let n=(t.contraparte||"").trim();if(n)return{nome:n,origem:"cadastro"};let i=Jo[t.categoria];return i?{nome:i,origem:"natureza"}:t.documento?{nome:t.conta+" \xB7 "+t.documento,origem:"natureza"}:{nome:t.conta||"Sem contraparte",origem:"natureza"}}function dt(t,n){let i=ct(t);return{id:t.id||"L"+n,grupo:t.grupo,categoria:t.categoria,conta:t.conta,situacao:t.situacao,documento:t.documento||"",contraparte:i.nome,contraOrigem:i.origem,nota:"",projeto:t.projeto||"Sem projeto",centro:t.centro||"Sem centro de custo",valor:Number(t.valor_pago||t.valor_titulo||0),dPag:ao(t.pagamento),dEmi:ao(t.emissao)}}function $o(){let[t,n]=(0,E.useState)(null),[i,h]=(0,E.useState)([]),[$,x]=(0,E.useState)(null),[m,l]=(0,E.useState)(!0),[v,S]=(0,E.useState)(null),[D,K]=(0,E.useState)(()=>ve.getItem("quorum_regime")||"caixa"),[q,L]=(0,E.useState)("dre"),[C,U]=(0,E.useState)(()=>ve.getItem("quorum_detalhe")!=="0"),[O,ue]=(0,E.useState)(()=>ve.getItem("quorum_zeradas")==="1"),[ee,Ee]=(0,E.useState)(()=>{try{return JSON.parse(ve.getItem("quorum_extrato")||"{}")}catch{return{}}}),[$e,De]=(0,E.useState)([]),[Le,ye]=(0,E.useState)(null),[xe,ne]=(0,E.useState)(""),Se=(0,E.useRef)(null),re=D==="caixa"?"dPag":"dEmi";(0,E.useEffect)(()=>{ve.setItem("quorum_regime",D)},[D]),(0,E.useEffect)(()=>{ve.setItem("quorum_detalhe",C?"1":"0")},[C]),(0,E.useEffect)(()=>{ve.setItem("quorum_zeradas",O?"1":"0")},[O]),(0,E.useEffect)(()=>{ve.setItem("quorum_extrato",JSON.stringify(ee))},[ee]);async function Ce(){if(!Co){ne("A URL da base n\xE3o foi configurada nesta p\xE1gina. Fale com o Alex."),l(!1);return}l(!0),ne("");try{let a=await fetch(Co,{cache:"no-store"});if(!a.ok)throw new Error("HTTP "+a.status);let d=await a.json(),N=(d.linhas||[]).map(dt).filter(c=>c.dPag),b=(d.linhas||[]).filter(c=>!c.pagamento);n(N),h(b),x(d),S(new Date),ye(null)}catch(a){ne("N\xE3o consegui buscar a base agora: "+a.message+". Tenta de novo em alguns segundos.")}finally{l(!1)}}(0,E.useEffect)(()=>{Ce()},[]);async function Qe(a){let d=Array.from(a||[]);if(!d.length)return;ne("");let f={...ee},N=[],b=[];for(let c of d)try{let y=await c.arrayBuffer(),I=Oe.read(y,{cellDates:!0}),{saldos:V,contas:Fe}=Zo(I);if(!Fe.length){b.push(c.name);continue}Object.assign(f,V),N.push({nome:c.name,contas:Fe})}catch{b.push(c.name)}if(!N.length){ne("Nenhum dos arquivos parece um extrato de conta corrente. Preciso das colunas Data, Conta Corrente e Saldo (R$).");return}Ee(f),De($e.concat(N)),b.length&&ne("N\xE3o reconheci como extrato: "+b.join(", "))}let u=(0,E.useMemo)(()=>t?Ko(t,D):null,[t,D]);function ze(a){if(!u)return;let d=a==="sheets",f=u.meses,N=f.length,b=4,c=b+N,y=He,I=u.usadas.slice().sort((s,g)=>(s[re]||0)-(g[re]||0)),V={nome:"BD Contas",cols:[20,34,40,30,16,34,13,13,14,60],linhas:[],freeze:{x:0,y:1},niveis:0},Fe=["Tipo","Grupo","Categoria","Conta Corrente","Situa\xE7\xE3o","Cliente ou Fornecedor","Data de Emiss\xE3o","Data de Pagto ou Recbto","Pago ou Recebido","Observa\xE7\xE3o"];V.linhas.push({r:1,celulas:Fe.map((s,g)=>({col:g+1,v:s,s:A.bdCab[0]}))}),I.forEach((s,g)=>{let R=g+2;V.linhas.push({r:R,celulas:[{col:1,v:s.valor>=0?"1. Contas a Receber":"2. Contas a Pagar",s:A.bd[0]},{col:2,v:s.grupo,s:A.bd[0]},{col:3,v:s.categoria,s:A.bd[0]},{col:4,v:s.conta,s:A.bd[0]},{col:5,v:s.situacao,s:A.bd[0]},{col:6,v:s.contraparte,s:A.bd[0]},{col:7,v:s.dEmi?oo(s.dEmi):"",s:17},{col:8,v:s.dPag?oo(s.dPag):"",s:17},{col:9,v:s.valor,s:A.bd[1]},{col:10,v:s.nota,s:A.bd[0]}]})});let he=I.length+1,be="'BD Contas'",Ne=re==="dPag"?"$H":"$G",ke=be+"!$I$2:$I$"+he,We=s=>`${be}!${Ne}$2:${Ne}$${he},">="&${s}$3,${be}!${Ne}$2:${Ne}$${he},"<"&EDATE(${s}$3,1)`,Fo=(s,g,R)=>`SUMIFS(${ke},${be}!$B$2:$B$${he},"${s}",${be}!$C$2:$C$${he},"${g}",${We(R)})`,No=(s,g)=>`SUMIFS(${ke},${be}!$D$2:$D$${he},"${s}",${We(g)})`,Io=s=>`SUMIFS(${ke},${We(s)})`,ro=(s,g)=>`SUMIFS(${ke},${be}!$D$2:$D$${he},"${s}",${be}!${Ne}$2:${Ne}$${he},"<"&EDATE(${g}$3,1))`,no=[3,3,52].concat(f.map(()=>14),[15]),X={nome:"Quorum Novo",cols:no,linhas:[],freeze:{x:3,y:3},niveis:1},Q=1,mt={},G=(s,g,R,J)=>{let Y=A[s]||A.item,se=[{col:3,v:g,s:Y[0]}];for(let Z=0;Z<N;Z++)se.push({col:b+Z,f:R?R(y(b+Z)):void 0,s:Y[1]});return se.push({col:c,f:R?s==="pct"?R(y(c)):`SUM(${y(b)}${Q}:${y(c-1)}${Q})`:void 0,s:Y[1]}),X.linhas.push({r:Q,celulas:se,outline:J||0}),Q++},le=()=>{X.linhas.push({r:Q,celulas:[],altura:3}),Q++};X.linhas.push({r:1,celulas:[{col:3,v:"QUORUM | Realizado por categoria \u2014 regime de "+(re==="dPag"?"caixa":"compet\xEAncia")+" \u2014 gerado em "+($?$.gerado_em:""),s:13}]}),Q=2,X.linhas.push({r:2,celulas:[].concat([{col:3,v:"",s:0}],f.map((s,g)=>({col:b+g,v:g+1,s:15})))}),X.linhas.push({r:3,celulas:[].concat([{col:3,v:"Realizado Quorum",s:A.cabLabel[0]}],f.map((s,g)=>{let[R,J]=s.split("-");return{col:b+g,v:oo(new Date(Number(R),Number(J)-1,1)),s:A.cabLabel[1]}}),[{col:c,v:"Acumulado",s:A.cabLabel[0]}])}),X.linhas.push({r:4,celulas:[],altura:3}),Q=5;let W={},ce=s=>{let g=Q++,R=[];s.groups.forEach(J=>{let Y=Ve.find(de=>de.g===J);if(!Y)return;let se=Q++,Z=[];Y.i.forEach(([de])=>{Z.push(G("item","      "+de,je=>Fo(J,de,je),1))}),X.linhas.push({r:se,celulas:[].concat([{col:3,v:"   "+J,s:A.grupo[0]}],Array.from({length:N+1},(de,je)=>{let fo=y(b+je);return{col:b+je,f:`SUM(${fo}${Z[0]}:${fo}${Z[Z.length-1]})`,s:A.grupo[1]}}))}),R.push(se),X.linhas.push({r:Q,celulas:[],altura:3}),Q++}),X.linhas.push({r:g,celulas:[].concat([{col:3,v:s.label,s:A.secao[0]}],Array.from({length:N+1},(J,Y)=>{let se=y(b+Y);return{col:b+Y,f:R.map(Z=>se+Z).join("+"),s:A.secao[1]}}))}),W[s.key]=g};ce(z[0]),le(),ce(z[1]);let Ie=G("total","(=) Receita L\xEDquida",s=>`${s}${W.receita}+${s}${W.impostos}`);G("pct","% Receita L\xEDquida",s=>`IFERROR(${s}${Ie}/${s}${W.receita},0)`),le(),ce(z[2]);let io=G("total","(=) Lucro Bruto",s=>`${s}${Ie}+${s}${W.custo}`);G("pct","% Lucro Bruto",s=>`IFERROR(${s}${io}/${s}${Ie},0)`),le(),ce(z[3]);let lo=G("total","(=) EBITDA",s=>`${s}${io}+${s}${W.despesas}`);G("pct","% EBITDA",s=>`IFERROR(${s}${lo}/${s}${Ie},0)`),le(),ce(z[4]),ce(z[5]),ce(z[6]),ce(z[7]),le();let co=G("total","(=) Resultado Antes de Impostos",s=>`${s}${lo}+${s}${W.finRec}+${s}${W.finDesp}+${s}${W.outrasRec}+${s}${W.outrasDesp}`);G("pct","% EBIT",s=>`IFERROR(${s}${co}/${s}${Ie},0)`),le(),ce(z[8]);let Me=G("total","(=) Lucro L\xEDquido",s=>`${s}${co}+${s}${W.impLucro}`),Xe=Q++;X.linhas.push({r:Xe,celulas:[].concat([{col:3,v:"(=) Resultado Acumulado",s:A.secao[0]}],f.map((s,g)=>{let R=y(b+g);return{col:b+g,f:g===0?`${R}${Me}`:`${y(b+g-1)}${Xe}+${R}${Me}`,s:A.secao[1]}}),[{col:c,f:`${y(c-1)}${Xe}`,s:A.secao[1]}])}),G("pct","% Lucro L\xEDquido",s=>`IFERROR(${s}${Me}/${s}${Ie},0)`),le(),X.linhas.push({r:Q++,celulas:[{col:3,v:"Fluxo de Caixa",s:9}]}),le();let Ro=G("secao","(=) Lucro L\xEDquido do per\xEDodo",s=>`${s}${Me}`);le(),to.forEach(s=>{ce(s)});let Ge=G("total","(=) Fluxo de Caixa Livre do m\xEAs",s=>`${s}${Ro}+${s}${W.entradas}+${s}${W.saidas}+${s}${W.ativo}+${s}${W.capex}+${s}${W.transf}`),Pe=Q++;X.linhas.push({r:Pe,celulas:[].concat([{col:3,v:"(=) Saldo acumulado, todas as contas",s:A.secao[0]}],f.map((s,g)=>{let R=y(b+g);return{col:b+g,f:g===0?`${R}${Ge}`:`${y(b+g-1)}${Pe}+${R}${Ge}`,s:A.secao[1]}}),[{col:c,f:`${y(c-1)}${Pe}`,s:A.secao[1]}])});let uo=u.contas.filter(s=>/garantia|cau/i.test(s)),mo=G("grupo","   (-) Cau\xE7\xE3o em garantia do cart\xE3o",s=>uo.length?"-("+uo.map(g=>ro(g,s)).join("+")+")":"0"),Ao=G("total","(=) Caixa livre",s=>`${s}${Pe}+${s}${mo}`);[mo,Ao].forEach(s=>{let g=X.linhas.find(R=>R.r===s);g.celulas[g.celulas.length-1].f=`${y(c-1)}${s}`}),le(),X.linhas.push({r:Q++,celulas:[{col:3,v:"Toda c\xE9lula deste bloco \xE9 f\xF3rmula sobre a aba BD Contas. A cau\xE7\xE3o sai porque est\xE1 travada como garantia do cart\xE3o; a fatura de cart\xE3o j\xE1 est\xE1 deduzida no saldo acumulado.",s:13}]});let me={nome:"Concilia\xE7\xE3o",cols:no,linhas:[],freeze:{x:3,y:3},niveis:1},ae=1;me.linhas.push({r:ae++,celulas:[{col:3,v:"QUORUM | Concilia\xE7\xE3o de caixa",s:13}]}),ae=3,me.linhas.push({r:3,celulas:[].concat([{col:3,v:"Concilia\xE7\xE3o",s:A.cabLabel[0]}],f.map((s,g)=>({col:b+g,f:`'Quorum Novo'!${y(b+g)}$3`,s:A.cabLabel[1]})),[{col:c,v:"Acumulado",s:A.cabLabel[0]}])}),ae=5;let H=(s,g,R,J,Y)=>{let se=A[s]||A.item,Z=[{col:3,v:g,s:se[0]}];for(let de=0;de<N;de++)Z.push({col:b+de,f:R?R(y(b+de)):void 0,s:se[1]});return Z.push({col:c,f:R&&!J?`SUM(${y(b)}${ae}:${y(c-1)}${ae})`:void 0,s:se[1]}),me.linhas.push({r:ae,celulas:Z,outline:Y||0}),ae++},Re=()=>{me.linhas.push({r:ae,celulas:[],altura:3}),ae++};H("secao","1. MOVIMENTO DO M\xCAS POR CONTA CORRENTE");let Eo={};u.contas.forEach(s=>{Eo[s]=H("item","   "+s,g=>No(s,g),!1,1)}),Re(),H("secao","2. SALDO ACUMULADO POR CONTA, CALCULADO PELA BASE");let qe={};u.contas.forEach(s=>{qe[s]=H("item","   "+s,R=>ro(s,R),!0,1);let g=me.linhas[me.linhas.length-1];g.celulas[g.celulas.length-1]={col:c,f:`${y(c-1)}${qe[s]}`,s:A.item[1]}}),Re(),H("secao","3. SALDO POR EXTRATO, PREENCHER; EM BRANCO N\xC3O \xC9 COMPARADO");let Je={};u.contas.forEach(s=>{let g=ae,R=[{col:3,v:"   "+s,s:A.input[0]}];for(let J=0;J<N;J++){let Y=ee[s+"||"+f[J]];R.push({col:b+J,v:Y===void 0||Y===""?"":_e(Y),s:A.input[1]})}R.push({col:c,f:`${y(c-1)}${g}`,s:A.input[1]}),me.linhas.push({r:g,celulas:R,outline:1}),Je[s]=g,ae++}),Re(),H("secao","4. DIFEREN\xC7A, EXTRATO MENOS CALCULADO"),u.contas.forEach(s=>{H("item","   "+s,g=>`IF(${g}${Je[s]}=0,0,ROUND(${g}${Je[s]}-${g}${qe[s]},2))`,!0,1)}),Re(),H("secao","5. INTEGRIDADE: TODA LINHA DA BASE EST\xC1 NA ABA?");let Do=H("item","   Total de lan\xE7amentos da base no m\xEAs",s=>Io(s),!1,1),zo=H("item","   Fluxo de Caixa Livre da aba Quorum Novo",s=>`'Quorum Novo'!${s}${Ge}`,!1,1);H("total","   (=) Diferen\xE7a, tem que ser zero",s=>`ROUND(${s}${Do}-${s}${zo},2)`),Re(),H("secao","6. CAIXA DISPON\xCDVEL DE FATO, POSI\xC7\xC3O DE CADA M\xCAS");let To=u.contas.filter(s=>!/cart/i.test(s)),wo=u.contas.filter(s=>/cart/i.test(s)&&!/garantia|cau/i.test(s)),Oo=u.contas.filter(s=>/garantia|cau/i.test(s)),Ye=(s,g)=>s.length?s.map(R=>g+qe[R]).join("+"):"0",Lo=H("item","   Conta corrente",s=>Ye(To,s),!0,1),ko=H("item","   (-) Fatura de cart\xE3o em aberto",s=>Ye(wo,s),!0,1),Mo=H("total","   (=) Caixa livre",s=>`${s}${Lo}+${s}${ko}`,!0),Po=H("item","   (+) Cau\xE7\xE3o em garantia, restitu\xEDvel",s=>Ye(Oo,s),!0,1);H("total","   (=) Posi\xE7\xE3o total",s=>`${s}${Mo}+${s}${Po}`,!0),Re(),me.linhas.push({r:ae++,celulas:[{col:3,v:"Bloco 5 diferente de zero significa lan\xE7amento da base sem linha correspondente no fluxo, ou categoria fora do plano de contas.",s:13}]});let po="QUORUM_Realizado_"+(re==="dPag"?"caixa":"competencia")+(d?"_sheets":"")+".xlsx";if(lt([X,me,V],po),d){try{window.open("https://sheets.new","_blank")}catch{}ne("Arquivo baixado. Na aba do Google Sheets que abriu, use Arquivo, Importar, Upload e escolha "+po+". As f\xF3rmulas e o gradiente v\xE3o junto; os agrupadores de linha o Sheets n\xE3o importa.")}}let fe=u?u.achados.filter(a=>a.nivel==="erro"):[],Te=u?u.achados.filter(a=>a.nivel==="alerta"):[],T=u&&u.meses.length?u.meses[u.meses.length-1]:null,_=(0,E.useMemo)(()=>{if(!u||!T)return null;let a=0,d=0,f=0,N={corrente:[],cartao:[],garantia:[]};return u.contas.forEach(b=>{let c=u.saldoConta[b][T];/garantia|cau/i.test(b)?(f+=c,N.garantia.push(b)):/cart/i.test(b)?(d+=c,N.cartao.push(b)):(a+=c,N.corrente.push(b))}),{corrente:a,cartao:d,garantia:f,livre:a+d,total:a+d+f,nomes:N}},[u,T]);if(m&&!u)return(0,e.jsx)("div",{className:"min-h-screen w-full flex items-center justify-center",style:{background:o.bg,color:o.faint,fontSize:12},children:"Buscando a base na Omie..."});if(!u)return(0,e.jsx)("div",{className:"min-h-screen w-full flex items-center justify-center p-6",style:{background:o.bg,color:o.text},children:(0,e.jsxs)("div",{className:"max-w-xl w-full",children:[(0,e.jsx)("div",{className:"uppercase mb-2",style:{fontSize:10,letterSpacing:"0.3em",color:o.brass},children:"QUORUM"}),(0,e.jsx)("h1",{className:"text-3xl mb-3",style:{fontWeight:300,letterSpacing:"-0.01em"},children:"Painel do Realizado"}),(0,e.jsx)("p",{className:"text-sm leading-relaxed mb-6",style:{color:o.dim},children:"N\xE3o consegui buscar a base agora."}),xe&&(0,e.jsx)("div",{className:"mt-2 mb-4 text-sm p-3 rounded",style:{background:o.coralSoft,color:o.coral},children:xe}),(0,e.jsx)("button",{onClick:Ce,className:"w-full py-4 rounded text-sm",style:{background:o.surface,border:"1px dashed "+o.brass,color:o.brass},children:"Tentar de novo"})]})});let p=u.meses,ie=u.contas.filter(a=>p.some(d=>{let f=ee[a+"||"+d];return f!==void 0&&f!==""})),ge=a=>p.some(d=>Math.abs(a[d]||0)>.005),r=(a,d)=>f=>ye({...d,titulo:a,mes:f,campo:re}),F=34,k=(100-F)/(p.length+1),j=380+(p.length+1)*100,te=({children:a})=>(0,e.jsx)("div",{className:"overflow-x-auto rounded",style:{border:"1px solid "+o.line,background:o.surface},children:(0,e.jsxs)("table",{style:{borderCollapse:"collapse",tableLayout:"fixed",width:"100%",minWidth:j},children:[(0,e.jsxs)("colgroup",{children:[(0,e.jsx)("col",{style:{width:F+"%"}}),p.map(d=>(0,e.jsx)("col",{style:{width:k+"%"}},d)),(0,e.jsx)("col",{style:{width:k+"%"}})]}),(0,e.jsx)(ot,{meses:p}),(0,e.jsx)("tbody",{children:a})]})}),B=a=>{let d=[(0,e.jsx)(w,{label:a.label,valores:u.S[a.key],meses:p,nivel:"secao",aoAbrir:r(a.label,{grupos:a.groups})},a.key)];return C&&a.groups.forEach(f=>{let N={};if(p.forEach(c=>N[c]=u.grupoMes(f,c)),!O&&!ge(N))return;d.push((0,e.jsx)(w,{label:f,valores:N,meses:p,nivel:"grupo",aoAbrir:r(f,{grupo:f})},a.key+f));let b=Ve.find(c=>c.g===f);b&&b.i.forEach(([c,y])=>{let I={};p.forEach(V=>I[V]=u.bruto(f,c,V)),!(!O&&!ge(I))&&d.push((0,e.jsx)(w,{label:c,valores:I,meses:p,nivel:"item",aoAbrir:ge(I)?r(c,{grupo:f,categoria:c}):void 0,sufixo:y?null:(0,e.jsx)("span",{style:{fontSize:10,color:o.faint},children:"  inativa"})},a.key+f+c))})}),d},oe=a=>{let d={};return p.forEach(f=>d[f]=u.receitaLiquida[f]?a[f]/u.receitaLiquida[f]:0),d},M=a=>({border:"1px solid "+(a?o.brass:o.line),background:a?o.brassSoft:o.surface,color:a?o.brass:o.dim,fontSize:11});return(0,e.jsxs)("div",{className:"min-h-screen w-full",style:{background:o.bg,color:o.text},children:[(0,e.jsx)(tt,{ctx:Le,linhas:u.usadas,aoFechar:()=>ye(null)}),(0,e.jsxs)("div",{className:"sticky top-0 z-10 px-6 py-3 flex flex-wrap items-center gap-3",style:{background:o.surface,borderBottom:"1px solid "+o.line},children:[(0,e.jsxs)("div",{children:[(0,e.jsx)("div",{className:"uppercase",style:{fontSize:9,letterSpacing:"0.3em",color:o.brass},children:"QUORUM"}),(0,e.jsx)("div",{className:"text-sm",style:{fontWeight:600},children:"Painel do Realizado"})]}),(0,e.jsxs)("div",{className:"ml-2",style:{fontSize:11,color:o.faint},children:[u.usadas.length," lan\xE7amentos realizados \xB7 ",p.length?pe(p[0])+" a "+pe(T):"sem per\xEDodo",$&&$.em_aberto>0&&(0,e.jsx)("span",{style:{color:o.brass},children:" \xB7 "+$.em_aberto+" compromisso(s) futuro(s) n\xE3o inclu\xEDdo(s)"}),v&&(0,e.jsxs)("span",{style:{color:o.mint},children:[" \xB7 atualizado \xE0s ",v.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})]})]}),(0,e.jsx)("div",{className:"flex-1"}),(0,e.jsx)("div",{className:"flex rounded overflow-hidden",style:{border:"1px solid "+o.line},children:[["caixa","Caixa"],["competencia","Compet\xEAncia"]].map(([a,d])=>(0,e.jsx)("button",{onClick:()=>K(a),className:"px-3 py-1.5",title:a==="caixa"?"Usa a data de pagamento ou recebimento: mostra quando o dinheiro entrou e saiu":"Usa a data de emiss\xE3o: mostra o m\xEAs em que a receita ou a despesa foi gerada",style:{fontSize:11,background:D===a?o.brass:"transparent",color:D===a?"#FFFFFF":o.dim,fontWeight:D===a?600:400},children:d},a))}),(0,e.jsx)("div",{className:"flex rounded overflow-hidden",style:{border:"1px solid "+o.line},children:[[!1,"S\xF3 com valor"],[!0,"Todas as linhas"]].map(([a,d])=>(0,e.jsx)("button",{onClick:()=>ue(a),className:"px-3 py-1.5",title:a?"Mostra todas as categorias do plano de contas, inclusive as que n\xE3o tiveram movimento":"Esconde as categorias sem nenhum lan\xE7amento no per\xEDodo",style:{fontSize:11,background:O===a?o.brass:"transparent",color:O===a?"#FFFFFF":o.dim,fontWeight:O===a?600:400},children:d},String(a)))}),(0,e.jsx)("button",{onClick:()=>U(!C),className:"px-3 py-1.5 rounded",style:M(!C),title:C?"Hoje mostrando grupo e categoria. Clique para ver s\xF3 os totais de cada se\xE7\xE3o":"Hoje mostrando s\xF3 os totais. Clique para abrir grupo e categoria",children:C?"Vis\xE3o sint\xE9tica":"Vis\xE3o anal\xEDtica"}),(0,e.jsx)("button",{onClick:()=>ze(),className:"px-3 py-1.5 rounded",style:{background:o.surface,border:"1px solid "+o.brass,color:o.brass,fontSize:11},title:"Gera o XLSX com as tr\xEAs abas, todas as f\xF3rmulas e a formata\xE7\xE3o do template",children:"Exportar XLSX"}),(0,e.jsx)("button",{onClick:()=>ze("sheets"),className:"px-3 py-1.5 rounded",style:{background:o.surface,border:"1px solid "+o.line,color:o.dim,fontSize:11},title:"Baixa o mesmo arquivo e abre uma planilha em branco no Google Sheets para voc\xEA importar. O Sheets n\xE3o tem formato pr\xF3prio de arquivo: ele l\xEA o xlsx.",children:"Exportar para Google Sheets"}),(0,e.jsx)("button",{onClick:()=>Se.current&&Se.current.click(),className:"px-3 py-1.5 rounded",style:{border:"1px solid "+(ie.length?o.mint:o.line),color:ie.length?o.mint:o.dim,fontSize:11,background:o.surface},title:"Extrato de movimenta\xE7\xE3o da conta corrente do Omie, um arquivo por conta. Pode subir v\xE1rios de uma vez, e pode subir mais depois: os saldos se acumulam."+(ie.length?" J\xE1 carregado: "+ie.join(", "):""),children:ie.length?"Extratos: "+ie.length+" de "+u.contas.length:"Subir extrato"}),(0,e.jsx)("button",{onClick:Ce,disabled:m,className:"px-3 py-1.5 rounded",style:{border:"1px solid "+(m?o.line:o.mint),color:m?o.faint:o.mint,fontSize:11,background:o.surface},title:"Busca a base de novo na Omie agora, sem esperar a pr\xF3xima abertura",children:m?"Atualizando...":"Atualizar agora"}),(0,e.jsx)("input",{ref:Se,type:"file",accept:".xlsx,.xls,.csv",multiple:!0,className:"hidden",style:{display:"none"},onChange:a=>Qe(a.target.files)})]}),xe&&(0,e.jsx)("div",{className:"mx-6 mt-3 p-3 rounded",style:{background:o.coralSoft,color:o.coral,fontSize:12},children:xe}),(0,e.jsx)("div",{className:"px-6 pt-4",children:(0,e.jsxs)("div",{className:"rounded px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2",style:{background:fe.length?o.coralSoft:o.mintSoft,border:"1px solid "+(fe.length?o.coral:o.mint)},children:[(0,e.jsx)("div",{className:"uppercase",style:{fontSize:10,letterSpacing:"0.12em",color:fe.length?o.coral:o.mint,fontWeight:700},children:fe.length?"A base n\xE3o fecha":"Base \xEDntegra"}),(0,e.jsx)("div",{style:{fontSize:11,color:o.dim},children:fe.length?fe.length+" erro(s) a resolver antes de usar estes n\xFAmeros":"Toda linha da base tem destino no fluxo, diferen\xE7a zero em todos os meses"}),Te.length>0&&(0,e.jsxs)("button",{onClick:()=>L("achados"),style:{fontSize:11,color:o.brass,textDecoration:"underline"},children:[Te.length," alerta(s) para revisar"]})]})}),(0,e.jsxs)("div",{className:"px-6 pt-4 grid gap-3",style:{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))"},children:[(0,e.jsx)(we,{rotulo:"Receita bruta",valor:p.reduce((a,d)=>a+u.S.receita[d],0),sub:"no per\xEDodo carregado",ajuda:"Tudo o que a QUORUM faturou no per\xEDodo, antes de imposto e de qualquer custo. N\xE3o inclui entrada de s\xF3cio, empr\xE9stimo nem transfer\xEAncia entre contas: isso \xE9 dinheiro que entra mas n\xE3o \xE9 receita."}),(0,e.jsx)(we,{rotulo:"EBITDA",valor:p.reduce((a,d)=>a+u.ebitda[d],0),tom:p.reduce((a,d)=>a+u.ebitda[d],0)<0?"neg":"pos",sub:"acumulado",ajuda:"Resultado da opera\xE7\xE3o: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda n\xE3o considera juros, tarifas e resultado n\xE3o operacional."}),(0,e.jsx)(we,{rotulo:"Lucro l\xEDquido",valor:T?u.acumulado[T]:0,tom:T&&u.acumulado[T]<0?"neg":"pos",sub:"acumulado no per\xEDodo",ajuda:"O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. \xC9 resultado, n\xE3o \xE9 caixa: uma receita faturada e n\xE3o recebida j\xE1 est\xE1 aqui, e o dinheiro ainda n\xE3o entrou."}),_&&(0,e.jsxs)(e.Fragment,{children:[(0,e.jsx)(we,{rotulo:"Conta corrente",valor:_.corrente,casas:2,sub:"saldo em "+pe(T),ajuda:"Saldo somado das contas correntes ("+(_.nomes.corrente.join(", ")||"nenhuma")+") no fim de "+pe(T)+". \xC9 o dinheiro que est\xE1 na conta hoje, sem descontar nada que j\xE1 est\xE1 comprometido."}),(0,e.jsx)(we,{rotulo:"Caixa livre",valor:_.livre,casas:2,tom:_.livre<0?"neg":"pos",sub:"o que sobra depois do j\xE1 comprometido",ajuda:"Conta corrente de "+P(_.corrente,2)+" menos a fatura de cart\xE3o em aberto de "+P(Math.abs(_.cartao),2)+". A cau\xE7\xE3o de "+P(_.garantia,2)+" n\xE3o entra aqui: o dinheiro j\xE1 saiu da conta quando foi depositado na garantia, ent\xE3o o saldo acima j\xE1 est\xE1 l\xEDquido dela. Somando a cau\xE7\xE3o, que \xE9 restitu\xEDvel, a posi\xE7\xE3o total \xE9 "+P(_.total,2)+"."})]})]}),(0,e.jsxs)("div",{className:"px-6 pt-5 flex gap-1 flex-wrap",children:[[["dre","Demonstra\xE7\xE3o de resultado"],["caixa","Fluxo de caixa"],["proj","Por projeto"],["cc","Por centro de custo"],["conc","Concilia\xE7\xE3o"],["achados","Achados ("+u.achados.length+")"],["abertos","Compromissos futuros ("+i.length+")"]].map(([a,d])=>(0,e.jsx)("button",{onClick:()=>L(a),className:"px-3 py-2 rounded-t",style:{fontSize:11,background:q===a?o.surface:"transparent",color:q===a?o.text:o.faint,fontWeight:q===a?600:400,borderBottom:q===a?"2px solid "+o.brass:"2px solid transparent"},children:d},a)),(0,e.jsx)("div",{className:"flex-1"}),(0,e.jsx)("div",{className:"self-center",style:{fontSize:10,color:o.faint},children:"clique em qualquer linha para ver os lan\xE7amentos por tr\xE1s dela"})]}),(0,e.jsxs)("div",{className:"px-6 pb-16 pt-3",children:[q==="dre"&&(0,e.jsxs)(te,{children:[B(z[0]),B(z[1]),(0,e.jsx)(w,{label:"(=) Receita L\xEDquida",valores:u.receitaLiquida,meses:p,nivel:"total"}),B(z[2]),(0,e.jsx)(w,{label:"(=) Lucro Bruto",valores:u.lucroBruto,meses:p,nivel:"total"}),(0,e.jsx)(w,{label:"% margem bruta",valores:oe(u.lucroBruto),meses:p,nivel:"pct",formato:"pct"}),B(z[3]),(0,e.jsx)(w,{label:"(=) EBITDA",valores:u.ebitda,meses:p,nivel:"total"}),(0,e.jsx)(w,{label:"% margem EBITDA",valores:oe(u.ebitda),meses:p,nivel:"pct",formato:"pct"}),B(z[4]),B(z[5]),B(z[6]),B(z[7]),(0,e.jsx)(w,{label:"(=) Resultado Antes de Impostos",valores:u.ebit,meses:p,nivel:"total"}),B(z[8]),(0,e.jsx)(w,{label:"(=) Lucro L\xEDquido",valores:u.lucroLiquido,meses:p,nivel:"total"}),(0,e.jsx)(w,{label:"(=) Resultado Acumulado",valores:u.acumulado,meses:p,nivel:"secao",acumulado:T?u.acumulado[T]:0}),(0,e.jsx)(w,{label:"% margem l\xEDquida",valores:oe(u.lucroLiquido),meses:p,nivel:"pct",formato:"pct"})]}),q==="caixa"&&(()=>{let a={},d={},f={},N={},b=0;p.forEach(y=>{b+=u.fcl[y],a[y]=b,d[y]=-u.contas.filter(I=>/garantia|cau/i.test(I)).reduce((I,V)=>I+u.saldoConta[V][y],0),N[y]=u.contas.filter(I=>/cart/i.test(I)&&!/garantia|cau/i.test(I)).reduce((I,V)=>I+u.saldoConta[V][y],0),f[y]=a[y]+d[y]});let c=p.some(y=>Math.abs(d[y])>.005);return(0,e.jsxs)(e.Fragment,{children:[(0,e.jsxs)(te,{children:[(0,e.jsx)(w,{label:"(=) Lucro L\xEDquido do per\xEDodo",valores:u.lucroLiquido,meses:p,nivel:"secao"}),to.map(y=>B(y)),(0,e.jsx)(w,{label:"(=) Fluxo de Caixa Livre do m\xEAs",valores:u.fcl,meses:p,nivel:"total",casas:2}),(0,e.jsx)(w,{label:"(=) Saldo acumulado, todas as contas",valores:a,meses:p,nivel:"secao",casas:2,acumulado:T?a[T]:0}),(0,e.jsx)(w,{label:"(-) Cau\xE7\xE3o em garantia do cart\xE3o",valores:d,meses:p,nivel:"grupo",casas:2,acumulado:T?d[T]:0}),(0,e.jsx)(w,{label:"(=) Caixa livre",valores:f,meses:p,nivel:"total",casas:2,acumulado:T?f[T]:0}),(0,e.jsx)(w,{label:"Integridade: base menos fluxo",valores:u.integridade,meses:p,nivel:"pct",casas:2})]}),(0,e.jsxs)("div",{className:"rounded px-4 py-3 mt-3",style:{background:o.surface,border:"1px solid "+o.line,fontSize:11,color:o.dim,lineHeight:1.6},children:["O saldo acumulado soma as tr\xEAs contas. A ",(0,e.jsx)("strong",{children:"cau\xE7\xE3o"}),c?"":" (hoje zerada)"," sai porque o dinheiro est\xE1 travado como garantia do cart\xE3o e s\xF3 volta se o cart\xE3o for encerrado. A ",(0,e.jsx)("strong",{children:"fatura de cart\xE3o em aberto"}),", hoje em ",P(T?N[T]:0,2),", n\xE3o aparece como linha separada porque j\xE1 est\xE1 deduzida: o saldo da conta de cart\xE3o \xE9 negativo enquanto a fatura n\xE3o \xE9 paga. As colunas de m\xEAs mostram a posi\xE7\xE3o no fim de cada m\xEAs, n\xE3o a varia\xE7\xE3o, das tr\xEAs \xFAltimas linhas para baixo."]})]})})(),(q==="proj"||q==="cc")&&(()=>{let a=q==="proj"?u.porProjeto:u.porCentro,d=q==="proj"?"projeto":"centro",f=q==="proj"?"Sem projeto":"Sem centro de custo",N=(c,y)=>I=>ye({[d]:c,titulo:y,mes:I,campo:re,somenteResultado:!0,gruposResultado:Wo}),b=c=>{let y={};return p.forEach(I=>y[I]=a.lista.reduce((V,Fe)=>V+a[c][Fe][I],0)),y};return a.lista.length?(0,e.jsxs)("div",{className:"space-y-4",children:[(0,e.jsxs)("div",{className:"rounded px-4 py-3",style:{background:o.surface,border:"1px solid "+o.line,fontSize:11,color:o.dim,lineHeight:1.6},children:["S\xF3 entram linhas de resultado: receita, custo e despesa. Movimenta\xE7\xE3o de s\xF3cio, transfer\xEAncia entre contas e investimento ficam de fora, sen\xE3o a margem do ",q==="proj"?"projeto":"centro de custo"," misturaria dinheiro que n\xE3o \xE9 dele. O que estiver em ",(0,e.jsx)("strong",{children:f})," \xE9 lan\xE7amento sem essa informa\xE7\xE3o preenchida no Omie."]}),(0,e.jsxs)(te,{children:[a.lista.map(c=>{let y={};return p.forEach(I=>y[I]=a.rec[c][I]?a.res[c][I]/a.rec[c][I]:0),(0,e.jsxs)(E.default.Fragment,{children:[(0,e.jsx)(w,{label:c,valores:a.res[c],meses:p,nivel:"secao",aoAbrir:N(c,c)}),(0,e.jsx)(w,{label:"Receita",valores:a.rec[c],meses:p,nivel:"grupo",aoAbrir:N(c,c+" - receita")}),(0,e.jsx)(w,{label:"Custos e despesas",valores:a.sai[c],meses:p,nivel:"grupo",aoAbrir:N(c,c+" - custos e despesas")}),(0,e.jsx)(w,{label:"% margem",valores:y,meses:p,nivel:"pct",formato:"pct"})]},"dim"+c)}),(0,e.jsx)(w,{label:"(=) Resultado somado",valores:b("res"),meses:p,nivel:"total"})]})]}):(0,e.jsx)("div",{className:"rounded p-4",style:{background:o.surface,border:"1px solid "+o.line,fontSize:12,color:o.dim},children:"Nenhum lan\xE7amento de resultado no per\xEDodo."})})(),q==="conc"&&(0,e.jsxs)("div",{className:"space-y-5",children:[(0,e.jsxs)(te,{children:[(0,e.jsx)(w,{label:"Movimento do m\xEAs por conta",valores:{},meses:p,nivel:"secao",acumulado:0}),u.contas.map(a=>(0,e.jsx)(w,{label:a,valores:u.movConta[a],meses:p,nivel:"item",casas:2},"mov"+a)),u.contas.map(a=>{let d={},f={},N=!1;p.forEach(c=>{let y=ee[a+"||"+c],I=y!==void 0&&y!=="";I&&(N=!0),d[c]=I?_e(y):0,f[c]=I?Math.round((d[c]-u.saldoConta[a][c])*100)/100:0});let b=N&&p.every(c=>Math.abs(f[c])<.005);return(0,e.jsxs)(E.default.Fragment,{children:[(0,e.jsx)(w,{label:a,valores:{},meses:p,nivel:"secao",acumulado:0}),(0,e.jsx)(w,{label:"saldo calculado pela base",valores:u.saldoConta[a],meses:p,nivel:"grupo",casas:2,acumulado:u.saldoConta[a][T]}),(0,e.jsx)(w,{label:N?"saldo pelo extrato":"saldo pelo extrato (n\xE3o informado)",valores:d,meses:p,nivel:"grupo",casas:2,acumulado:d[T]}),(0,e.jsxs)("tr",{style:{background:b?o.mintSoft:N?o.coralSoft:"transparent"},children:[(0,e.jsx)("td",{className:"pl-6 py-1 whitespace-nowrap",style:{fontSize:12,fontWeight:600,color:N?b?o.mint:o.coral:o.faint},children:N&&b?"diferen\xE7a: bate ao centavo":"diferen\xE7a"}),p.map(c=>(0,e.jsx)("td",{className:"px-3 py-1 text-right whitespace-nowrap",style:{fontSize:12,fontWeight:600,fontVariantNumeric:"tabular-nums",color:N?Math.abs(f[c])<.005?o.mint:o.coral:o.faint},children:P(f[c],2)},c)),(0,e.jsx)("td",{className:"px-3 py-1",style:{borderLeft:"1px solid "+o.line}})]})]},"blk"+a)})]}),(0,e.jsxs)("div",{className:"rounded p-4",style:{background:o.surface,border:"1px solid "+o.line},children:[(0,e.jsx)("div",{className:"uppercase mb-1",style:{fontSize:10,letterSpacing:"0.12em",color:o.brass},children:"Saldo por extrato"}),(0,e.jsxs)("div",{className:"mb-3",style:{fontSize:11,color:o.faint},children:["Suba o extrato de cada conta no topo da tela, um arquivo por conta e quantos quiser de uma vez, que os saldos entram sozinhos m\xEAs a m\xEAs. Ou digite aqui o saldo de ",T?pe(T):"-",". Campo em branco n\xE3o \xE9 comparado.",$e.length>0&&(0,e.jsxs)("span",{style:{color:o.mint},children:[" ","Carregados: ",$e.map(a=>a.nome).join(", "),"."]})]}),(0,e.jsx)("div",{className:"space-y-1",children:u.contas.map(a=>{let d=a+"||"+T,f=ee[d],N=u.saldoConta[a][T],b=f!==void 0&&f!=="",c=b?Math.round((_e(f)-N)*100)/100:null,y=b&&Math.abs(c)<.005;return(0,e.jsxs)("div",{className:"flex flex-wrap items-center gap-3 py-2",style:{borderTop:"1px solid "+o.lineSoft},children:[(0,e.jsx)("div",{className:"flex-1",style:{fontSize:12,color:o.dim,minWidth:200},children:a}),(0,e.jsx)("div",{className:"w-32 text-right",style:{fontSize:12,color:o.faint,fontVariantNumeric:"tabular-nums"},children:P(N,2)}),(0,e.jsx)("input",{value:f===void 0?"":f,onChange:I=>{let V={...ee,[d]:I.target.value};Ee(V)},placeholder:"saldo do extrato",className:"w-40 px-2 py-1 text-right rounded",style:{fontSize:12,background:"#FFFFFF",border:"1px solid "+o.line,color:o.text,outline:"none"}}),(0,e.jsx)("div",{className:"w-44 text-right",style:{fontSize:12,color:b?y?o.mint:o.coral:o.faint,fontWeight:b?600:400},children:b?y?"bate ao centavo":"diferen\xE7a de "+P(c,2):"sem extrato"})]},"ext"+a)})})]}),_&&(0,e.jsxs)("div",{className:"rounded p-4",style:{background:o.surface,border:"1px solid "+o.line},children:[(0,e.jsx)("div",{className:"uppercase mb-3",style:{fontSize:10,letterSpacing:"0.12em",color:o.brass},children:"Caixa dispon\xEDvel de fato"}),[["Conta corrente",_.corrente],["(-) Fatura de cart\xE3o em aberto",_.cartao]].map(([a,d])=>(0,e.jsxs)("div",{className:"flex justify-between py-1",style:{fontSize:12,color:o.dim},children:[(0,e.jsx)("span",{children:a}),(0,e.jsx)("span",{style:{fontVariantNumeric:"tabular-nums"},children:P(d,2)})]},a)),(0,e.jsxs)("div",{className:"flex justify-between py-2 mt-1",style:{fontSize:13,borderTop:"1px solid "+o.line,color:_.livre<0?o.coral:o.mint,fontWeight:700},children:[(0,e.jsx)("span",{children:"(=) Caixa livre"}),(0,e.jsx)("span",{style:{fontVariantNumeric:"tabular-nums"},children:P(_.livre,2)})]}),(0,e.jsxs)("div",{className:"flex justify-between py-1 mt-2",style:{fontSize:12,color:o.dim},children:[(0,e.jsx)("span",{children:"(+) Cau\xE7\xE3o em garantia do cart\xE3o, restitu\xEDvel"}),(0,e.jsx)("span",{style:{fontVariantNumeric:"tabular-nums"},children:P(_.garantia,2)})]}),(0,e.jsxs)("div",{className:"flex justify-between py-2",style:{fontSize:13,borderTop:"1px solid "+o.line,color:o.text,fontWeight:700},children:[(0,e.jsx)("span",{children:"(=) Posi\xE7\xE3o total"}),(0,e.jsx)("span",{style:{fontVariantNumeric:"tabular-nums"},children:P(_.total,2)})]}),(0,e.jsx)("div",{className:"mt-3",style:{fontSize:11,color:o.faint,lineHeight:1.5},children:"A cau\xE7\xE3o n\xE3o entra no caixa livre porque o dinheiro j\xE1 saiu da conta quando foi depositado na garantia: o saldo da conta corrente acima j\xE1 est\xE1 l\xEDquido dela. Ela volta se o cart\xE3o for encerrado, por isso soma na posi\xE7\xE3o total."})]})]}),q==="achados"&&(0,e.jsxs)("div",{className:"space-y-2",children:[u.achados.length===0&&(0,e.jsx)("div",{className:"rounded p-4",style:{fontSize:12,background:o.mintSoft,border:"1px solid "+o.mint,color:o.mint},children:"Nenhum achado. Categorias dentro do plano, sem duplicidade aparente, sem cancelado na base e fluxo fechando com a base."}),u.achados.map((a,d)=>(0,e.jsxs)("div",{className:"rounded px-4 py-3",style:{background:o.surface,borderLeft:"3px solid "+(a.nivel==="erro"?o.coral:o.brass),border:"1px solid "+o.line},children:[(0,e.jsx)("div",{style:{fontSize:12,color:a.nivel==="erro"?o.coral:o.brass,fontWeight:600},children:a.titulo}),(0,e.jsx)("div",{className:"mt-0.5",style:{fontSize:12,color:o.dim},children:a.detalhe})]},d))]}),q==="abertos"&&(0,e.jsxs)("div",{className:"space-y-2",children:[(0,e.jsx)("div",{className:"mb-2",style:{fontSize:11,color:o.faint},children:"T\xEDtulos com vencimento futuro, ainda sem data de pagamento na Omie. N\xE3o entram no DRE nem no fluxo de caixa acima, que s\xF3 contam o que j\xE1 foi realizado."}),i.length===0&&(0,e.jsx)("div",{className:"rounded p-4",style:{fontSize:12,background:o.mintSoft,border:"1px solid "+o.mint,color:o.mint},children:"Nenhum compromisso futuro em aberto na base."}),i.length>0&&(0,e.jsxs)("table",{className:"w-full",style:{fontSize:12,borderCollapse:"collapse"},children:[(0,e.jsx)("thead",{children:(0,e.jsxs)("tr",{style:{borderBottom:"1px solid "+o.line,color:o.faint,textAlign:"left"},children:[(0,e.jsx)("th",{className:"py-2 pr-2",style:{fontWeight:400},children:"Vencimento"}),(0,e.jsx)("th",{className:"py-2 pr-2",style:{fontWeight:400},children:"Categoria"}),(0,e.jsx)("th",{className:"py-2 pr-2",style:{fontWeight:400},children:"Contraparte"}),(0,e.jsx)("th",{className:"py-2 pr-2",style:{fontWeight:400},children:"Projeto"}),(0,e.jsx)("th",{className:"py-2 pr-2 text-right",style:{fontWeight:400},children:"Valor"})]})}),(0,e.jsx)("tbody",{children:i.slice().sort((a,d)=>(a.vencimento||"").localeCompare(d.vencimento||"")).map((a,d)=>(0,e.jsxs)("tr",{style:{borderBottom:"1px solid "+o.lineSoft},children:[(0,e.jsx)("td",{className:"py-1.5 pr-2",style:{color:o.dim},children:a.vencimento||"-"}),(0,e.jsx)("td",{className:"py-1.5 pr-2",style:{color:o.dim},children:a.categoria}),(0,e.jsx)("td",{className:"py-1.5 pr-2",style:{color:o.dim},children:a.contraparte||"-"}),(0,e.jsx)("td",{className:"py-1.5 pr-2",style:{color:o.dim},children:a.projeto}),(0,e.jsx)("td",{className:"py-1.5 pr-2 text-right",style:{color:a.tipo==="receber"?o.mint:o.coral},children:P(a.valor_titulo,2)})]},d))})]})]})]})]})}return Vo(ut);})();
-window.__PainelRealizado=QuorumPainel.default;
+/* ==========================================================================
+   QUORUM | Painel do Realizado
+   Codigo legivel, sem build step. React via CDN, elementos criados com o
+   helper h() no lugar de JSX. Nenhuma regra de calculo foi alterada em
+   relacao a versao anterior: isto e traducao de forma, nao reescrita.
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  var React = window.React;
+  var useState = React.useState;
+  var useEffect = React.useEffect;
+  var useMemo = React.useMemo;
+  var useRef = React.useRef;
+  var Fragment = React.Fragment;
+
+  /* Cria elemento React. h(tipo, props, filho, filho, ...) */
+  function h(tipo, props) {
+    var filhos = Array.prototype.slice.call(arguments, 2);
+    return React.createElement.apply(React, [tipo, props].concat(filhos));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 1. PALETA                                                           */
+  /* ------------------------------------------------------------------ */
+
+  var COR = {
+    bg: "#EEF1F5",
+    surface: "#FFFFFF",
+    surfaceAlt: "#E3E8EF",
+    line: "#CBD3DE",
+    lineSoft: "#E1E6ED",
+    text: "#1B2230",
+    dim: "#4E586B",
+    faint: "#7A8598",
+    brass: "#8A6A16",
+    brassSoft: "rgba(138,106,22,0.10)",
+    mint: "#0D7A52",
+    mintSoft: "rgba(13,122,82,0.10)",
+    coral: "#B23A2F",
+    coralSoft: "rgba(178,58,47,0.10)",
+    ink: "#D8DEE7"
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 2. PLANO DE CONTAS                                                  */
+  /* Cada grupo tem seus itens. O segundo valor de cada item diz se a     */
+  /* categoria esta ativa: false marca "inativa" na tela.                */
+  /* ------------------------------------------------------------------ */
+
+  var PLANO_DE_CONTAS = [
+    { grupo: "Receita de Patrocínio", itens: [
+      ["Patrocínio | Evento Spot", true],
+      ["Patrocínio | Cota Master", true]
+    ]},
+    { grupo: "Receita de Eventos Abertos", itens: [
+      ["Eventos Abertos | Venda de Ingressos", true],
+      ["Eventos Abertos | Sponsorships", true]
+    ]},
+    { grupo: "Receita de Evento Fechado", itens: [
+      ["Evento Fechado | Sponsorships", true]
+    ]},
+    { grupo: "Receita de Quorum House", itens: [
+      ["Quorum House | Evento Fechado", true],
+      ["Quorum House | Eventos Abertos", true]
+    ]},
+    { grupo: "Receita de Assinaturas", itens: [
+      ["QR Review | Subscription", true],
+      ["QR Insights | Subscription", true]
+    ]},
+    { grupo: "Receita de Advisory", itens: [
+      ["QR Advisory", true]
+    ]},
+    { grupo: "Receita de Comissões", itens: [
+      ["Comissão sobre Negócios Originados", true]
+    ]},
+    { grupo: "Receitas Financeiras", itens: [
+      ["Descontos Obtidos", true],
+      ["Juros Recebidos", true],
+      ["Rendimentos de Aplicações", true],
+      ["Multas Recebidas", true]
+    ]},
+    { grupo: "Outras Receitas Operacionais", itens: [
+      ["Recuperação de Despesas", true],
+      ["Reembolso de Despesas", true]
+    ]},
+    { grupo: "Resultado Não Operacional (Receitas)", itens: [
+      ["Ganho na Venda de Ativos", true]
+    ]},
+    { grupo: "Movimentações do Passivo - Entradas", itens: [
+      ["Adiantamento de Clientes", true],
+      ["Mútuo de Sócios (Entrada)", true],
+      ["AFAC - Sócios", true],
+      ["Empréstimos Bancários - Captação", true]
+    ]},
+    { grupo: "Custo de Patrocínio", itens: [
+      ["Happy Hour Quorum", true],
+      ["Happy Hour Spot", true],
+      ["Outros Custos de Patrocínio", true]
+    ]},
+    { grupo: "Custo de Eventos Abertos", itens: [
+      ["Quorum Day", true],
+      ["Lançamento Quorum", true],
+      ["Outros Custos de Eventos Abertos", true]
+    ]},
+    { grupo: "Custo de Evento Fechado", itens: [
+      ["Quorum Roundtable", true],
+      ["Outros Custos de Evento Fechado", true]
+    ]},
+    { grupo: "Custo de Quorum House", itens: [
+      ["Aluguel e Infraestrutura Quorum House", true],
+      ["Reforma Quorum House", true],
+      ["Outros Custos de Quorum House", true]
+    ]},
+    { grupo: "Custo de Assinaturas", itens: [
+      ["Take Rate LMS - Hotmart (Custo de Assinaturas)", true],
+      ["Plataforma LMS (Custo de Assinaturas)", true],
+      ["Agentes IA (Custo de Assinaturas)", true],
+      ["Outros Custos de Assinaturas", true]
+    ]},
+    { grupo: "Custo de Advisory", itens: [
+      ["Pagamento a Advisors (Prestação de Serviço)", true],
+      ["Outros Custos de Advisory", true]
+    ]},
+    { grupo: "Outros Custos dos Serviços", itens: [
+      ["Outros Custos Não Listados", true]
+    ]},
+    { grupo: "Despesas com Pessoal", itens: [
+      ["Outros Benefícios", true],
+      ["Seguro de Vida", true],
+      ["Vale Refeição", true],
+      ["Vale Transporte", true],
+      ["Assistência Médica", true],
+      ["Pensão Alimentícia", true],
+      ["IRRF sobre Folha", true],
+      ["FGTS", true],
+      ["INSS sobre Folha", true],
+      ["13º Salário", true],
+      ["Rescisões", true],
+      ["Férias", true],
+      ["Adiantamento de Salário", true],
+      ["Salários e Pró-labore", true]
+    ]},
+    { grupo: "Despesas Administrativas", itens: [
+      ["Ferramentas e Software", true],
+      ["Limpeza", true],
+      ["Segurança", true],
+      ["Advogados", true],
+      ["Contabilidade", true],
+      ["IPTU", true],
+      ["Seguros", true],
+      ["Manutenção de Imobilizado", true],
+      ["Material de Escritório", true],
+      ["Telefonia e Internet", true],
+      ["Energia Elétrica", true],
+      ["Água e Esgoto", true],
+      ["Condomínio", true],
+      ["Aluguel (Escritório)", true],
+      ["Seguro Homem-Chave", true],
+      ["Taxas (TFE e outras municipais)", true]
+    ]},
+    { grupo: "Despesas de Vendas e Marketing", itens: [
+      ["Produção de Conteúdo | Freela Edição e Gravação", true],
+      ["Produção de Conteúdo | Aluguel de Estúdio", true],
+      ["Mídia | Aquisição QR Review", true],
+      ["Mídia | Aquisição QR Insights", true],
+      ["Mídia | PR Agency", true],
+      ["Mídia | Impulsionamento", true],
+      ["Despesas de Viagens", true],
+      ["Marketing (Geral)", true],
+      ["Brindes e Materiais Promocionais", true]
+    ]},
+    { grupo: "Despesas com Tecnologia", itens: [
+      ["Take Rate LMS - Hotmart (Despesa de Tecnologia)", true],
+      ["Plataforma LMS (Despesa de Tecnologia)", true],
+      ["Agentes IA (Despesa de Tecnologia)", true]
+    ]},
+    { grupo: "Despesas Comerciais e de Representação", itens: [
+      ["Comissão de Sócios Advisors", true],
+      ["Despesas Comerciais Diversas", true]
+    ]},
+    { grupo: "Despesas Financeiras", itens: [
+      ["IOF", true],
+      ["Tarifas Bancárias", true],
+      ["Multas Pagas", true],
+      ["Juros sobre Empréstimos", true],
+      ["Descontos Concedidos", true]
+    ]},
+    { grupo: "Impostos e Taxas", itens: [
+      ["Simples Nacional (DAS)", true],
+      ["ISS (reserva - regime futuro)", false],
+      ["PIS (reserva - regime futuro)", false],
+      ["COFINS (reserva - regime futuro)", false],
+      ["CSLL (reserva - regime futuro)", false],
+      ["IRPJ (reserva - regime futuro)", false]
+    ]},
+    { grupo: "Impostos sobre o Lucro (regime futuro)", itens: [
+      ["CSLL sobre o Lucro (regime futuro)", false],
+      ["IRPJ sobre o Lucro (regime futuro)", false]
+    ]},
+    { grupo: "Lucros/Dividendos a Distribuir a Sócios", itens: [
+      ["Div. a Pagar - Carlo Merquior Worms Till", true],
+      ["Div. a Pagar - Alex Armstrong de Sousa", true],
+      ["Div. a Pagar - Alex Reche Franco (Minoritário)", true],
+      ["Div. a Pagar - Luiz Augusto Martins (Minoritário)", true],
+      ["Div. a Pagar - Tatiana Pinheiro de Oliveira (Minoritário)", true]
+    ]},
+    { grupo: "Movimentações do Passivo - Saídas", itens: [
+      ["Mútuo de Sócios (Devolução)", true],
+      ["Partes Relacionadas (a Pagar)", true],
+      ["Empréstimos Bancários - Amortização", true],
+      ["Provisões Diversas", true]
+    ]},
+    { grupo: "Movimentação do Ativo", itens: [
+      ["Adiantamento a Fornecedores", true],
+      ["Adiantamento a Funcionários", true],
+      ["Partes Relacionadas (a Receber)", true],
+      ["Despesas Antecipadas", true],
+      ["Aplicações de Liquidez Imediata", true]
+    ]},
+    { grupo: "Investimentos em Imobilizado e Intangível", itens: [
+      ["Compra de Equipamentos de Informática", true],
+      ["Compra de Móveis e Utensílios", true],
+      ["Compra de Máquinas e Equipamentos", true],
+      ["Compra de Instalações", true],
+      ["Aquisição de Software e Licenças (Capitalizável)", true],
+      ["Registro de Marcas e Patentes", true]
+    ]},
+    { grupo: "Resultado Não Operacional (Despesas)", itens: [
+      ["Perda na Venda de Ativos", true]
+    ]},
+    { grupo: "Transferência", itens: [
+      ["Entrada de Transferência", true],
+      ["Saída de Transferência", true]
+    ]}
+  ];
+
+  /* Conjunto "grupo||categoria" para detectar categoria fora do plano. */
+  var CHAVES_DO_PLANO = (function () {
+    var mapa = new Map();
+    PLANO_DE_CONTAS.forEach(function (bloco) {
+      bloco.itens.forEach(function (item) {
+        mapa.set(bloco.grupo + "||" + item[0], true);
+      });
+    });
+    return mapa;
+  })();
+
+  /* ------------------------------------------------------------------ */
+  /* 3. SECOES DO DRE E DO FLUXO DE CAIXA                                */
+  /* ------------------------------------------------------------------ */
+
+  var SECOES_DRE = [
+    { key: "receita", label: "Receita Bruta", sign: 1, groups: [
+      "Receita de Patrocínio", "Receita de Eventos Abertos", "Receita de Evento Fechado",
+      "Receita de Quorum House", "Receita de Assinaturas", "Receita de Advisory",
+      "Receita de Comissões"
+    ]},
+    { key: "impostos", label: "Impostos e Deduções", sign: -1, groups: ["Impostos e Taxas"] },
+    { key: "custo", label: "Custo dos Serviços Prestados", sign: -1, groups: [
+      "Custo de Patrocínio", "Custo de Eventos Abertos", "Custo de Evento Fechado",
+      "Custo de Quorum House", "Custo de Assinaturas", "Custo de Advisory",
+      "Outros Custos dos Serviços"
+    ]},
+    { key: "despesas", label: "Despesas Fixas", sign: -1, groups: [
+      "Despesas com Pessoal", "Despesas Administrativas", "Despesas de Vendas e Marketing",
+      "Despesas com Tecnologia", "Despesas Comerciais e de Representação"
+    ]},
+    { key: "finRec", label: "Receitas Financeiras", sign: 1, groups: ["Receitas Financeiras"] },
+    { key: "finDesp", label: "Despesas Financeiras", sign: -1, groups: ["Despesas Financeiras"] },
+    { key: "outrasRec", label: "Outras Receitas e Não Operacional", sign: 1, groups: [
+      "Outras Receitas Operacionais", "Resultado Não Operacional (Receitas)"
+    ]},
+    { key: "outrasDesp", label: "Resultado Não Operacional (Despesas)", sign: -1, groups: [
+      "Resultado Não Operacional (Despesas)"
+    ]},
+    { key: "impLucro", label: "Impostos sobre o Lucro", sign: -1, groups: [
+      "Impostos sobre o Lucro (regime futuro)"
+    ]}
+  ];
+
+  /* Todos os grupos que entram no resultado, usados no filtro por projeto e centro. */
+  var GRUPOS_DE_RESULTADO = SECOES_DRE.reduce(function (acc, secao) {
+    return acc.concat(secao.groups);
+  }, []);
+
+  var SECOES_FLUXO = [
+    { key: "entradas", label: "Entradas Não Operacionais", sign: 1, groups: [
+      "Movimentações do Passivo - Entradas"
+    ]},
+    { key: "saidas", label: "Saídas Não Operacionais", sign: -1, groups: [
+      "Movimentações do Passivo - Saídas", "Lucros/Dividendos a Distribuir a Sócios"
+    ]},
+    { key: "ativo", label: "Movimentação do Ativo", sign: -1, groups: ["Movimentação do Ativo"] },
+    { key: "capex", label: "Investimentos", sign: -1, groups: [
+      "Investimentos em Imobilizado e Intangível"
+    ]},
+    { key: "transf", label: "Transferências entre Contas", sign: 1, groups: ["Transferência"] }
+  ];
+
+  var MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+  /* ------------------------------------------------------------------ */
+  /* 4. FORMATACAO E CONVERSAO                                           */
+  /* ------------------------------------------------------------------ */
+
+  /* Data -> "2026-08". Devolve null se nao for data valida. */
+  function chaveMes(data) {
+    if (!(data instanceof Date) || isNaN(data)) return null;
+    return data.getFullYear() + "-" + String(data.getMonth() + 1).padStart(2, "0");
+  }
+
+  /* "2026-08" -> "ago/26" */
+  function rotuloMes(chave) {
+    var partes = chave.split("-");
+    return MESES_ABREV[Number(partes[1]) - 1] + "/" + partes[0].slice(2);
+  }
+
+  /* Numero no padrao do painel: negativo entre parenteses, zero vira traco. */
+  function formatarNumero(valor, casas) {
+    if (valor == null || isNaN(valor)) return "-";
+    var numero = Number(valor);
+    if (Math.abs(numero) < 0.005) return "-";
+    var texto = Math.abs(numero).toLocaleString("pt-BR", {
+      minimumFractionDigits: casas === undefined ? 0 : casas,
+      maximumFractionDigits: casas === undefined ? 0 : casas
+    });
+    return numero < 0 ? "(" + texto + ")" : texto;
+  }
+
+  function formatarPercentual(fracao) {
+    if (fracao === null || !isFinite(fracao) || Math.abs(fracao) < 0.00005) return "-";
+    return (fracao * 100).toLocaleString("pt-BR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }) + "%";
+  }
+
+  /* Aceita Date, serial de Excel ou texto em ISO e em dd/mm/aaaa. */
+  function paraData(valor) {
+    if (valor instanceof Date) {
+      if (isNaN(valor)) return null;
+      var meiaNoiteUTC = valor.getUTCHours() === 0 && valor.getUTCMinutes() === 0 && valor.getUTCSeconds() === 0;
+      return meiaNoiteUTC
+        ? new Date(valor.getUTCFullYear(), valor.getUTCMonth(), valor.getUTCDate())
+        : new Date(valor.getFullYear(), valor.getMonth(), valor.getDate());
+    }
+    if (typeof valor === "number") {
+      var convertida = new Date(Math.round((valor - 25569) * 86400 * 1000));
+      if (isNaN(convertida)) return null;
+      return new Date(convertida.getUTCFullYear(), convertida.getUTCMonth(), convertida.getUTCDate());
+    }
+    if (typeof valor === "string") {
+      var texto = valor.trim();
+      if (!texto || texto === "N/D") return null;
+      var iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+      var br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (br) {
+        var primeiro = Number(br[1]);
+        var segundo = Number(br[2]);
+        var dia = primeiro;
+        var mes = primeiro > 12 ? segundo : (segundo > 12 ? primeiro : segundo);
+        return new Date(Number(br[3]), mes - 1, dia);
+      }
+    }
+    return null;
+  }
+
+  /* Aceita numero ou texto no padrao brasileiro, inclusive com R$. */
+  function paraNumero(valor) {
+    if (typeof valor === "number") return valor;
+    if (typeof valor === "string") {
+      var texto = valor.trim().replace(/\s|R\$/g, "");
+      if (!texto) return 0;
+      if (texto.indexOf(",") >= 0) {
+        texto = texto.replace(/\./g, "").replace(",", ".");
+      }
+      texto = texto.replace(/[^\d.\-]/g, "");
+      var numero = Number(texto);
+      return isNaN(numero) ? 0 : numero;
+    }
+    return 0;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 5. CONTRAPARTE POR NATUREZA                                         */
+  /* Lancamentos sem fornecedor cadastrado ganham nome pela categoria.   */
+  /* ------------------------------------------------------------------ */
+
+  var CONTRAPARTE_POR_NATUREZA = {
+    "Tarifas Bancárias": "Omie.CASH - tarifa",
+    "IOF": "Receita Federal - IOF",
+    "Descontos Obtidos": "Omie.CASH - cashback",
+    "Rendimentos de Aplicações": "Omie.CASH - rendimento",
+    "Simples Nacional (DAS)": "Receita Federal - DAS",
+    "Entrada de Transferência": "Transferência entre contas próprias",
+    "Saída de Transferência": "Transferência entre contas próprias"
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 6. LEITURA DO EXTRATO EM XLSX                                       */
+  /* ------------------------------------------------------------------ */
+
+  /* Primeiro campo presente entre os nomes possiveis. */
+  function primeiroCampo(linha, nomes) {
+    for (var i = 0; i < nomes.length; i++) {
+      if (linha[nomes[i]] !== undefined) return linha[nomes[i]];
+    }
+    return undefined;
+  }
+
+  /* Procura, nas 15 primeiras linhas, a que contem todos os cabecalhos pedidos. */
+  function acharLinhaDeCabecalho(planilha, cabecalhos) {
+    var grade = window.XLSX.utils.sheet_to_json(planilha, { header: 1, defval: null, blankrows: true });
+    for (var i = 0; i < Math.min(grade.length, 15); i++) {
+      var celulas = (grade[i] || []).map(function (c) {
+        return String(c === null ? "" : c).trim().toLowerCase();
+      });
+      var todosPresentes = cabecalhos.every(function (procurado) {
+        return celulas.some(function (celula) { return celula === procurado.toLowerCase(); });
+      });
+      if (todosPresentes) return i;
+    }
+    return null;
+  }
+
+  /* Le a aba que tiver Data e Saldo (R$) e devolve saldos por conta e mes. */
+  function lerExtrato(pasta) {
+    var nomeAba = null;
+    var linhaCabecalho = null;
+    for (var i = 0; i < pasta.SheetNames.length; i++) {
+      var nome = pasta.SheetNames[i];
+      var achou = acharLinhaDeCabecalho(pasta.Sheets[nome], ["Saldo (R$)", "Data"]);
+      if (achou !== null) { nomeAba = nome; linhaCabecalho = achou; break; }
+    }
+    if (nomeAba === null) return { saldos: {}, contas: [] };
+
+    var linhas = window.XLSX.utils.sheet_to_json(pasta.Sheets[nomeAba], { defval: null, range: linhaCabecalho });
+    var saldos = {};
+    var contas = new Set();
+    var contaCorrente = null;
+
+    linhas.forEach(function (linha) {
+      var data = paraData(primeiroCampo(linha, ["Data"]));
+      if (!data) return;
+      var conta = primeiroCampo(linha, ["Conta Corrente"]);
+      if (conta) contaCorrente = String(conta).trim();
+      if (!contaCorrente) return;
+      var saldo = primeiroCampo(linha, ["Saldo (R$)"]);
+      if (saldo == null || saldo === "") return;
+      contas.add(contaCorrente);
+      saldos[contaCorrente + "||" + chaveMes(data)] = paraNumero(saldo);
+    });
+
+    return { saldos: saldos, contas: Array.from(contas) };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 7. MOTOR DE CALCULO                                                 */
+  /* Recebe as linhas normalizadas e o regime, devolve tudo o que a tela */
+  /* precisa: DRE, fluxo, saldos por conta, dimensoes e achados.         */
+  /* ------------------------------------------------------------------ */
+
+  var ORDEM_CENTROS = [
+    "CEO", "CFO", "Adm&Fin", "QR Insights", "QR Review", "QR Advisory",
+    "Comercial", "Contabilidade", "Jurídico", "Outros não listados"
+  ];
+
+  function calcular(linhas, regime) {
+    var campoData = regime === "caixa" ? "dPag" : "dEmi";
+    var usadas = linhas.filter(function (l) { return l[campoData]; });
+    var semData = linhas.filter(function (l) { return !l[campoData]; });
+
+    var chavesMes = new Set();
+    usadas.forEach(function (l) { chavesMes.add(chaveMes(l[campoData])); });
+    var meses = Array.from(chavesMes).sort();
+
+    var porCategoria = new Map();  /* grupo||categoria||mes */
+    var porConta = new Map();      /* conta||mes */
+    var totalPorMes = new Map();   /* mes */
+
+    usadas.forEach(function (l) {
+      var mes = chaveMes(l[campoData]);
+      var chaveCat = l.grupo + "||" + l.categoria + "||" + mes;
+      porCategoria.set(chaveCat, (porCategoria.get(chaveCat) || 0) + l.valor);
+      var chaveConta = l.conta + "||" + mes;
+      porConta.set(chaveConta, (porConta.get(chaveConta) || 0) + l.valor);
+      totalPorMes.set(mes, (totalPorMes.get(mes) || 0) + l.valor);
+    });
+
+    /* Valor bruto de uma categoria num mes. */
+    function bruto(grupo, categoria, mes) {
+      return porCategoria.get(grupo + "||" + categoria + "||" + mes) || 0;
+    }
+
+    /* Soma de todas as categorias de um grupo num mes. */
+    function grupoMes(grupo, mes) {
+      var bloco = PLANO_DE_CONTAS.filter(function (b) { return b.grupo === grupo; })[0];
+      if (!bloco) return 0;
+      return bloco.itens.reduce(function (soma, item) {
+        return soma + bruto(grupo, item[0], mes);
+      }, 0);
+    }
+
+    /* Soma de uma secao num mes. Transferencia soma entrada e saida. */
+    function secaoMes(secao, mes) {
+      if (secao.key === "transf") {
+        return bruto("Transferência", "Entrada de Transferência", mes)
+             + bruto("Transferência", "Saída de Transferência", mes);
+      }
+      return secao.groups.reduce(function (soma, grupo) {
+        return soma + grupoMes(grupo, mes);
+      }, 0);
+    }
+
+    /* Totais por secao: S[key][mes] */
+    var S = {};
+    SECOES_DRE.concat(SECOES_FLUXO).forEach(function (secao) {
+      S[secao.key] = {};
+      meses.forEach(function (mes) { S[secao.key][mes] = secaoMes(secao, mes); });
+    });
+
+    /* Monta um mapa mes -> valor a partir de uma funcao. */
+    function porMes(fn) {
+      var mapa = {};
+      meses.forEach(function (mes) { mapa[mes] = fn(mes); });
+      return mapa;
+    }
+
+    var receitaLiquida = porMes(function (m) { return S.receita[m] + S.impostos[m]; });
+    var lucroBruto     = porMes(function (m) { return receitaLiquida[m] + S.custo[m]; });
+    var ebitda         = porMes(function (m) { return lucroBruto[m] + S.despesas[m]; });
+    var resultadoFin   = porMes(function (m) { return S.finRec[m] + S.finDesp[m]; });
+    var outras         = porMes(function (m) { return S.outrasRec[m] + S.outrasDesp[m]; });
+    var ebit           = porMes(function (m) { return ebitda[m] + resultadoFin[m] + outras[m]; });
+    var lucroLiquido   = porMes(function (m) { return ebit[m] + S.impLucro[m]; });
+    var fcl            = porMes(function (m) {
+      return lucroLiquido[m] + S.entradas[m] + S.saidas[m] + S.ativo[m] + S.capex[m] + S.transf[m];
+    });
+
+    /* Resultado acumulado mes a mes. */
+    var somaCorrida = 0;
+    var acumulado = {};
+    meses.forEach(function (mes) {
+      somaCorrida += lucroLiquido[mes];
+      acumulado[mes] = somaCorrida;
+    });
+
+    /* Movimento e saldo acumulado por conta corrente. */
+    var contas = Array.from(new Set(usadas.map(function (l) { return l.conta; }))).sort();
+    var movConta = {};
+    var saldoConta = {};
+    contas.forEach(function (conta) {
+      movConta[conta] = {};
+      saldoConta[conta] = {};
+      var saldo = 0;
+      meses.forEach(function (mes) {
+        var movimento = porConta.get(conta + "||" + mes) || 0;
+        movConta[conta][mes] = movimento;
+        saldo += movimento;
+        saldoConta[conta][mes] = saldo;
+      });
+    });
+
+    /* Integridade: a soma bruta da base tem que bater com o fluxo de caixa livre. */
+    var integridade = porMes(function (mes) {
+      return Math.round(((totalPorMes.get(mes) || 0) - fcl[mes]) * 100) / 100;
+    });
+
+    /* Grupos que contam como receita e como saida nas visoes por dimensao. */
+    var GRUPOS_RECEITA = SECOES_DRE[0].groups
+      .concat(SECOES_DRE[4].groups, SECOES_DRE[6].groups);
+    var GRUPOS_SAIDA = SECOES_DRE[1].groups
+      .concat(SECOES_DRE[2].groups, SECOES_DRE[3].groups, SECOES_DRE[5].groups,
+              SECOES_DRE[7].groups, SECOES_DRE[8].groups);
+
+    /* Ordena a lista de uma dimensao, deixando o "sem informacao" por ultimo. */
+    function ordenarDimensao(lista, dimensao) {
+      var rotuloVazio = dimensao === "projeto" ? "Sem projeto" : "Sem centro de custo";
+      var preenchidos = lista.filter(function (v) { return v !== rotuloVazio; });
+      var temVazio = lista.length !== preenchidos.length;
+      var ordenados;
+
+      if (dimensao === "projeto") {
+        var quorum = preenchidos.filter(function (v) { return v.toUpperCase() === "QUORUM"; });
+        var demais = preenchidos.filter(function (v) { return v.toUpperCase() !== "QUORUM"; })
+          .sort(function (a, b) { return a.localeCompare(b, "pt-BR"); });
+        ordenados = quorum.concat(demais);
+      } else {
+        var posicao = function (nome) {
+          var indice = ORDEM_CENTROS.findIndex(function (c) {
+            return c.toLowerCase() === nome.toLowerCase();
+          });
+          return indice < 0 ? ORDEM_CENTROS.length : indice;
+        };
+        ordenados = preenchidos.slice().sort(function (a, b) {
+          var diferenca = posicao(a) - posicao(b);
+          return diferenca !== 0 ? diferenca : a.localeCompare(b, "pt-BR");
+        });
+      }
+
+      return temVazio ? ordenados.concat([rotuloVazio]) : ordenados;
+    }
+
+    /* Receita, saida e resultado por projeto ou por centro de custo. */
+    function agruparPorDimensao(dimensao) {
+      var somas = new Map();
+      var valores = new Set();
+
+      usadas.forEach(function (l) {
+        var ehReceita = GRUPOS_RECEITA.indexOf(l.grupo) >= 0;
+        var ehSaida = GRUPOS_SAIDA.indexOf(l.grupo) >= 0;
+        if (!ehReceita && !ehSaida) return;
+        var valorDimensao = l[dimensao];
+        valores.add(valorDimensao);
+        var chave = valorDimensao + "||" + chaveMes(l[campoData]) + "||" + (ehReceita ? "r" : "s");
+        somas.set(chave, (somas.get(chave) || 0) + l.valor);
+      });
+
+      var lista = ordenarDimensao(Array.from(valores), dimensao);
+      var rec = {}, sai = {}, res = {};
+
+      lista.forEach(function (item) {
+        rec[item] = {}; sai[item] = {}; res[item] = {};
+        meses.forEach(function (mes) {
+          rec[item][mes] = somas.get(item + "||" + mes + "||r") || 0;
+          sai[item][mes] = somas.get(item + "||" + mes + "||s") || 0;
+          res[item][mes] = rec[item][mes] + sai[item][mes];
+        });
+      });
+
+      return { lista: lista, rec: rec, sai: sai, res: res };
+    }
+
+    var porProjeto = agruparPorDimensao("projeto");
+    var porCentro = agruparPorDimensao("centro");
+
+    /* ---------------------------------------------------------------- */
+    /* Achados                                                          */
+    /* ---------------------------------------------------------------- */
+
+    var achados = [];
+
+    /* Categoria que nao existe no plano de contas. */
+    var foraDoPlano = new Map();
+    linhas.forEach(function (l) {
+      if (!CHAVES_DO_PLANO.has(l.grupo + "||" + l.categoria)) {
+        var rotulo = l.grupo + " > " + l.categoria;
+        foraDoPlano.set(rotulo, (foraDoPlano.get(rotulo) || 0) + l.valor);
+      }
+    });
+    foraDoPlano.forEach(function (valor, rotulo) {
+      achados.push({
+        nivel: "erro",
+        titulo: "Categoria fora do plano de contas",
+        detalhe: rotulo + " - " + formatarNumero(valor, 2)
+      });
+    });
+
+    /* Lancamentos que ficam de fora por nao ter data no regime escolhido. */
+    if (semData.length) {
+      achados.push({
+        nivel: "alerta",
+        titulo: "Lançamento sem data no regime escolhido",
+        detalhe: semData.length + " lançamento(s), somando "
+          + formatarNumero(semData.reduce(function (s, l) { return s + l.valor; }, 0), 2)
+          + ", ficam fora do período"
+      });
+    }
+
+    /* Possivel duplicidade: mesma data, categoria, valor e conta. */
+    var possiveisDuplicatas = new Map();
+    usadas.forEach(function (l) {
+      var assinatura = chaveMes(l[campoData]) + "|" + l[campoData].getDate() + "|"
+        + l.categoria + "|" + l.valor.toFixed(2) + "|" + l.conta;
+      if (!possiveisDuplicatas.has(assinatura)) possiveisDuplicatas.set(assinatura, []);
+      possiveisDuplicatas.get(assinatura).push(l);
+    });
+    possiveisDuplicatas.forEach(function (grupo) {
+      if (grupo.length > 1) {
+        achados.push({
+          nivel: "alerta",
+          titulo: "Possível duplicidade",
+          detalhe: grupo.length + "x " + grupo[0].categoria + " de "
+            + formatarNumero(grupo[0].valor, 2) + " em "
+            + grupo[0][campoData].toLocaleDateString("pt-BR") + " (" + grupo[0].conta + ")"
+        });
+      }
+    });
+
+    /* Lancamento cancelado que continua na base. */
+    usadas.forEach(function (l) {
+      if (/cancel/i.test(l.situacao)) {
+        achados.push({
+          nivel: "alerta",
+          titulo: "Lançamento cancelado ainda na base",
+          detalhe: l.categoria + " - " + formatarNumero(l.valor, 2) + " - " + l.situacao
+        });
+      }
+    });
+
+    /* Base que nao fecha com o fluxo. */
+    meses.forEach(function (mes) {
+      if (Math.abs(integridade[mes]) >= 0.01) {
+        achados.push({
+          nivel: "erro",
+          titulo: "Base não fecha com o fluxo",
+          detalhe: rotuloMes(mes) + " tem diferença de " + formatarNumero(integridade[mes], 2)
+            + " entre a soma da base e o fluxo de caixa"
+        });
+      }
+    });
+
+    return {
+      meses: meses,
+      bruto: bruto,
+      grupoMes: grupoMes,
+      S: S,
+      receitaLiquida: receitaLiquida,
+      lucroBruto: lucroBruto,
+      ebitda: ebitda,
+      resultadoFin: resultadoFin,
+      outras: outras,
+      ebit: ebit,
+      lucroLiquido: lucroLiquido,
+      acumulado: acumulado,
+      fcl: fcl,
+      contas: contas,
+      movConta: movConta,
+      saldoConta: saldoConta,
+      integridade: integridade,
+      totalMes: totalPorMes,
+      achados: achados,
+      usadas: usadas,
+      semData: semData,
+      porProjeto: porProjeto,
+      porCentro: porCentro,
+      campo: campoData
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 8. COMPONENTES DE UI                                                */
+  /* ------------------------------------------------------------------ */
+
+  /* Aparencia de cada nivel hierarquico das tabelas. */
+  var ESTILO_LINHA = {
+    secao: { bg: "#E3E8EF",                 cor: "#1B2230", peso: 600, pad: "pl-3",  fs: 12.5 },
+    grupo: { bg: "transparent",             cor: "#3C465A", peso: 500, pad: "pl-6",  fs: 12 },
+    item:  { bg: "transparent",             cor: "#7A8598", peso: 400, pad: "pl-10", fs: 11.5 },
+    total: { bg: "rgba(138,106,22,0.12)",   cor: "#7A5C10", peso: 700, pad: "pl-3",  fs: 13 },
+    pct:   { bg: "transparent",             cor: "#7A8598", peso: 400, pad: "pl-3",  fs: 11 }
+  };
+
+  /* Uma linha da tabela mensal. Clicavel quando recebe aoAbrir. */
+  function LinhaTabela(props) {
+    var estilo = ESTILO_LINHA[props.nivel || "item"];
+    var casas = props.casas === undefined ? 2 : props.casas;
+    var estadoHover = useState(false);
+    var hover = estadoHover[0];
+    var setHover = estadoHover[1];
+
+    var totalAcumulado = props.acumulado !== undefined
+      ? props.acumulado
+      : props.meses.reduce(function (soma, mes) { return soma + (props.valores[mes] || 0); }, 0);
+
+    var clicavel = typeof props.aoAbrir === "function";
+
+    var estiloNumero = {
+      color: estilo.cor,
+      fontWeight: estilo.peso,
+      fontSize: estilo.fs,
+      fontVariantNumeric: "tabular-nums"
+    };
+
+    var celulaRotulo = h("td", {
+      className: estilo.pad + " py-1 whitespace-nowrap overflow-hidden",
+      style: { color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs },
+      onClick: clicavel ? function () { props.aoAbrir(null); } : undefined,
+      title: clicavel ? "Abrir os lançamentos desta linha" : undefined
+    },
+      h("span", {
+        className: "inline-block align-middle truncate",
+        style: { maxWidth: "72%" },
+        title: props.label
+      }, props.label),
+      props.sufixo,
+      h("span", {
+        className: "align-middle",
+        style: {
+          color: COR.brass,
+          fontSize: 10,
+          marginLeft: 6,
+          opacity: clicavel && hover ? 1 : 0
+        }
+      }, "ver lançamentos")
+    );
+
+    var celulasMes = props.meses.map(function (mes) {
+      return h("td", {
+        key: mes,
+        className: "px-3 py-1 text-right whitespace-nowrap",
+        style: estiloNumero,
+        onClick: clicavel ? function () { props.aoAbrir(mes); } : undefined,
+        title: clicavel ? "Abrir os lançamentos de " + rotuloMes(mes) : undefined
+      }, props.formato === "pct"
+        ? formatarPercentual(props.valores[mes])
+        : formatarNumero(props.valores[mes], casas));
+    });
+
+    var celulaAcumulado = h("td", {
+      className: "px-3 py-1 text-right whitespace-nowrap",
+      style: Object.assign({}, estiloNumero, { borderLeft: "1px solid " + COR.line })
+    }, props.formato === "pct" ? "" : formatarNumero(totalAcumulado, casas));
+
+    return h("tr", {
+      onMouseEnter: function () { setHover(true); },
+      onMouseLeave: function () { setHover(false); },
+      style: {
+        background: hover && clicavel ? "rgba(138,106,22,0.07)" : estilo.bg,
+        cursor: clicavel ? "pointer" : "default"
+      }
+    }, celulaRotulo, celulasMes, celulaAcumulado);
+  }
+
+  /* Cartao de indicador do topo, com tooltip de ajuda no hover. */
+  function CartaoIndicador(props) {
+    var estadoHover = useState(false);
+    var hover = estadoHover[0];
+    var setHover = estadoHover[1];
+    var corValor = props.tom === "neg" ? COR.coral : (props.tom === "pos" ? COR.mint : COR.text);
+
+    return h("div", {
+      className: "rounded px-4 py-3 relative",
+      style: {
+        background: COR.surface,
+        border: "1px solid " + (hover ? COR.brass : COR.line),
+        minHeight: 112
+      },
+      onMouseEnter: function () { setHover(true); },
+      onMouseLeave: function () { setHover(false); }
+    },
+      h("div", {
+        className: "uppercase flex items-center gap-1",
+        style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint }
+      },
+        props.rotulo,
+        props.ajuda && h("span", {
+          className: "inline-flex items-center justify-center rounded-full",
+          style: {
+            width: 13, height: 13,
+            border: "1px solid " + COR.faint,
+            fontSize: 9, lineHeight: "11px", color: COR.faint
+          }
+        }, "?")
+      ),
+      h("div", {
+        className: "mt-1",
+        style: {
+          fontSize: 24,
+          color: corValor,
+          fontWeight: 600,
+          fontVariantNumeric: "tabular-nums"
+        }
+      }, formatarNumero(props.valor, props.casas === undefined ? 0 : props.casas)),
+      props.sub && h("div", {
+        className: "mt-1 leading-snug",
+        style: { fontSize: 11, color: COR.faint }
+      }, props.sub),
+      props.ajuda && hover && h("div", {
+        className: "absolute left-0 right-0 rounded p-3 z-20",
+        style: {
+          top: "100%",
+          marginTop: 6,
+          background: COR.text,
+          color: "#F4F6F9",
+          fontSize: 11,
+          lineHeight: 1.5,
+          boxShadow: "0 8px 24px rgba(15,22,35,0.25)"
+        }
+      }, props.ajuda)
+    );
+  }
+
+  /* Cabecalho com uma coluna por mes mais a coluna de acumulado. */
+  function CabecalhoMeses(props) {
+    var estiloTh = { fontSize: 10, letterSpacing: "0.12em", color: COR.dim };
+    return h("thead", null,
+      h("tr", { style: { background: COR.ink } },
+        h("th", { className: "pl-3 py-2 text-left uppercase", style: estiloTh }, "Linha"),
+        props.meses.map(function (mes) {
+          return h("th", {
+            key: mes,
+            className: "px-3 py-2 text-right uppercase whitespace-nowrap",
+            style: estiloTh
+          }, rotuloMes(mes));
+        }),
+        h("th", {
+          className: "px-3 py-2 text-right uppercase whitespace-nowrap",
+          style: {
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            color: COR.brass,
+            borderLeft: "1px solid " + COR.line
+          }
+        }, "Acumulado")
+      )
+    );
+  }
+
+  /* Etiqueta que explica de onde veio o nome da contraparte. */
+  function EtiquetaOrigem(origem) {
+    if (origem !== "nota" && origem !== "natureza") return null;
+    var explicacao = origem === "natureza"
+      ? "Fornecedor não cadastrado no Omie. O painel usou a natureza do lançamento, porque a observação traz a operação de origem e não quem recebeu."
+      : "Fornecedor não cadastrado no Omie. O painel leu o nome na observação do lançamento.";
+    return h("span", {
+      style: {
+        fontSize: 9,
+        color: COR.brass,
+        marginLeft: 6,
+        border: "1px solid " + COR.brass,
+        borderRadius: 3,
+        padding: "0 4px"
+      },
+      title: explicacao
+    }, origem === "natureza" ? "por natureza" : "lido da observação");
+  }
+
+  /* Gaveta lateral: mostra os lancamentos que compoem a linha clicada. */
+  function GavetaLancamentos(props) {
+    var ctx = props.ctx;
+    if (!ctx) return null;
+
+    var selecionadas = props.linhas.filter(function (l) {
+      if (ctx.grupo && l.grupo !== ctx.grupo) return false;
+      if (ctx.categoria && l.categoria !== ctx.categoria) return false;
+      if (ctx.grupos && ctx.grupos.indexOf(l.grupo) < 0) return false;
+      if (ctx.projeto && l.projeto !== ctx.projeto) return false;
+      if (ctx.centro && l.centro !== ctx.centro) return false;
+      if (ctx.somenteResultado && ctx.gruposResultado.indexOf(l.grupo) < 0) return false;
+      if (ctx.mes && chaveMes(l[ctx.campo]) !== ctx.mes) return false;
+      return true;
+    });
+
+    /* Consolidacao por contraparte, da maior para a menor em valor absoluto. */
+    var mapaContraparte = new Map();
+    selecionadas.forEach(function (l) {
+      if (!mapaContraparte.has(l.contraparte)) {
+        mapaContraparte.set(l.contraparte, { soma: 0, n: 0, origem: l.contraOrigem });
+      }
+      var registro = mapaContraparte.get(l.contraparte);
+      registro.soma += l.valor;
+      registro.n += 1;
+      if (registro.origem !== l.contraOrigem) registro.origem = "misto";
+    });
+    var contrapartes = Array.from(mapaContraparte.entries()).sort(function (a, b) {
+      return Math.abs(b[1].soma) - Math.abs(a[1].soma);
+    });
+
+    var total = selecionadas.reduce(function (soma, l) { return soma + l.valor; }, 0);
+
+    var cabecalho = h("div", {
+      className: "sticky top-0 px-5 py-4",
+      style: { background: COR.surface, borderBottom: "1px solid " + COR.line }
+    },
+      h("div", { className: "flex items-start gap-3" },
+        h("div", { className: "flex-1" },
+          h("div", {
+            className: "uppercase",
+            style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass }
+          }, "Lançamentos"),
+          h("div", { style: { fontSize: 15, fontWeight: 600, color: COR.text } }, ctx.titulo),
+          h("div", { style: { fontSize: 11, color: COR.faint } },
+            ctx.mes ? rotuloMes(ctx.mes) : "todo o período",
+            " · ", selecionadas.length, " lançamento(s) · ",
+            ctx.campo === "dPag" ? "por data de pagamento" : "por data de emissão"
+          )
+        ),
+        h("button", {
+          onClick: props.aoFechar,
+          className: "px-3 py-1 rounded",
+          style: { border: "1px solid " + COR.line, color: COR.dim, fontSize: 11 }
+        }, "Fechar")
+      ),
+      h("div", {
+        className: "mt-3 flex justify-between",
+        style: { fontSize: 13, fontWeight: 700, color: total < 0 ? COR.coral : COR.mint }
+      },
+        h("span", null, "Total"),
+        h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(total, 2))
+      )
+    );
+
+    var blocoContrapartes = contrapartes.map(function (par) {
+      var nome = par[0];
+      var registro = par[1];
+      return h("div", {
+        key: nome,
+        className: "flex justify-between py-1",
+        style: { fontSize: 12, color: COR.dim, borderBottom: "1px solid " + COR.lineSoft }
+      },
+        h("span", { className: "pr-3" },
+          nome,
+          registro.n > 1 ? "  (" + registro.n + "x)" : "",
+          EtiquetaOrigem(registro.origem)
+        ),
+        h("span", {
+          style: { fontVariantNumeric: "tabular-nums", color: COR.text }
+        }, formatarNumero(registro.soma, 2))
+      );
+    });
+
+    var linhaALinha = selecionadas.slice().sort(function (a, b) {
+      return (a[ctx.campo] || 0) - (b[ctx.campo] || 0);
+    }).map(function (l) {
+      return h("tr", { key: l.id, style: { borderBottom: "1px solid " + COR.lineSoft } },
+        h("td", {
+          className: "py-1 pr-2 whitespace-nowrap",
+          style: { fontSize: 11, color: COR.faint }
+        }, l[ctx.campo] ? l[ctx.campo].toLocaleDateString("pt-BR") : "-"),
+        h("td", { className: "py-1 pr-2", style: { fontSize: 11.5, color: COR.text } },
+          h("div", { style: { whiteSpace: "normal", wordBreak: "break-word" } },
+            l.contraparte,
+            EtiquetaOrigem(l.contraOrigem)
+          ),
+          h("div", { style: { fontSize: 10, color: COR.faint } },
+            l.categoria, l.situacao ? " · " + l.situacao : ""
+          ),
+          l.nota && h("div", {
+            style: {
+              fontSize: 10,
+              color: COR.faint,
+              lineHeight: 1.45,
+              whiteSpace: "normal",
+              wordBreak: "break-word"
+            }
+          }, l.nota)
+        ),
+        h("td", {
+          className: "py-1 pr-2 whitespace-nowrap",
+          style: { fontSize: 10, color: COR.faint }
+        }, l.conta),
+        h("td", {
+          className: "py-1 text-right whitespace-nowrap",
+          style: {
+            fontSize: 12,
+            fontVariantNumeric: "tabular-nums",
+            color: l.valor < 0 ? COR.coral : COR.mint
+          }
+        }, formatarNumero(l.valor, 2))
+      );
+    });
+
+    var corpo = h("div", { className: "px-5 py-4" },
+      h("div", {
+        className: "uppercase mb-2",
+        style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint }
+      }, "Por contraparte"),
+      blocoContrapartes,
+      h("div", {
+        className: "uppercase mt-6 mb-2",
+        style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint }
+      }, "Linha a linha"),
+      h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+        h("tbody", null, linhaALinha)
+      )
+    );
+
+    return h("div", {
+      className: "fixed inset-0 z-40 flex justify-end",
+      style: { background: "rgba(20,26,38,0.35)" },
+      onClick: props.aoFechar
+    },
+      h("div", {
+        className: "h-full overflow-y-auto",
+        style: {
+          width: 640,
+          maxWidth: "100%",
+          background: COR.surface,
+          borderLeft: "1px solid " + COR.line
+        },
+        onClick: function (evento) { evento.stopPropagation(); }
+      }, cabecalho, corpo)
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 9. GERADOR DE XLSX                                                  */
+  /* O arquivo e montado a mao: XML das abas, styles.xml e um ZIP sem    */
+  /* compressao com CRC32 proprio. A lib XLSX so e usada para LER.       */
+  /* ------------------------------------------------------------------ */
+
+  var escaparXml = function (valor) {
+    return String(valor)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  };
+
+  /* Data -> numero de serie do Excel (base 30/12/1899). */
+  function dataParaSerial(data) {
+    var base = Date.UTC(1899, 11, 30);
+    var alvo = Date.UTC(data.getFullYear(), data.getMonth(), data.getDate());
+    return Math.round((alvo - base) / 86400000);
+  }
+
+  /* 1 -> A, 27 -> AA */
+  function colunaLetra(indice) {
+    var letras = "";
+    var n = indice;
+    while (n > 0) {
+      var resto = (n - 1) % 26;
+      letras = String.fromCharCode(65 + resto) + letras;
+      n = Math.floor((n - 1) / 26);
+    }
+    return letras;
+  }
+
+  var TABELA_CRC32 = (function () {
+    var tabela = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var valor = i;
+      for (var bit = 0; bit < 8; bit++) {
+        valor = valor & 1 ? 3988292384 ^ (valor >>> 1) : valor >>> 1;
+      }
+      tabela[i] = valor >>> 0;
+    }
+    return tabela;
+  })();
+
+  function crc32(bytes) {
+    var acumulado = 4294967295;
+    for (var i = 0; i < bytes.length; i++) {
+      acumulado = TABELA_CRC32[(acumulado ^ bytes[i]) & 255] ^ (acumulado >>> 8);
+    }
+    return (acumulado ^ 4294967295) >>> 0;
+  }
+
+  /* ZIP store, sem compressao. Recebe [{nome, conteudo}]. */
+  function criarZip(arquivos) {
+    var codificador = new TextEncoder();
+    var partesLocais = [];
+    var partesCentral = [];
+    var deslocamento = 0;
+
+    var u16 = function (n) { return [n & 255, (n >> 8) & 255]; };
+    var u32 = function (n) { return [n & 255, (n >> 8) & 255, (n >> 16) & 255, n >>> 24 & 255]; };
+
+    arquivos.forEach(function (arquivo) {
+      var nome = codificador.encode(arquivo.nome);
+      var conteudo = codificador.encode(arquivo.conteudo);
+      var verificacao = crc32(conteudo);
+
+      var cabecalhoLocal = [].concat(
+        u32(67324752), u16(20), u16(0), u16(0), u16(0), u16(0),
+        u32(verificacao), u32(conteudo.length), u32(conteudo.length),
+        u16(nome.length), u16(0)
+      );
+      partesLocais.push(new Uint8Array(cabecalhoLocal), nome, conteudo);
+
+      partesCentral.push([].concat(
+        u32(33639248), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+        u32(verificacao), u32(conteudo.length), u32(conteudo.length),
+        u16(nome.length), u16(0), u16(0), u16(0), u16(0),
+        u32(0), u32(deslocamento)
+      ), nome);
+
+      deslocamento += cabecalhoLocal.length + nome.length + conteudo.length;
+    });
+
+    var blocosCentral = [];
+    var tamanhoCentral = 0;
+    for (var i = 0; i < partesCentral.length; i += 2) {
+      var cabecalho = new Uint8Array(partesCentral[i]);
+      blocosCentral.push(cabecalho, partesCentral[i + 1]);
+      tamanhoCentral += cabecalho.length + partesCentral[i + 1].length;
+    }
+
+    var fimDiretorio = new Uint8Array([].concat(
+      u32(101010256), u16(0), u16(0),
+      u16(arquivos.length), u16(arquivos.length),
+      u32(tamanhoCentral), u32(deslocamento), u16(0)
+    ));
+
+    var todos = partesLocais.concat(blocosCentral, [fimDiretorio]);
+    var tamanhoTotal = todos.reduce(function (soma, parte) { return soma + parte.length; }, 0);
+    var resultado = new Uint8Array(tamanhoTotal);
+    var posicao = 0;
+    todos.forEach(function (parte) {
+      resultado.set(parte, posicao);
+      posicao += parte.length;
+    });
+    return resultado;
+  }
+
+  /* Folha de estilos do arquivo gerado, no formato do template. */
+  var STYLES_XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\n'
+    + '<numFmts count="4">\n'
+    + '<numFmt numFmtId="164" formatCode="#,##0.00;[Red]\\(#,##0.00\\);&quot;-&quot;"/>\n'
+    + '<numFmt numFmtId="165" formatCode="0.0%;[Red]\\-0.0%;&quot;-&quot;"/>\n'
+    + '<numFmt numFmtId="166" formatCode="mmm\\-yy"/>\n'
+    + '<numFmt numFmtId="167" formatCode="dd/mm/yyyy"/>\n'
+    + '</numFmts>\n'
+    + '<fonts count="6">\n'
+    + '<font><sz val="12"/><name val="Calibri"/></font>\n'
+    + '<font><b/><sz val="12"/><name val="Calibri"/></font>\n'
+    + '<font><i/><sz val="11"/><color rgb="FF44546A"/><name val="Calibri"/></font>\n'
+    + '<font><i/><sz val="10"/><color rgb="FF808080"/><name val="Calibri"/></font>\n'
+    + '<font><sz val="10"/><color rgb="FF595959"/><name val="Calibri"/></font>\n'
+    + '<font><b/><sz val="11"/><name val="Calibri"/></font>\n'
+    + '</fonts>\n'
+    + '<fills count="7">\n'
+    + '<fill><patternFill patternType="none"/></fill>\n'
+    + '<fill><patternFill patternType="gray125"/></fill>\n'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFBFBFBF"/><bgColor indexed="64"/></patternFill></fill>\n'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFD8D8D8"/><bgColor indexed="64"/></patternFill></fill>\n'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>\n'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFA5A5A5"/><bgColor indexed="64"/></patternFill></fill>\n'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>\n'
+    + '</fills>\n'
+    + '<borders count="2">\n'
+    + '<border><left/><right/><top/><bottom/><diagonal/></border>\n'
+    + '<border><left/><right/><top style="thin"><color rgb="FF808080"/></top><bottom/><diagonal/></border>\n'
+    + '</borders>\n'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>\n'
+    + '<cellXfs count="20">\n'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>\n'
+    + '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>\n'
+    + '<xf numFmtId="164" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>\n'
+    + '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>\n'
+    + '<xf numFmtId="164" fontId="0" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>\n'
+    + '<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/>\n'
+    + '<xf numFmtId="164" fontId="0" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>\n'
+    + '<xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>\n'
+    + '<xf numFmtId="164" fontId="1" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>\n'
+    + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>\n'
+    + '<xf numFmtId="165" fontId="2" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>\n'
+    + '<xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1"/>\n'
+    + '<xf numFmtId="166" fontId="1" fillId="5" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>\n'
+    + '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>\n'
+    + '<xf numFmtId="164" fontId="0" fillId="6" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1"/>\n'
+    + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>\n'
+    + '<xf numFmtId="0" fontId="5" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>\n'
+    + '<xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>\n'
+    + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>\n'
+    + '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>\n'
+    + '</cellXfs>\n'
+    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>\n'
+    + '<dxfs count="0"/>\n'
+    + '<tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>\n'
+    + '</styleSheet>';
+
+  /* Cada nivel aponta para [estilo do rotulo, estilo do numero] em cellXfs. */
+  var MAPA_ESTILOS = {
+    secao:    [1, 2],
+    grupo:    [3, 4],
+    item:     [5, 6],
+    total:    [7, 8],
+    pct:      [9, 10],
+    cabLabel: [11, 12],
+    texto:    [13, 13],
+    input:    [5, 14],
+    bdCab:    [16, 16],
+    bd:       [19, 18]
+  };
+
+  /* Monta o XML de uma aba a partir de {nome, cols, linhas, freeze, niveis}. */
+  function montarPlanilhaXml(planilha) {
+    var colunas = planilha.cols.map(function (largura, indice) {
+      return '<col min="' + (indice + 1) + '" max="' + (indice + 1) + '" width="' + largura + '" customWidth="1"/>';
+    }).join("");
+
+    var linhasXml = planilha.linhas.slice()
+      .sort(function (a, b) { return a.r - b.r; })
+      .map(function (linha) {
+        linha.celulas.sort(function (a, b) { return a.col - b.col; });
+        return linha;
+      })
+      .map(function (linha) {
+        var celulas = linha.celulas.map(function (celula) {
+          var referencia = colunaLetra(celula.col) + linha.r;
+          var estilo = celula.s === undefined ? 0 : celula.s;
+          if (celula.f !== undefined) {
+            return '<c r="' + referencia + '" s="' + estilo + '"><f>' + escaparXml(celula.f) + '</f></c>';
+          }
+          if (celula.v === undefined || celula.v === null || celula.v === "") {
+            return '<c r="' + referencia + '" s="' + estilo + '"/>';
+          }
+          if (typeof celula.v === "number") {
+            return '<c r="' + referencia + '" s="' + estilo + '"><v>' + celula.v + '</v></c>';
+          }
+          return '<c r="' + referencia + '" s="' + estilo + '" t="inlineStr"><is><t xml:space="preserve">'
+            + escaparXml(celula.v) + '</t></is></c>';
+        }).join("");
+
+        var atributos = ['r="' + linha.r + '"'];
+        if (linha.outline) atributos.push('outlineLevel="' + linha.outline + '"');
+        if (linha.altura) atributos.push('ht="' + linha.altura + '" customHeight="1"');
+        return "<row " + atributos.join(" ") + ">" + celulas + "</row>";
+      }).join("");
+
+    var ultimaLinha = planilha.linhas.reduce(function (maior, l) { return Math.max(maior, l.r); }, 1);
+    var ultimaColuna = planilha.linhas.reduce(function (maior, l) {
+      return Math.max(maior, l.celulas.reduce(function (m, c) { return Math.max(m, c.col); }, 1));
+    }, 1);
+
+    var painelCongelado = planilha.freeze
+      ? '<pane xSplit="' + planilha.freeze.x + '" ySplit="' + planilha.freeze.y
+        + '" topLeftCell="' + colunaLetra(planilha.freeze.x + 1) + (planilha.freeze.y + 1)
+        + '" activePane="bottomRight" state="frozen"/>'
+      : "";
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+      + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\n'
+      + '<sheetPr><outlinePr summaryBelow="0" summaryRight="0"/></sheetPr>\n'
+      + '<dimension ref="A1:' + colunaLetra(ultimaColuna) + ultimaLinha + '"/>\n'
+      + '<sheetViews><sheetView workbookViewId="0" showGridLines="0">' + painelCongelado + '</sheetView></sheetViews>\n'
+      + '<sheetFormatPr defaultRowHeight="15" outlineLevelRow="' + (planilha.niveis || 1) + '"/>\n'
+      + '<cols>' + colunas + '</cols>\n'
+      + '<sheetData>' + linhasXml + '</sheetData>\n'
+      + '</worksheet>';
+  }
+
+  /* Monta o pacote xlsx completo e dispara o download. */
+  function baixarXlsx(planilhas, nomeArquivo) {
+    var nomes = planilhas.map(function (p) { return p.nome; });
+
+    var arquivos = [
+      {
+        nome: "[Content_Types].xml",
+        conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n'
+          + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n'
+          + '<Default Extension="xml" ContentType="application/xml"/>\n'
+          + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>\n'
+          + planilhas.map(function (p, i) {
+              return '<Override PartName="/xl/worksheets/sheet' + (i + 1)
+                + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+            }).join("") + '\n'
+          + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>\n'
+          + '</Types>'
+      },
+      {
+        nome: "_rels/.rels",
+        conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
+          + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>\n'
+          + '</Relationships>'
+      },
+      {
+        nome: "xl/workbook.xml",
+        conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n'
+          + '<sheets>' + nomes.map(function (nome, i) {
+              return '<sheet name="' + escaparXml(nome) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>';
+            }).join("") + '</sheets>\n'
+          + '</workbook>'
+      },
+      {
+        nome: "xl/_rels/workbook.xml.rels",
+        conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+          + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
+          + planilhas.map(function (p, i) {
+              return '<Relationship Id="rId' + (i + 1)
+                + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'
+                + (i + 1) + '.xml"/>';
+            }).join("") + '\n'
+          + '<Relationship Id="rId' + (planilhas.length + 1)
+          + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>\n'
+          + '</Relationships>'
+      },
+      { nome: "xl/styles.xml", conteudo: STYLES_XML }
+    ].concat(planilhas.map(function (planilha, i) {
+      return { nome: "xl/worksheets/sheet" + (i + 1) + ".xml", conteudo: montarPlanilhaXml(planilha) };
+    }));
+
+    var bytes = criarZip(arquivos);
+    var blob = new Blob([bytes], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = nomeArquivo;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 10. PREFERENCIAS E ENTRADA DE DADOS                                 */
+  /* ------------------------------------------------------------------ */
+
+  /* localStorage sem quebrar a pagina se estiver bloqueado no navegador. */
+  var armazenamento = {
+    getItem: function (chave) {
+      try { return window.localStorage.getItem(chave); } catch (e) { return null; }
+    },
+    setItem: function (chave, valor) {
+      try { window.localStorage.setItem(chave, valor); } catch (e) {}
+    }
+  };
+
+  var URL_API = window.__QUORUM_API__ || "";
+
+  /* Descobre o nome da contraparte e de onde ele veio. */
+  function resolverContraparte(linha) {
+    var cadastrada = (linha.contraparte || "").trim();
+    if (cadastrada) return { nome: cadastrada, origem: "cadastro" };
+
+    var porNatureza = CONTRAPARTE_POR_NATUREZA[linha.categoria];
+    if (porNatureza) return { nome: porNatureza, origem: "natureza" };
+
+    if (linha.documento) {
+      return { nome: linha.conta + " · " + linha.documento, origem: "natureza" };
+    }
+    return { nome: linha.conta || "Sem contraparte", origem: "natureza" };
+  }
+
+  /* Converte uma linha crua da API no formato que o motor de calculo usa. */
+  function normalizarLinha(linha, indice) {
+    var contraparte = resolverContraparte(linha);
+    return {
+      id: linha.id || "L" + indice,
+      grupo: linha.grupo,
+      categoria: linha.categoria,
+      conta: linha.conta,
+      situacao: linha.situacao,
+      documento: linha.documento || "",
+      contraparte: contraparte.nome,
+      contraOrigem: contraparte.origem,
+      nota: "",
+      projeto: linha.projeto || "Sem projeto",
+      centro: linha.centro || "Sem centro de custo",
+      valor: Number(linha.valor_pago || linha.valor_titulo || 0),
+      dPag: paraData(linha.pagamento),
+      dEmi: paraData(linha.emissao)
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 11. PAINEL                                                          */
+  /* ------------------------------------------------------------------ */
+
+  function Painel() {
+    var estLinhas = useState(null);            var linhas = estLinhas[0],        setLinhas = estLinhas[1];
+    var estAbertos = useState([]);             var emAberto = estAbertos[0],     setEmAberto = estAbertos[1];
+    var estResposta = useState(null);          var resposta = estResposta[0],    setResposta = estResposta[1];
+    var estCarregando = useState(true);        var carregando = estCarregando[0], setCarregando = estCarregando[1];
+    var estAtualizado = useState(null);        var atualizadoEm = estAtualizado[0], setAtualizadoEm = estAtualizado[1];
+
+    var estRegime = useState(function () {
+      return armazenamento.getItem("quorum_regime") || "caixa";
+    });
+    var regime = estRegime[0], setRegime = estRegime[1];
+
+    var estAba = useState("dre");              var aba = estAba[0], setAba = estAba[1];
+
+    var estDetalhe = useState(function () {
+      return armazenamento.getItem("quorum_detalhe") !== "0";
+    });
+    var mostrarDetalhe = estDetalhe[0], setMostrarDetalhe = estDetalhe[1];
+
+    var estZeradas = useState(function () {
+      return armazenamento.getItem("quorum_zeradas") === "1";
+    });
+    var mostrarZeradas = estZeradas[0], setMostrarZeradas = estZeradas[1];
+
+    var estExtrato = useState(function () {
+      try { return JSON.parse(armazenamento.getItem("quorum_extrato") || "{}"); }
+      catch (e) { return {}; }
+    });
+    var saldosExtrato = estExtrato[0], setSaldosExtrato = estExtrato[1];
+
+    var estArquivos = useState([]);            var arquivosExtrato = estArquivos[0], setArquivosExtrato = estArquivos[1];
+    var estGaveta = useState(null);            var gaveta = estGaveta[0], setGaveta = estGaveta[1];
+    var estAviso = useState("");               var aviso = estAviso[0], setAviso = estAviso[1];
+
+    var refUpload = useRef(null);
+    var campoData = regime === "caixa" ? "dPag" : "dEmi";
+
+    /* Preferencias persistidas entre visitas. */
+    useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
+    useEffect(function () { armazenamento.setItem("quorum_detalhe", mostrarDetalhe ? "1" : "0"); }, [mostrarDetalhe]);
+    useEffect(function () { armazenamento.setItem("quorum_zeradas", mostrarZeradas ? "1" : "0"); }, [mostrarZeradas]);
+    useEffect(function () { armazenamento.setItem("quorum_extrato", JSON.stringify(saldosExtrato)); }, [saldosExtrato]);
+
+    /* Busca a base na Omie, via webhook. */
+    function buscarBase() {
+      if (!URL_API) {
+        setAviso("A URL da base não foi configurada nesta página. Fale com o Alex.");
+        setCarregando(false);
+        return Promise.resolve();
+      }
+      setCarregando(true);
+      setAviso("");
+      return fetch(URL_API, { cache: "no-store" })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (dados) {
+          var realizadas = (dados.linhas || []).map(normalizarLinha).filter(function (l) { return l.dPag; });
+          var futuras = (dados.linhas || []).filter(function (l) { return !l.pagamento; });
+          setLinhas(realizadas);
+          setEmAberto(futuras);
+          setResposta(dados);
+          setAtualizadoEm(new Date());
+          setGaveta(null);
+        })
+        .catch(function (erro) {
+          setAviso("Não consegui buscar a base agora: " + erro.message + ". Tenta de novo em alguns segundos.");
+        })
+        .then(function () { setCarregando(false); });
+    }
+
+    useEffect(function () { buscarBase(); }, []);
+
+    /* Le um ou mais extratos xlsx e acumula os saldos por conta e mes. */
+    function carregarExtratos(listaArquivos) {
+      var arquivos = Array.prototype.slice.call(listaArquivos || []);
+      if (!arquivos.length) return;
+      setAviso("");
+
+      var novosSaldos = Object.assign({}, saldosExtrato);
+      var reconhecidos = [];
+      var ignorados = [];
+
+      var fila = arquivos.reduce(function (promessa, arquivo) {
+        return promessa.then(function () {
+          return arquivo.arrayBuffer().then(function (buffer) {
+            var pasta = window.XLSX.read(buffer, { cellDates: true });
+            var extrato = lerExtrato(pasta);
+            if (!extrato.contas.length) { ignorados.push(arquivo.name); return; }
+            Object.assign(novosSaldos, extrato.saldos);
+            reconhecidos.push({ nome: arquivo.name, contas: extrato.contas });
+          }).catch(function () { ignorados.push(arquivo.name); });
+        });
+      }, Promise.resolve());
+
+      fila.then(function () {
+        if (!reconhecidos.length) {
+          setAviso("Nenhum dos arquivos parece um extrato de conta corrente. Preciso das colunas Data, Conta Corrente e Saldo (R$).");
+          return;
+        }
+        setSaldosExtrato(novosSaldos);
+        setArquivosExtrato(arquivosExtrato.concat(reconhecidos));
+        if (ignorados.length) setAviso("Não reconheci como extrato: " + ignorados.join(", "));
+      });
+    }
+
+    var dados = useMemo(function () {
+      return linhas ? calcular(linhas, regime) : null;
+    }, [linhas, regime]);
+
+    /* ---------------------------------------------------------------- */
+    /* Exportacao: tres abas, todas as celulas em formula sobre BD Contas */
+    /* ---------------------------------------------------------------- */
+
+    function exportarXlsx() {
+      if (!dados) return;
+
+      var meses = dados.meses;
+      var qtdMeses = meses.length;
+      var COL_PRIMEIRO_MES = 4;
+      var COL_ACUMULADO = COL_PRIMEIRO_MES + qtdMeses;
+      var col = colunaLetra;
+
+      var lancamentos = dados.usadas.slice().sort(function (a, b) {
+        return (a[campoData] || 0) - (b[campoData] || 0);
+      });
+
+      /* ---------------- Aba 3: BD Contas ---------------- */
+
+      var abaBase = {
+        nome: "BD Contas",
+        cols: [20, 34, 40, 30, 16, 34, 13, 13, 14, 60],
+        linhas: [],
+        freeze: { x: 0, y: 1 },
+        niveis: 0
+      };
+
+      var cabecalhosBase = [
+        "Tipo", "Grupo", "Categoria", "Conta Corrente", "Situação",
+        "Cliente ou Fornecedor", "Data de Emissão", "Data de Pagto ou Recbto",
+        "Pago ou Recebido", "Observação"
+      ];
+
+      abaBase.linhas.push({
+        r: 1,
+        celulas: cabecalhosBase.map(function (titulo, i) {
+          return { col: i + 1, v: titulo, s: MAPA_ESTILOS.bdCab[0] };
+        })
+      });
+
+      lancamentos.forEach(function (l, i) {
+        abaBase.linhas.push({
+          r: i + 2,
+          celulas: [
+            { col: 1, v: l.valor >= 0 ? "1. Contas a Receber" : "2. Contas a Pagar", s: MAPA_ESTILOS.bd[0] },
+            { col: 2, v: l.grupo, s: MAPA_ESTILOS.bd[0] },
+            { col: 3, v: l.categoria, s: MAPA_ESTILOS.bd[0] },
+            { col: 4, v: l.conta, s: MAPA_ESTILOS.bd[0] },
+            { col: 5, v: l.situacao, s: MAPA_ESTILOS.bd[0] },
+            { col: 6, v: l.contraparte, s: MAPA_ESTILOS.bd[0] },
+            { col: 7, v: l.dEmi ? dataParaSerial(l.dEmi) : "", s: 17 },
+            { col: 8, v: l.dPag ? dataParaSerial(l.dPag) : "", s: 17 },
+            { col: 9, v: l.valor, s: MAPA_ESTILOS.bd[1] },
+            { col: 10, v: l.nota, s: MAPA_ESTILOS.bd[0] }
+          ]
+        });
+      });
+
+      /* Fragmentos de formula reutilizados nas duas abas de cima. */
+      var ultimaLinhaBase = lancamentos.length + 1;
+      var BASE = "'BD Contas'";
+      var COL_DATA = campoData === "dPag" ? "$H" : "$G";
+      var FAIXA_VALOR = BASE + "!$I$2:$I$" + ultimaLinhaBase;
+
+      var criterioMes = function (colunaMes) {
+        return BASE + "!" + COL_DATA + "$2:" + COL_DATA + "$" + ultimaLinhaBase + ',">="&' + colunaMes + "$3,"
+             + BASE + "!" + COL_DATA + "$2:" + COL_DATA + "$" + ultimaLinhaBase + ',"<"&EDATE(' + colunaMes + "$3,1)";
+      };
+      var somaCategoria = function (grupo, categoria, colunaMes) {
+        return "SUMIFS(" + FAIXA_VALOR
+          + "," + BASE + "!$B$2:$B$" + ultimaLinhaBase + ',"' + grupo + '"'
+          + "," + BASE + "!$C$2:$C$" + ultimaLinhaBase + ',"' + categoria + '"'
+          + "," + criterioMes(colunaMes) + ")";
+      };
+      var somaConta = function (conta, colunaMes) {
+        return "SUMIFS(" + FAIXA_VALOR
+          + "," + BASE + "!$D$2:$D$" + ultimaLinhaBase + ',"' + conta + '"'
+          + "," + criterioMes(colunaMes) + ")";
+      };
+      var somaTudoNoMes = function (colunaMes) {
+        return "SUMIFS(" + FAIXA_VALOR + "," + criterioMes(colunaMes) + ")";
+      };
+      var saldoAcumuladoConta = function (conta, colunaMes) {
+        return "SUMIFS(" + FAIXA_VALOR
+          + "," + BASE + "!$D$2:$D$" + ultimaLinhaBase + ',"' + conta + '"'
+          + "," + BASE + "!" + COL_DATA + "$2:" + COL_DATA + "$" + ultimaLinhaBase
+          + ',"<"&EDATE(' + colunaMes + "$3,1))";
+      };
+
+      var largurasColunas = [3, 3, 52].concat(meses.map(function () { return 14; }), [15]);
+
+      /* ---------------- Aba 1: Quorum Novo ---------------- */
+
+      var abaQuorum = {
+        nome: "Quorum Novo",
+        cols: largurasColunas,
+        linhas: [],
+        freeze: { x: 3, y: 3 },
+        niveis: 1
+      };
+      var linhaAtual = 1;
+
+      /* Escreve uma linha de rotulo mais uma formula por mes. Devolve o numero da linha. */
+      function escreverLinha(nivel, rotulo, formulaPorColuna, outline) {
+        var estilo = MAPA_ESTILOS[nivel] || MAPA_ESTILOS.item;
+        var celulas = [{ col: 3, v: rotulo, s: estilo[0] }];
+        for (var i = 0; i < qtdMeses; i++) {
+          celulas.push({
+            col: COL_PRIMEIRO_MES + i,
+            f: formulaPorColuna ? formulaPorColuna(col(COL_PRIMEIRO_MES + i)) : undefined,
+            s: estilo[1]
+          });
+        }
+        celulas.push({
+          col: COL_ACUMULADO,
+          f: formulaPorColuna
+            ? (nivel === "pct"
+                ? formulaPorColuna(col(COL_ACUMULADO))
+                : "SUM(" + col(COL_PRIMEIRO_MES) + linhaAtual + ":" + col(COL_ACUMULADO - 1) + linhaAtual + ")")
+            : undefined,
+          s: estilo[1]
+        });
+        abaQuorum.linhas.push({ r: linhaAtual, celulas: celulas, outline: outline || 0 });
+        return linhaAtual++;
+      }
+
+      function linhaVazia() {
+        abaQuorum.linhas.push({ r: linhaAtual, celulas: [], altura: 3 });
+        linhaAtual++;
+      }
+
+      abaQuorum.linhas.push({
+        r: 1,
+        celulas: [{
+          col: 3,
+          v: "QUORUM | Realizado por categoria — regime de "
+            + (campoData === "dPag" ? "caixa" : "competência")
+            + " — gerado em " + (resposta ? resposta.gerado_em : ""),
+          s: 13
+        }]
+      });
+
+      linhaAtual = 2;
+      abaQuorum.linhas.push({
+        r: 2,
+        celulas: [{ col: 3, v: "", s: 0 }].concat(meses.map(function (mes, i) {
+          return { col: COL_PRIMEIRO_MES + i, v: i + 1, s: 15 };
+        }))
+      });
+
+      abaQuorum.linhas.push({
+        r: 3,
+        celulas: [{ col: 3, v: "Realizado Quorum", s: MAPA_ESTILOS.cabLabel[0] }]
+          .concat(meses.map(function (mes, i) {
+            var partes = mes.split("-");
+            return {
+              col: COL_PRIMEIRO_MES + i,
+              v: dataParaSerial(new Date(Number(partes[0]), Number(partes[1]) - 1, 1)),
+              s: MAPA_ESTILOS.cabLabel[1]
+            };
+          }))
+          .concat([{ col: COL_ACUMULADO, v: "Acumulado", s: MAPA_ESTILOS.cabLabel[0] }])
+      });
+
+      abaQuorum.linhas.push({ r: 4, celulas: [], altura: 3 });
+      linhaAtual = 5;
+
+      /* Escreve uma secao inteira: itens, grupos e o total da secao. */
+      var linhaDaSecao = {};
+      function escreverSecao(secao) {
+        var linhaTotalSecao = linhaAtual++;
+        var linhasDeGrupo = [];
+
+        secao.groups.forEach(function (nomeGrupo) {
+          var bloco = PLANO_DE_CONTAS.filter(function (b) { return b.grupo === nomeGrupo; })[0];
+          if (!bloco) return;
+
+          var linhaGrupo = linhaAtual++;
+          var linhasDeItem = [];
+
+          bloco.itens.forEach(function (item) {
+            var categoria = item[0];
+            linhasDeItem.push(escreverLinha("item", "      " + categoria, function (colunaMes) {
+              return somaCategoria(nomeGrupo, categoria, colunaMes);
+            }, 1));
+          });
+
+          abaQuorum.linhas.push({
+            r: linhaGrupo,
+            celulas: [{ col: 3, v: "   " + nomeGrupo, s: MAPA_ESTILOS.grupo[0] }]
+              .concat(Array.from({ length: qtdMeses + 1 }, function (vazio, i) {
+                var letra = col(COL_PRIMEIRO_MES + i);
+                return {
+                  col: COL_PRIMEIRO_MES + i,
+                  f: "SUM(" + letra + linhasDeItem[0] + ":" + letra + linhasDeItem[linhasDeItem.length - 1] + ")",
+                  s: MAPA_ESTILOS.grupo[1]
+                };
+              }))
+          });
+
+          linhasDeGrupo.push(linhaGrupo);
+          abaQuorum.linhas.push({ r: linhaAtual, celulas: [], altura: 3 });
+          linhaAtual++;
+        });
+
+        abaQuorum.linhas.push({
+          r: linhaTotalSecao,
+          celulas: [{ col: 3, v: secao.label, s: MAPA_ESTILOS.secao[0] }]
+            .concat(Array.from({ length: qtdMeses + 1 }, function (vazio, i) {
+              var letra = col(COL_PRIMEIRO_MES + i);
+              return {
+                col: COL_PRIMEIRO_MES + i,
+                f: linhasDeGrupo.map(function (n) { return letra + n; }).join("+"),
+                s: MAPA_ESTILOS.secao[1]
+              };
+            }))
+        });
+
+        linhaDaSecao[secao.key] = linhaTotalSecao;
+      }
+
+      escreverSecao(SECOES_DRE[0]);
+      linhaVazia();
+      escreverSecao(SECOES_DRE[1]);
+
+      var linhaReceitaLiquida = escreverLinha("total", "(=) Receita Líquida", function (c) {
+        return c + linhaDaSecao.receita + "+" + c + linhaDaSecao.impostos;
+      });
+      escreverLinha("pct", "% Receita Líquida", function (c) {
+        return "IFERROR(" + c + linhaReceitaLiquida + "/" + c + linhaDaSecao.receita + ",0)";
+      });
+      linhaVazia();
+      escreverSecao(SECOES_DRE[2]);
+
+      var linhaLucroBruto = escreverLinha("total", "(=) Lucro Bruto", function (c) {
+        return c + linhaReceitaLiquida + "+" + c + linhaDaSecao.custo;
+      });
+      escreverLinha("pct", "% Lucro Bruto", function (c) {
+        return "IFERROR(" + c + linhaLucroBruto + "/" + c + linhaReceitaLiquida + ",0)";
+      });
+      linhaVazia();
+      escreverSecao(SECOES_DRE[3]);
+
+      var linhaEbitda = escreverLinha("total", "(=) EBITDA", function (c) {
+        return c + linhaLucroBruto + "+" + c + linhaDaSecao.despesas;
+      });
+      escreverLinha("pct", "% EBITDA", function (c) {
+        return "IFERROR(" + c + linhaEbitda + "/" + c + linhaReceitaLiquida + ",0)";
+      });
+      linhaVazia();
+      escreverSecao(SECOES_DRE[4]);
+      escreverSecao(SECOES_DRE[5]);
+      escreverSecao(SECOES_DRE[6]);
+      escreverSecao(SECOES_DRE[7]);
+      linhaVazia();
+
+      var linhaEbit = escreverLinha("total", "(=) Resultado Antes de Impostos", function (c) {
+        return c + linhaEbitda + "+" + c + linhaDaSecao.finRec + "+" + c + linhaDaSecao.finDesp
+          + "+" + c + linhaDaSecao.outrasRec + "+" + c + linhaDaSecao.outrasDesp;
+      });
+      escreverLinha("pct", "% EBIT", function (c) {
+        return "IFERROR(" + c + linhaEbit + "/" + c + linhaReceitaLiquida + ",0)";
+      });
+      linhaVazia();
+      escreverSecao(SECOES_DRE[8]);
+
+      var linhaLucroLiquido = escreverLinha("total", "(=) Lucro Líquido", function (c) {
+        return c + linhaEbit + "+" + c + linhaDaSecao.impLucro;
+      });
+
+      var linhaResultadoAcumulado = linhaAtual++;
+      abaQuorum.linhas.push({
+        r: linhaResultadoAcumulado,
+        celulas: [{ col: 3, v: "(=) Resultado Acumulado", s: MAPA_ESTILOS.secao[0] }]
+          .concat(meses.map(function (mes, i) {
+            var letra = col(COL_PRIMEIRO_MES + i);
+            return {
+              col: COL_PRIMEIRO_MES + i,
+              f: i === 0
+                ? letra + linhaLucroLiquido
+                : col(COL_PRIMEIRO_MES + i - 1) + linhaResultadoAcumulado + "+" + letra + linhaLucroLiquido,
+              s: MAPA_ESTILOS.secao[1]
+            };
+          }))
+          .concat([{
+            col: COL_ACUMULADO,
+            f: col(COL_ACUMULADO - 1) + linhaResultadoAcumulado,
+            s: MAPA_ESTILOS.secao[1]
+          }])
+      });
+
+      escreverLinha("pct", "% Lucro Líquido", function (c) {
+        return "IFERROR(" + c + linhaLucroLiquido + "/" + c + linhaReceitaLiquida + ",0)";
+      });
+      linhaVazia();
+
+      abaQuorum.linhas.push({ r: linhaAtual++, celulas: [{ col: 3, v: "Fluxo de Caixa", s: 9 }] });
+      linhaVazia();
+
+      var linhaLucroNoFluxo = escreverLinha("secao", "(=) Lucro Líquido do período", function (c) {
+        return c + linhaLucroLiquido;
+      });
+      linhaVazia();
+      SECOES_FLUXO.forEach(function (secao) { escreverSecao(secao); });
+
+      var linhaFcl = escreverLinha("total", "(=) Fluxo de Caixa Livre do mês", function (c) {
+        return c + linhaLucroNoFluxo + "+" + c + linhaDaSecao.entradas + "+" + c + linhaDaSecao.saidas
+          + "+" + c + linhaDaSecao.ativo + "+" + c + linhaDaSecao.capex + "+" + c + linhaDaSecao.transf;
+      });
+
+      var linhaSaldoAcumulado = linhaAtual++;
+      abaQuorum.linhas.push({
+        r: linhaSaldoAcumulado,
+        celulas: [{ col: 3, v: "(=) Saldo acumulado, todas as contas", s: MAPA_ESTILOS.secao[0] }]
+          .concat(meses.map(function (mes, i) {
+            var letra = col(COL_PRIMEIRO_MES + i);
+            return {
+              col: COL_PRIMEIRO_MES + i,
+              f: i === 0
+                ? letra + linhaFcl
+                : col(COL_PRIMEIRO_MES + i - 1) + linhaSaldoAcumulado + "+" + letra + linhaFcl,
+              s: MAPA_ESTILOS.secao[1]
+            };
+          }))
+          .concat([{
+            col: COL_ACUMULADO,
+            f: col(COL_ACUMULADO - 1) + linhaSaldoAcumulado,
+            s: MAPA_ESTILOS.secao[1]
+          }])
+      });
+
+      var contasGarantia = dados.contas.filter(function (c) { return /garantia|cau/i.test(c); });
+      var linhaCaucao = escreverLinha("grupo", "   (-) Caução em garantia do cartão", function (c) {
+        return contasGarantia.length
+          ? "-(" + contasGarantia.map(function (conta) { return saldoAcumuladoConta(conta, c); }).join("+") + ")"
+          : "0";
+      });
+      var linhaCaixaLivre = escreverLinha("total", "(=) Caixa livre", function (c) {
+        return c + linhaSaldoAcumulado + "+" + c + linhaCaucao;
+      });
+
+      /* Nestas duas o acumulado e a posicao do ultimo mes, nao a soma dos meses. */
+      [linhaCaucao, linhaCaixaLivre].forEach(function (numeroLinha) {
+        var linha = abaQuorum.linhas.filter(function (l) { return l.r === numeroLinha; })[0];
+        linha.celulas[linha.celulas.length - 1].f = col(COL_ACUMULADO - 1) + numeroLinha;
+      });
+
+      linhaVazia();
+      abaQuorum.linhas.push({
+        r: linhaAtual++,
+        celulas: [{
+          col: 3,
+          v: "Toda célula deste bloco é fórmula sobre a aba BD Contas. A caução sai porque está travada como garantia do cartão; a fatura de cartão já está deduzida no saldo acumulado.",
+          s: 13
+        }]
+      });
+
+      /* ---------------- Aba 2: Conciliacao ---------------- */
+
+      var abaConciliacao = {
+        nome: "Conciliação",
+        cols: largurasColunas,
+        linhas: [],
+        freeze: { x: 3, y: 3 },
+        niveis: 1
+      };
+      var linhaConc = 1;
+
+      abaConciliacao.linhas.push({
+        r: linhaConc++,
+        celulas: [{ col: 3, v: "QUORUM | Conciliação de caixa", s: 13 }]
+      });
+
+      linhaConc = 3;
+      abaConciliacao.linhas.push({
+        r: 3,
+        celulas: [{ col: 3, v: "Conciliação", s: MAPA_ESTILOS.cabLabel[0] }]
+          .concat(meses.map(function (mes, i) {
+            return {
+              col: COL_PRIMEIRO_MES + i,
+              f: "'Quorum Novo'!" + col(COL_PRIMEIRO_MES + i) + "$3",
+              s: MAPA_ESTILOS.cabLabel[1]
+            };
+          }))
+          .concat([{ col: COL_ACUMULADO, v: "Acumulado", s: MAPA_ESTILOS.cabLabel[0] }])
+      });
+
+      linhaConc = 5;
+
+      /* Igual a escreverLinha, mas na aba de conciliacao. semSoma deixa o acumulado vazio. */
+      function escreverLinhaConc(nivel, rotulo, formulaPorColuna, semSoma, outline) {
+        var estilo = MAPA_ESTILOS[nivel] || MAPA_ESTILOS.item;
+        var celulas = [{ col: 3, v: rotulo, s: estilo[0] }];
+        for (var i = 0; i < qtdMeses; i++) {
+          celulas.push({
+            col: COL_PRIMEIRO_MES + i,
+            f: formulaPorColuna ? formulaPorColuna(col(COL_PRIMEIRO_MES + i)) : undefined,
+            s: estilo[1]
+          });
+        }
+        celulas.push({
+          col: COL_ACUMULADO,
+          f: formulaPorColuna && !semSoma
+            ? "SUM(" + col(COL_PRIMEIRO_MES) + linhaConc + ":" + col(COL_ACUMULADO - 1) + linhaConc + ")"
+            : undefined,
+          s: estilo[1]
+        });
+        abaConciliacao.linhas.push({ r: linhaConc, celulas: celulas, outline: outline || 0 });
+        return linhaConc++;
+      }
+
+      function linhaVaziaConc() {
+        abaConciliacao.linhas.push({ r: linhaConc, celulas: [], altura: 3 });
+        linhaConc++;
+      }
+
+      escreverLinhaConc("secao", "1. MOVIMENTO DO MÊS POR CONTA CORRENTE");
+      dados.contas.forEach(function (conta) {
+        escreverLinhaConc("item", "   " + conta, function (c) { return somaConta(conta, c); }, false, 1);
+      });
+
+      linhaVaziaConc();
+      escreverLinhaConc("secao", "2. SALDO ACUMULADO POR CONTA, CALCULADO PELA BASE");
+      var linhaSaldoCalculado = {};
+      dados.contas.forEach(function (conta) {
+        linhaSaldoCalculado[conta] = escreverLinhaConc("item", "   " + conta, function (c) {
+          return saldoAcumuladoConta(conta, c);
+        }, true, 1);
+        var linha = abaConciliacao.linhas[abaConciliacao.linhas.length - 1];
+        linha.celulas[linha.celulas.length - 1] = {
+          col: COL_ACUMULADO,
+          f: col(COL_ACUMULADO - 1) + linhaSaldoCalculado[conta],
+          s: MAPA_ESTILOS.item[1]
+        };
+      });
+
+      linhaVaziaConc();
+      escreverLinhaConc("secao", "3. SALDO POR EXTRATO, PREENCHER; EM BRANCO NÃO É COMPARADO");
+      var linhaSaldoExtrato = {};
+      dados.contas.forEach(function (conta) {
+        var numeroLinha = linhaConc;
+        var celulas = [{ col: 3, v: "   " + conta, s: MAPA_ESTILOS.input[0] }];
+        for (var i = 0; i < qtdMeses; i++) {
+          var informado = saldosExtrato[conta + "||" + meses[i]];
+          celulas.push({
+            col: COL_PRIMEIRO_MES + i,
+            v: informado === undefined || informado === "" ? "" : paraNumero(informado),
+            s: MAPA_ESTILOS.input[1]
+          });
+        }
+        celulas.push({
+          col: COL_ACUMULADO,
+          f: col(COL_ACUMULADO - 1) + numeroLinha,
+          s: MAPA_ESTILOS.input[1]
+        });
+        abaConciliacao.linhas.push({ r: numeroLinha, celulas: celulas, outline: 1 });
+        linhaSaldoExtrato[conta] = numeroLinha;
+        linhaConc++;
+      });
+
+      linhaVaziaConc();
+      escreverLinhaConc("secao", "4. DIFERENÇA, EXTRATO MENOS CALCULADO");
+      dados.contas.forEach(function (conta) {
+        escreverLinhaConc("item", "   " + conta, function (c) {
+          return "IF(" + c + linhaSaldoExtrato[conta] + "=0,0,ROUND("
+            + c + linhaSaldoExtrato[conta] + "-" + c + linhaSaldoCalculado[conta] + ",2))";
+        }, true, 1);
+      });
+
+      linhaVaziaConc();
+      escreverLinhaConc("secao", "5. INTEGRIDADE: TODA LINHA DA BASE ESTÁ NA ABA?");
+      var linhaTotalBase = escreverLinhaConc("item", "   Total de lançamentos da base no mês", function (c) {
+        return somaTudoNoMes(c);
+      }, false, 1);
+      var linhaFclNaConc = escreverLinhaConc("item", "   Fluxo de Caixa Livre da aba Quorum Novo", function (c) {
+        return "'Quorum Novo'!" + c + linhaFcl;
+      }, false, 1);
+      escreverLinhaConc("total", "   (=) Diferença, tem que ser zero", function (c) {
+        return "ROUND(" + c + linhaTotalBase + "-" + c + linhaFclNaConc + ",2)";
+      });
+
+      linhaVaziaConc();
+      escreverLinhaConc("secao", "6. CAIXA DISPONÍVEL DE FATO, POSIÇÃO DE CADA MÊS");
+      var contasCorrentes = dados.contas.filter(function (c) { return !/cart/i.test(c); });
+      var contasCartao = dados.contas.filter(function (c) {
+        return /cart/i.test(c) && !/garantia|cau/i.test(c);
+      });
+      var contasCaucao = dados.contas.filter(function (c) { return /garantia|cau/i.test(c); });
+
+      var somarSaldos = function (lista, c) {
+        return lista.length
+          ? lista.map(function (conta) { return c + linhaSaldoCalculado[conta]; }).join("+")
+          : "0";
+      };
+
+      var linhaContaCorrente = escreverLinhaConc("item", "   Conta corrente", function (c) {
+        return somarSaldos(contasCorrentes, c);
+      }, true, 1);
+      var linhaFaturaCartao = escreverLinhaConc("item", "   (-) Fatura de cartão em aberto", function (c) {
+        return somarSaldos(contasCartao, c);
+      }, true, 1);
+      var linhaCaixaLivreConc = escreverLinhaConc("total", "   (=) Caixa livre", function (c) {
+        return c + linhaContaCorrente + "+" + c + linhaFaturaCartao;
+      }, true);
+      var linhaCaucaoConc = escreverLinhaConc("item", "   (+) Caução em garantia, restituível", function (c) {
+        return somarSaldos(contasCaucao, c);
+      }, true, 1);
+      escreverLinhaConc("total", "   (=) Posição total", function (c) {
+        return c + linhaCaixaLivreConc + "+" + c + linhaCaucaoConc;
+      }, true);
+
+      linhaVaziaConc();
+      abaConciliacao.linhas.push({
+        r: linhaConc++,
+        celulas: [{
+          col: 3,
+          v: "Bloco 5 diferente de zero significa lançamento da base sem linha correspondente no fluxo, ou categoria fora do plano de contas.",
+          s: 13
+        }]
+      });
+
+      var nomeArquivo = "QUORUM_Realizado_"
+        + (campoData === "dPag" ? "caixa" : "competencia") + ".xlsx";
+      baixarXlsx([abaQuorum, abaConciliacao, abaBase], nomeArquivo);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Derivados da tela                                                */
+    /* ---------------------------------------------------------------- */
+
+    var erros = dados ? dados.achados.filter(function (a) { return a.nivel === "erro"; }) : [];
+    var alertas = dados ? dados.achados.filter(function (a) { return a.nivel === "alerta"; }) : [];
+    var ultimoMes = dados && dados.meses.length ? dados.meses[dados.meses.length - 1] : null;
+
+    /* Posicao de caixa no ultimo mes, separando conta, cartao e caucao. */
+    var posicao = useMemo(function () {
+      if (!dados || !ultimoMes) return null;
+      var corrente = 0, cartao = 0, garantia = 0;
+      var nomes = { corrente: [], cartao: [], garantia: [] };
+
+      dados.contas.forEach(function (conta) {
+        var saldo = dados.saldoConta[conta][ultimoMes];
+        if (/garantia|cau/i.test(conta)) { garantia += saldo; nomes.garantia.push(conta); }
+        else if (/cart/i.test(conta)) { cartao += saldo; nomes.cartao.push(conta); }
+        else { corrente += saldo; nomes.corrente.push(conta); }
+      });
+
+      return {
+        corrente: corrente,
+        cartao: cartao,
+        garantia: garantia,
+        livre: corrente + cartao,
+        total: corrente + cartao + garantia,
+        nomes: nomes
+      };
+    }, [dados, ultimoMes]);
+
+    /* Primeira carga. */
+    if (carregando && !dados) {
+      return h("div", {
+        className: "min-h-screen w-full flex items-center justify-center",
+        style: { background: COR.bg, color: COR.faint, fontSize: 12 }
+      }, "Buscando a base na Omie...");
+    }
+
+    /* Falha na busca. */
+    if (!dados) {
+      return h("div", {
+        className: "min-h-screen w-full flex items-center justify-center p-6",
+        style: { background: COR.bg, color: COR.text }
+      },
+        h("div", { className: "max-w-xl w-full" },
+          h("div", {
+            className: "uppercase mb-2",
+            style: { fontSize: 10, letterSpacing: "0.3em", color: COR.brass }
+          }, "QUORUM"),
+          h("h1", {
+            className: "text-3xl mb-3",
+            style: { fontWeight: 300, letterSpacing: "-0.01em" }
+          }, "Painel do Realizado"),
+          h("p", {
+            className: "text-sm leading-relaxed mb-6",
+            style: { color: COR.dim }
+          }, "Não consegui buscar a base agora."),
+          aviso && h("div", {
+            className: "mt-2 mb-4 text-sm p-3 rounded",
+            style: { background: COR.coralSoft, color: COR.coral }
+          }, aviso),
+          h("button", {
+            onClick: buscarBase,
+            className: "w-full py-4 rounded text-sm",
+            style: { background: COR.surface, border: "1px dashed " + COR.brass, color: COR.brass }
+          }, "Tentar de novo")
+        )
+      );
+    }
+
+    var meses = dados.meses;
+
+    /* Contas que ja tem algum saldo de extrato informado. */
+    var contasComExtrato = dados.contas.filter(function (conta) {
+      return meses.some(function (mes) {
+        var valor = saldosExtrato[conta + "||" + mes];
+        return valor !== undefined && valor !== "";
+      });
+    });
+
+    /* Uma linha "tem valor" se qualquer mes for diferente de zero. */
+    function temValor(valores) {
+      return meses.some(function (mes) { return Math.abs(valores[mes] || 0) > 0.005; });
+    }
+
+    /* Devolve o handler que abre a gaveta com um filtro pronto. */
+    function abrirGaveta(titulo, filtro) {
+      return function (mes) {
+        setGaveta(Object.assign({}, filtro, { titulo: titulo, mes: mes, campo: campoData }));
+      };
+    }
+
+    var LARGURA_PRIMEIRA_COLUNA = 34;
+    var larguraColunaMes = (100 - LARGURA_PRIMEIRA_COLUNA) / (meses.length + 1);
+    var larguraMinimaTabela = 380 + (meses.length + 1) * 100;
+
+    /* Moldura padrao das tabelas mensais. */
+    function Tabela(props) {
+      return h("div", {
+        className: "overflow-x-auto rounded",
+        style: { border: "1px solid " + COR.line, background: COR.surface }
+      },
+        h("table", {
+          style: {
+            borderCollapse: "collapse",
+            tableLayout: "fixed",
+            width: "100%",
+            minWidth: larguraMinimaTabela
+          }
+        },
+          h("colgroup", null,
+            h("col", { style: { width: LARGURA_PRIMEIRA_COLUNA + "%" } }),
+            meses.map(function (mes) {
+              return h("col", { key: mes, style: { width: larguraColunaMes + "%" } });
+            }),
+            h("col", { style: { width: larguraColunaMes + "%" } })
+          ),
+          h(CabecalhoMeses, { meses: meses }),
+          h("tbody", null, props.children)
+        )
+      );
+    }
+
+    /* Secao do DRE: linha de total, e opcionalmente grupos e categorias. */
+    function linhasDaSecao(secao) {
+      var linhasRender = [h(LinhaTabela, {
+        key: secao.key,
+        label: secao.label,
+        valores: dados.S[secao.key],
+        meses: meses,
+        nivel: "secao",
+        aoAbrir: abrirGaveta(secao.label, { grupos: secao.groups })
+      })];
+
+      if (!mostrarDetalhe) return linhasRender;
+
+      secao.groups.forEach(function (nomeGrupo) {
+        var valoresGrupo = {};
+        meses.forEach(function (mes) { valoresGrupo[mes] = dados.grupoMes(nomeGrupo, mes); });
+        if (!mostrarZeradas && !temValor(valoresGrupo)) return;
+
+        linhasRender.push(h(LinhaTabela, {
+          key: secao.key + nomeGrupo,
+          label: nomeGrupo,
+          valores: valoresGrupo,
+          meses: meses,
+          nivel: "grupo",
+          aoAbrir: abrirGaveta(nomeGrupo, { grupo: nomeGrupo })
+        }));
+
+        var bloco = PLANO_DE_CONTAS.filter(function (b) { return b.grupo === nomeGrupo; })[0];
+        if (!bloco) return;
+
+        bloco.itens.forEach(function (item) {
+          var categoria = item[0];
+          var ativa = item[1];
+          var valoresItem = {};
+          meses.forEach(function (mes) { valoresItem[mes] = dados.bruto(nomeGrupo, categoria, mes); });
+          if (!mostrarZeradas && !temValor(valoresItem)) return;
+
+          linhasRender.push(h(LinhaTabela, {
+            key: secao.key + nomeGrupo + categoria,
+            label: categoria,
+            valores: valoresItem,
+            meses: meses,
+            nivel: "item",
+            aoAbrir: temValor(valoresItem)
+              ? abrirGaveta(categoria, { grupo: nomeGrupo, categoria: categoria })
+              : undefined,
+            sufixo: ativa ? null : h("span", {
+              style: { fontSize: 10, color: COR.faint }
+            }, "  inativa")
+          }));
+        });
+      });
+
+      return linhasRender;
+    }
+
+    /* Percentual de uma linha sobre a receita liquida do mesmo mes. */
+    function sobreReceitaLiquida(valores) {
+      var percentuais = {};
+      meses.forEach(function (mes) {
+        percentuais[mes] = dados.receitaLiquida[mes] ? valores[mes] / dados.receitaLiquida[mes] : 0;
+      });
+      return percentuais;
+    }
+
+    /* Estilo dos botoes de alternancia da barra superior. */
+    function estiloBotao(ativo) {
+      return {
+        border: "1px solid " + (ativo ? COR.brass : COR.line),
+        background: ativo ? COR.brassSoft : COR.surface,
+        color: ativo ? COR.brass : COR.dim,
+        fontSize: 11
+      };
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Barra superior                                                   */
+    /* ---------------------------------------------------------------- */
+
+    var barraSuperior = h("div", {
+      className: "sticky top-0 z-10 px-6 py-3 flex flex-wrap items-center gap-3",
+      style: { background: COR.surface, borderBottom: "1px solid " + COR.line }
+    },
+      h("div", null,
+        h("div", {
+          className: "uppercase",
+          style: { fontSize: 9, letterSpacing: "0.3em", color: COR.brass }
+        }, "QUORUM"),
+        h("div", { className: "text-sm", style: { fontWeight: 600 } }, "Painel do Realizado")
+      ),
+
+      h("div", { className: "ml-2", style: { fontSize: 11, color: COR.faint } },
+        dados.usadas.length,
+        " lançamentos realizados · ",
+        meses.length ? rotuloMes(meses[0]) + " a " + rotuloMes(ultimoMes) : "sem período",
+        resposta && resposta.em_aberto > 0 && h("span", { style: { color: COR.brass } },
+          " · " + resposta.em_aberto + " compromisso(s) futuro(s) não incluído(s)"),
+        atualizadoEm && h("span", { style: { color: COR.mint } },
+          " · atualizado às ",
+          atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))
+      ),
+
+      h("div", { className: "flex-1" }),
+
+      /* Regime de caixa ou de competencia. */
+      h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+        [["caixa", "Caixa"], ["competencia", "Competência"]].map(function (par) {
+          var valor = par[0], rotulo = par[1];
+          return h("button", {
+            key: valor,
+            onClick: function () { setRegime(valor); },
+            className: "px-3 py-1.5",
+            title: valor === "caixa"
+              ? "Usa a data de pagamento ou recebimento: mostra quando o dinheiro entrou e saiu"
+              : "Usa a data de emissão: mostra o mês em que a receita ou a despesa foi gerada",
+            style: {
+              fontSize: 11,
+              background: regime === valor ? COR.brass : "transparent",
+              color: regime === valor ? "#FFFFFF" : COR.dim,
+              fontWeight: regime === valor ? 600 : 400
+            }
+          }, rotulo);
+        })
+      ),
+
+      /* Esconder ou mostrar categorias sem movimento. */
+      h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+        [[false, "Só com valor"], [true, "Todas as linhas"]].map(function (par) {
+          var valor = par[0], rotulo = par[1];
+          return h("button", {
+            key: String(valor),
+            onClick: function () { setMostrarZeradas(valor); },
+            className: "px-3 py-1.5",
+            title: valor
+              ? "Mostra todas as categorias do plano de contas, inclusive as que não tiveram movimento"
+              : "Esconde as categorias sem nenhum lançamento no período",
+            style: {
+              fontSize: 11,
+              background: mostrarZeradas === valor ? COR.brass : "transparent",
+              color: mostrarZeradas === valor ? "#FFFFFF" : COR.dim,
+              fontWeight: mostrarZeradas === valor ? 600 : 400
+            }
+          }, rotulo);
+        })
+      ),
+
+      h("button", {
+        onClick: function () { setMostrarDetalhe(!mostrarDetalhe); },
+        className: "px-3 py-1.5 rounded",
+        style: estiloBotao(!mostrarDetalhe),
+        title: mostrarDetalhe
+          ? "Hoje mostrando grupo e categoria. Clique para ver só os totais de cada seção"
+          : "Hoje mostrando só os totais. Clique para abrir grupo e categoria"
+      }, mostrarDetalhe ? "Visão sintética" : "Visão analítica"),
+
+      h("button", {
+        onClick: function () { exportarXlsx(); },
+        className: "px-3 py-1.5 rounded",
+        style: {
+          background: COR.surface,
+          border: "1px solid " + COR.brass,
+          color: COR.brass,
+          fontSize: 11
+        },
+        title: "Gera o XLSX com as três abas, todas as fórmulas e a formatação do template"
+      }, "Exportar XLSX"),
+
+      h("button", {
+        onClick: function () { if (refUpload.current) refUpload.current.click(); },
+        className: "px-3 py-1.5 rounded",
+        style: {
+          border: "1px solid " + (contasComExtrato.length ? COR.mint : COR.line),
+          color: contasComExtrato.length ? COR.mint : COR.dim,
+          fontSize: 11,
+          background: COR.surface
+        },
+        title: "Extrato de movimentação da conta corrente do Omie, um arquivo por conta. Pode subir vários de uma vez, e pode subir mais depois: os saldos se acumulam."
+          + (contasComExtrato.length ? " Já carregado: " + contasComExtrato.join(", ") : "")
+      }, contasComExtrato.length
+        ? "Extratos: " + contasComExtrato.length + " de " + dados.contas.length
+        : "Subir extrato"),
+
+      h("button", {
+        onClick: buscarBase,
+        disabled: carregando,
+        className: "px-3 py-1.5 rounded",
+        style: {
+          border: "1px solid " + (carregando ? COR.line : COR.mint),
+          color: carregando ? COR.faint : COR.mint,
+          fontSize: 11,
+          background: COR.surface
+        },
+        title: "Busca a base de novo na Omie agora, sem esperar a próxima abertura"
+      }, carregando ? "Atualizando..." : "Atualizar agora"),
+
+      h("input", {
+        ref: refUpload,
+        type: "file",
+        accept: ".xlsx,.xls,.csv",
+        multiple: true,
+        className: "hidden",
+        style: { display: "none" },
+        onChange: function (evento) { carregarExtratos(evento.target.files); }
+      })
+    );
+
+    /* ---------------------------------------------------------------- */
+    /* Faixa de integridade e cartoes                                   */
+    /* ---------------------------------------------------------------- */
+
+    var faixaIntegridade = h("div", { className: "px-6 pt-4" },
+      h("div", {
+        className: "rounded px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2",
+        style: {
+          background: erros.length ? COR.coralSoft : COR.mintSoft,
+          border: "1px solid " + (erros.length ? COR.coral : COR.mint)
+        }
+      },
+        h("div", {
+          className: "uppercase",
+          style: {
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            color: erros.length ? COR.coral : COR.mint,
+            fontWeight: 700
+          }
+        }, erros.length ? "A base não fecha" : "Base íntegra"),
+        h("div", { style: { fontSize: 11, color: COR.dim } },
+          erros.length
+            ? erros.length + " erro(s) a resolver antes de usar estes números"
+            : "Toda linha da base tem destino no fluxo, diferença zero em todos os meses"),
+        alertas.length > 0 && h("button", {
+          onClick: function () { setAba("achados"); },
+          style: { fontSize: 11, color: COR.brass, textDecoration: "underline" }
+        }, alertas.length, " alerta(s) para revisar")
+      )
+    );
+
+    var receitaBrutaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.S.receita[mes]; }, 0);
+    var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.ebitda[mes]; }, 0);
+
+    var cartoes = h("div", {
+      className: "px-6 pt-4 grid gap-3",
+      style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
+    },
+      h(CartaoIndicador, {
+        rotulo: "Receita bruta",
+        valor: receitaBrutaPeriodo,
+        sub: "no período carregado",
+        ajuda: "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
+      }),
+      h(CartaoIndicador, {
+        rotulo: "EBITDA",
+        valor: ebitdaPeriodo,
+        tom: ebitdaPeriodo < 0 ? "neg" : "pos",
+        sub: "acumulado",
+        ajuda: "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
+      }),
+      h(CartaoIndicador, {
+        rotulo: "Lucro líquido",
+        valor: ultimoMes ? dados.acumulado[ultimoMes] : 0,
+        tom: ultimoMes && dados.acumulado[ultimoMes] < 0 ? "neg" : "pos",
+        sub: "acumulado no período",
+        ajuda: "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
+      }),
+      posicao && h(Fragment, null,
+        h(CartaoIndicador, {
+          rotulo: "Conta corrente",
+          valor: posicao.corrente,
+          casas: 2,
+          sub: "saldo em " + rotuloMes(ultimoMes),
+          ajuda: "Saldo somado das contas correntes (" + (posicao.nomes.corrente.join(", ") || "nenhuma")
+            + ") no fim de " + rotuloMes(ultimoMes)
+            + ". É o dinheiro que está na conta hoje, sem descontar nada que já está comprometido."
+        }),
+        h(CartaoIndicador, {
+          rotulo: "Caixa livre",
+          valor: posicao.livre,
+          casas: 2,
+          tom: posicao.livre < 0 ? "neg" : "pos",
+          sub: "o que sobra depois do já comprometido",
+          ajuda: "Conta corrente de " + formatarNumero(posicao.corrente, 2)
+            + " menos a fatura de cartão em aberto de " + formatarNumero(Math.abs(posicao.cartao), 2)
+            + ". A caução de " + formatarNumero(posicao.garantia, 2)
+            + " não entra aqui: o dinheiro já saiu da conta quando foi depositado na garantia, então o saldo acima já está líquido dela. Somando a caução, que é restituível, a posição total é "
+            + formatarNumero(posicao.total, 2) + "."
+        })
+      )
+    );
+
+    /* ---------------------------------------------------------------- */
+    /* Abas                                                             */
+    /* ---------------------------------------------------------------- */
+
+    var ABAS = [
+      ["dre", "Demonstração de resultado"],
+      ["caixa", "Fluxo de caixa"],
+      ["proj", "Por projeto"],
+      ["cc", "Por centro de custo"],
+      ["conc", "Conciliação"],
+      ["achados", "Achados (" + dados.achados.length + ")"],
+      ["abertos", "Compromissos futuros (" + emAberto.length + ")"]
+    ];
+
+    var barraAbas = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
+      ABAS.map(function (par) {
+        var chave = par[0], rotulo = par[1];
+        return h("button", {
+          key: chave,
+          onClick: function () { setAba(chave); },
+          className: "px-3 py-2 rounded-t",
+          style: {
+            fontSize: 11,
+            background: aba === chave ? COR.surface : "transparent",
+            color: aba === chave ? COR.text : COR.faint,
+            fontWeight: aba === chave ? 600 : 400,
+            borderBottom: aba === chave ? "2px solid " + COR.brass : "2px solid transparent"
+          }
+        }, rotulo);
+      }),
+      h("div", { className: "flex-1" }),
+      h("div", {
+        className: "self-center",
+        style: { fontSize: 10, color: COR.faint }
+      }, "clique em qualquer linha para ver os lançamentos por trás dela")
+    );
+
+    /* ---------------------------------------------------------------- */
+    /* Aba: demonstracao de resultado                                   */
+    /* ---------------------------------------------------------------- */
+
+    function abaDRE() {
+      return h(Tabela, null,
+        linhasDaSecao(SECOES_DRE[0]),
+        linhasDaSecao(SECOES_DRE[1]),
+        h(LinhaTabela, {
+          label: "(=) Receita Líquida", valores: dados.receitaLiquida, meses: meses, nivel: "total"
+        }),
+        linhasDaSecao(SECOES_DRE[2]),
+        h(LinhaTabela, {
+          label: "(=) Lucro Bruto", valores: dados.lucroBruto, meses: meses, nivel: "total"
+        }),
+        h(LinhaTabela, {
+          label: "% margem bruta", valores: sobreReceitaLiquida(dados.lucroBruto),
+          meses: meses, nivel: "pct", formato: "pct"
+        }),
+        linhasDaSecao(SECOES_DRE[3]),
+        h(LinhaTabela, {
+          label: "(=) EBITDA", valores: dados.ebitda, meses: meses, nivel: "total"
+        }),
+        h(LinhaTabela, {
+          label: "% margem EBITDA", valores: sobreReceitaLiquida(dados.ebitda),
+          meses: meses, nivel: "pct", formato: "pct"
+        }),
+        linhasDaSecao(SECOES_DRE[4]),
+        linhasDaSecao(SECOES_DRE[5]),
+        linhasDaSecao(SECOES_DRE[6]),
+        linhasDaSecao(SECOES_DRE[7]),
+        h(LinhaTabela, {
+          label: "(=) Resultado Antes de Impostos", valores: dados.ebit, meses: meses, nivel: "total"
+        }),
+        linhasDaSecao(SECOES_DRE[8]),
+        h(LinhaTabela, {
+          label: "(=) Lucro Líquido", valores: dados.lucroLiquido, meses: meses, nivel: "total"
+        }),
+        h(LinhaTabela, {
+          label: "(=) Resultado Acumulado", valores: dados.acumulado, meses: meses, nivel: "secao",
+          acumulado: ultimoMes ? dados.acumulado[ultimoMes] : 0
+        }),
+        h(LinhaTabela, {
+          label: "% margem líquida", valores: sobreReceitaLiquida(dados.lucroLiquido),
+          meses: meses, nivel: "pct", formato: "pct"
+        })
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Aba: fluxo de caixa                                              */
+    /* ---------------------------------------------------------------- */
+
+    function abaFluxoDeCaixa() {
+      var saldoAcumulado = {};
+      var caucaoNegativa = {};
+      var caixaLivre = {};
+      var faturaCartao = {};
+      var corrido = 0;
+
+      meses.forEach(function (mes) {
+        corrido += dados.fcl[mes];
+        saldoAcumulado[mes] = corrido;
+        caucaoNegativa[mes] = -dados.contas
+          .filter(function (c) { return /garantia|cau/i.test(c); })
+          .reduce(function (soma, conta) { return soma + dados.saldoConta[conta][mes]; }, 0);
+        faturaCartao[mes] = dados.contas
+          .filter(function (c) { return /cart/i.test(c) && !/garantia|cau/i.test(c); })
+          .reduce(function (soma, conta) { return soma + dados.saldoConta[conta][mes]; }, 0);
+        caixaLivre[mes] = saldoAcumulado[mes] + caucaoNegativa[mes];
+      });
+
+      var temCaucao = meses.some(function (mes) { return Math.abs(caucaoNegativa[mes]) > 0.005; });
+
+      return h(Fragment, null,
+        h(Tabela, null,
+          h(LinhaTabela, {
+            label: "(=) Lucro Líquido do período", valores: dados.lucroLiquido, meses: meses, nivel: "secao"
+          }),
+          SECOES_FLUXO.map(function (secao) { return linhasDaSecao(secao); }),
+          h(LinhaTabela, {
+            label: "(=) Fluxo de Caixa Livre do mês", valores: dados.fcl,
+            meses: meses, nivel: "total", casas: 2
+          }),
+          h(LinhaTabela, {
+            label: "(=) Saldo acumulado, todas as contas", valores: saldoAcumulado,
+            meses: meses, nivel: "secao", casas: 2,
+            acumulado: ultimoMes ? saldoAcumulado[ultimoMes] : 0
+          }),
+          h(LinhaTabela, {
+            label: "(-) Caução em garantia do cartão", valores: caucaoNegativa,
+            meses: meses, nivel: "grupo", casas: 2,
+            acumulado: ultimoMes ? caucaoNegativa[ultimoMes] : 0
+          }),
+          h(LinhaTabela, {
+            label: "(=) Caixa livre", valores: caixaLivre,
+            meses: meses, nivel: "total", casas: 2,
+            acumulado: ultimoMes ? caixaLivre[ultimoMes] : 0
+          }),
+          h(LinhaTabela, {
+            label: "Integridade: base menos fluxo", valores: dados.integridade,
+            meses: meses, nivel: "pct", casas: 2
+          })
+        ),
+        h("div", {
+          className: "rounded px-4 py-3 mt-3",
+          style: {
+            background: COR.surface,
+            border: "1px solid " + COR.line,
+            fontSize: 11,
+            color: COR.dim,
+            lineHeight: 1.6
+          }
+        },
+          "O saldo acumulado soma as três contas. A ",
+          h("strong", null, "caução"),
+          temCaucao ? "" : " (hoje zerada)",
+          " sai porque o dinheiro está travado como garantia do cartão e só volta se o cartão for encerrado. A ",
+          h("strong", null, "fatura de cartão em aberto"),
+          ", hoje em ",
+          formatarNumero(ultimoMes ? faturaCartao[ultimoMes] : 0, 2),
+          ", não aparece como linha separada porque já está deduzida: o saldo da conta de cartão é negativo enquanto a fatura não é paga. As colunas de mês mostram a posição no fim de cada mês, não a variação, das três últimas linhas para baixo."
+        )
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Abas: por projeto e por centro de custo                          */
+    /* ---------------------------------------------------------------- */
+
+    function abaDimensao() {
+      var agrupado = aba === "proj" ? dados.porProjeto : dados.porCentro;
+      var dimensao = aba === "proj" ? "projeto" : "centro";
+      var rotuloVazio = aba === "proj" ? "Sem projeto" : "Sem centro de custo";
+
+      var abrirDimensao = function (valorDimensao, titulo) {
+        return function (mes) {
+          var filtro = { titulo: titulo, mes: mes, campo: campoData, somenteResultado: true, gruposResultado: GRUPOS_DE_RESULTADO };
+          filtro[dimensao] = valorDimensao;
+          setGaveta(filtro);
+        };
+      };
+
+      var somarTudo = function (qual) {
+        var totais = {};
+        meses.forEach(function (mes) {
+          totais[mes] = agrupado.lista.reduce(function (soma, item) {
+            return soma + agrupado[qual][item][mes];
+          }, 0);
+        });
+        return totais;
+      };
+
+      if (!agrupado.lista.length) {
+        return h("div", {
+          className: "rounded p-4",
+          style: { background: COR.surface, border: "1px solid " + COR.line, fontSize: 12, color: COR.dim }
+        }, "Nenhum lançamento de resultado no período.");
+      }
+
+      return h("div", { className: "space-y-4" },
+        h("div", {
+          className: "rounded px-4 py-3",
+          style: {
+            background: COR.surface,
+            border: "1px solid " + COR.line,
+            fontSize: 11,
+            color: COR.dim,
+            lineHeight: 1.6
+          }
+        },
+          "Só entram linhas de resultado: receita, custo e despesa. Movimentação de sócio, transferência entre contas e investimento ficam de fora, senão a margem do ",
+          aba === "proj" ? "projeto" : "centro de custo",
+          " misturaria dinheiro que não é dele. O que estiver em ",
+          h("strong", null, rotuloVazio),
+          " é lançamento sem essa informação preenchida no Omie."
+        ),
+        h(Tabela, null,
+          agrupado.lista.map(function (item) {
+            var margem = {};
+            meses.forEach(function (mes) {
+              margem[mes] = agrupado.rec[item][mes] ? agrupado.res[item][mes] / agrupado.rec[item][mes] : 0;
+            });
+            return h(React.Fragment, { key: "dim" + item },
+              h(LinhaTabela, {
+                label: item, valores: agrupado.res[item], meses: meses, nivel: "secao",
+                aoAbrir: abrirDimensao(item, item)
+              }),
+              h(LinhaTabela, {
+                label: "Receita", valores: agrupado.rec[item], meses: meses, nivel: "grupo",
+                aoAbrir: abrirDimensao(item, item + " - receita")
+              }),
+              h(LinhaTabela, {
+                label: "Custos e despesas", valores: agrupado.sai[item], meses: meses, nivel: "grupo",
+                aoAbrir: abrirDimensao(item, item + " - custos e despesas")
+              }),
+              h(LinhaTabela, {
+                label: "% margem", valores: margem, meses: meses, nivel: "pct", formato: "pct"
+              })
+            );
+          }),
+          h(LinhaTabela, {
+            label: "(=) Resultado somado", valores: somarTudo("res"), meses: meses, nivel: "total"
+          })
+        )
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Aba: conciliacao                                                 */
+    /* ---------------------------------------------------------------- */
+
+    function abaConciliacao() {
+      var blocosPorConta = dados.contas.map(function (conta) {
+        var saldoInformado = {};
+        var diferenca = {};
+        var temExtrato = false;
+
+        meses.forEach(function (mes) {
+          var valor = saldosExtrato[conta + "||" + mes];
+          var informado = valor !== undefined && valor !== "";
+          if (informado) temExtrato = true;
+          saldoInformado[mes] = informado ? paraNumero(valor) : 0;
+          diferenca[mes] = informado
+            ? Math.round((saldoInformado[mes] - dados.saldoConta[conta][mes]) * 100) / 100
+            : 0;
+        });
+
+        var bateTodosOsMeses = temExtrato && meses.every(function (mes) {
+          return Math.abs(diferenca[mes]) < 0.005;
+        });
+
+        return h(React.Fragment, { key: "blk" + conta },
+          h(LinhaTabela, { label: conta, valores: {}, meses: meses, nivel: "secao", acumulado: 0 }),
+          h(LinhaTabela, {
+            label: "saldo calculado pela base", valores: dados.saldoConta[conta],
+            meses: meses, nivel: "grupo", casas: 2, acumulado: dados.saldoConta[conta][ultimoMes]
+          }),
+          h(LinhaTabela, {
+            label: temExtrato ? "saldo pelo extrato" : "saldo pelo extrato (não informado)",
+            valores: saldoInformado, meses: meses, nivel: "grupo", casas: 2,
+            acumulado: saldoInformado[ultimoMes]
+          }),
+          h("tr", {
+            style: {
+              background: bateTodosOsMeses ? COR.mintSoft : (temExtrato ? COR.coralSoft : "transparent")
+            }
+          },
+            h("td", {
+              className: "pl-6 py-1 whitespace-nowrap",
+              style: {
+                fontSize: 12,
+                fontWeight: 600,
+                color: temExtrato ? (bateTodosOsMeses ? COR.mint : COR.coral) : COR.faint
+              }
+            }, temExtrato && bateTodosOsMeses ? "diferença: bate ao centavo" : "diferença"),
+            meses.map(function (mes) {
+              return h("td", {
+                key: mes,
+                className: "px-3 py-1 text-right whitespace-nowrap",
+                style: {
+                  fontSize: 12,
+                  fontWeight: 600,
+                  fontVariantNumeric: "tabular-nums",
+                  color: temExtrato ? (Math.abs(diferenca[mes]) < 0.005 ? COR.mint : COR.coral) : COR.faint
+                }
+              }, formatarNumero(diferenca[mes], 2));
+            }),
+            h("td", { className: "px-3 py-1", style: { borderLeft: "1px solid " + COR.line } })
+          )
+        );
+      });
+
+      var cartaoExtrato = h("div", {
+        className: "rounded p-4",
+        style: { background: COR.surface, border: "1px solid " + COR.line }
+      },
+        h("div", {
+          className: "uppercase mb-1",
+          style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass }
+        }, "Saldo por extrato"),
+        h("div", { className: "mb-3", style: { fontSize: 11, color: COR.faint } },
+          "Suba o extrato de cada conta no topo da tela, um arquivo por conta e quantos quiser de uma vez, que os saldos entram sozinhos mês a mês. Ou digite aqui o saldo de ",
+          ultimoMes ? rotuloMes(ultimoMes) : "-",
+          ". Campo em branco não é comparado.",
+          arquivosExtrato.length > 0 && h("span", { style: { color: COR.mint } },
+            " ", "Carregados: ",
+            arquivosExtrato.map(function (a) { return a.nome; }).join(", "), ".")
+        ),
+        h("div", { className: "space-y-1" },
+          dados.contas.map(function (conta) {
+            var chave = conta + "||" + ultimoMes;
+            var valorInformado = saldosExtrato[chave];
+            var saldoCalculado = dados.saldoConta[conta][ultimoMes];
+            var informado = valorInformado !== undefined && valorInformado !== "";
+            var diferenca = informado
+              ? Math.round((paraNumero(valorInformado) - saldoCalculado) * 100) / 100
+              : null;
+            var bate = informado && Math.abs(diferenca) < 0.005;
+
+            return h("div", {
+              key: "ext" + conta,
+              className: "flex flex-wrap items-center gap-3 py-2",
+              style: { borderTop: "1px solid " + COR.lineSoft }
+            },
+              h("div", {
+                className: "flex-1",
+                style: { fontSize: 12, color: COR.dim, minWidth: 200 }
+              }, conta),
+              h("div", {
+                className: "w-32 text-right",
+                style: { fontSize: 12, color: COR.faint, fontVariantNumeric: "tabular-nums" }
+              }, formatarNumero(saldoCalculado, 2)),
+              h("input", {
+                value: valorInformado === undefined ? "" : valorInformado,
+                onChange: function (evento) {
+                  var atualizado = Object.assign({}, saldosExtrato);
+                  atualizado[chave] = evento.target.value;
+                  setSaldosExtrato(atualizado);
+                },
+                placeholder: "saldo do extrato",
+                className: "w-40 px-2 py-1 text-right rounded",
+                style: {
+                  fontSize: 12,
+                  background: "#FFFFFF",
+                  border: "1px solid " + COR.line,
+                  color: COR.text,
+                  outline: "none"
+                }
+              }),
+              h("div", {
+                className: "w-44 text-right",
+                style: {
+                  fontSize: 12,
+                  color: informado ? (bate ? COR.mint : COR.coral) : COR.faint,
+                  fontWeight: informado ? 600 : 400
+                }
+              }, informado
+                ? (bate ? "bate ao centavo" : "diferença de " + formatarNumero(diferenca, 2))
+                : "sem extrato")
+            );
+          })
+        )
+      );
+
+      var cartaoCaixa = posicao && h("div", {
+        className: "rounded p-4",
+        style: { background: COR.surface, border: "1px solid " + COR.line }
+      },
+        h("div", {
+          className: "uppercase mb-3",
+          style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass }
+        }, "Caixa disponível de fato"),
+        [["Conta corrente", posicao.corrente],
+         ["(-) Fatura de cartão em aberto", posicao.cartao]
+        ].map(function (par) {
+          return h("div", {
+            key: par[0],
+            className: "flex justify-between py-1",
+            style: { fontSize: 12, color: COR.dim }
+          },
+            h("span", null, par[0]),
+            h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(par[1], 2))
+          );
+        }),
+        h("div", {
+          className: "flex justify-between py-2 mt-1",
+          style: {
+            fontSize: 13,
+            borderTop: "1px solid " + COR.line,
+            color: posicao.livre < 0 ? COR.coral : COR.mint,
+            fontWeight: 700
+          }
+        },
+          h("span", null, "(=) Caixa livre"),
+          h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(posicao.livre, 2))
+        ),
+        h("div", {
+          className: "flex justify-between py-1 mt-2",
+          style: { fontSize: 12, color: COR.dim }
+        },
+          h("span", null, "(+) Caução em garantia do cartão, restituível"),
+          h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(posicao.garantia, 2))
+        ),
+        h("div", {
+          className: "flex justify-between py-2",
+          style: {
+            fontSize: 13,
+            borderTop: "1px solid " + COR.line,
+            color: COR.text,
+            fontWeight: 700
+          }
+        },
+          h("span", null, "(=) Posição total"),
+          h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(posicao.total, 2))
+        ),
+        h("div", {
+          className: "mt-3",
+          style: { fontSize: 11, color: COR.faint, lineHeight: 1.5 }
+        }, "A caução não entra no caixa livre porque o dinheiro já saiu da conta quando foi depositado na garantia: o saldo da conta corrente acima já está líquido dela. Ela volta se o cartão for encerrado, por isso soma na posição total.")
+      );
+
+      return h("div", { className: "space-y-5" },
+        h(Tabela, null,
+          h(LinhaTabela, {
+            label: "Movimento do mês por conta", valores: {}, meses: meses, nivel: "secao", acumulado: 0
+          }),
+          dados.contas.map(function (conta) {
+            return h(LinhaTabela, {
+              key: "mov" + conta, label: conta, valores: dados.movConta[conta],
+              meses: meses, nivel: "item", casas: 2
+            });
+          }),
+          blocosPorConta
+        ),
+        cartaoExtrato,
+        cartaoCaixa
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Aba: achados                                                     */
+    /* ---------------------------------------------------------------- */
+
+    function abaAchados() {
+      return h("div", { className: "space-y-2" },
+        dados.achados.length === 0 && h("div", {
+          className: "rounded p-4",
+          style: {
+            fontSize: 12,
+            background: COR.mintSoft,
+            border: "1px solid " + COR.mint,
+            color: COR.mint
+          }
+        }, "Nenhum achado. Categorias dentro do plano, sem duplicidade aparente, sem cancelado na base e fluxo fechando com a base."),
+        dados.achados.map(function (achado, indice) {
+          return h("div", {
+            key: indice,
+            className: "rounded px-4 py-3",
+            style: {
+              background: COR.surface,
+              borderLeft: "3px solid " + (achado.nivel === "erro" ? COR.coral : COR.brass),
+              border: "1px solid " + COR.line
+            }
+          },
+            h("div", {
+              style: {
+                fontSize: 12,
+                color: achado.nivel === "erro" ? COR.coral : COR.brass,
+                fontWeight: 600
+              }
+            }, achado.titulo),
+            h("div", { className: "mt-0.5", style: { fontSize: 12, color: COR.dim } }, achado.detalhe)
+          );
+        })
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Aba: compromissos futuros                                        */
+    /* ---------------------------------------------------------------- */
+
+    function abaCompromissos() {
+      var colunas = ["Vencimento", "Categoria", "Contraparte", "Projeto", "Valor"];
+
+      return h("div", { className: "space-y-2" },
+        h("div", { className: "mb-2", style: { fontSize: 11, color: COR.faint } },
+          "Títulos com vencimento futuro, ainda sem data de pagamento na Omie. Não entram no DRE nem no fluxo de caixa acima, que só contam o que já foi realizado."),
+        emAberto.length === 0 && h("div", {
+          className: "rounded p-4",
+          style: {
+            fontSize: 12,
+            background: COR.mintSoft,
+            border: "1px solid " + COR.mint,
+            color: COR.mint
+          }
+        }, "Nenhum compromisso futuro em aberto na base."),
+        emAberto.length > 0 && h("table", {
+          className: "w-full",
+          style: { fontSize: 12, borderCollapse: "collapse" }
+        },
+          h("thead", null,
+            h("tr", {
+              style: { borderBottom: "1px solid " + COR.line, color: COR.faint, textAlign: "left" }
+            }, colunas.map(function (titulo, i) {
+              return h("th", {
+                key: titulo,
+                className: i === colunas.length - 1 ? "py-2 pr-2 text-right" : "py-2 pr-2",
+                style: { fontWeight: 400 }
+              }, titulo);
+            }))
+          ),
+          h("tbody", null,
+            emAberto.slice().sort(function (a, b) {
+              return (a.vencimento || "").localeCompare(b.vencimento || "");
+            }).map(function (titulo, indice) {
+              return h("tr", { key: indice, style: { borderBottom: "1px solid " + COR.lineSoft } },
+                h("td", { className: "py-1.5 pr-2", style: { color: COR.dim } }, titulo.vencimento || "-"),
+                h("td", { className: "py-1.5 pr-2", style: { color: COR.dim } }, titulo.categoria),
+                h("td", { className: "py-1.5 pr-2", style: { color: COR.dim } }, titulo.contraparte || "-"),
+                h("td", { className: "py-1.5 pr-2", style: { color: COR.dim } }, titulo.projeto),
+                h("td", {
+                  className: "py-1.5 pr-2 text-right",
+                  style: { color: titulo.tipo === "receber" ? COR.mint : COR.coral }
+                }, formatarNumero(titulo.valor_titulo, 2))
+              );
+            })
+          )
+        )
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Montagem final                                                   */
+    /* ---------------------------------------------------------------- */
+
+    return h("div", {
+      className: "min-h-screen w-full",
+      style: { background: COR.bg, color: COR.text }
+    },
+      h(GavetaLancamentos, {
+        ctx: gaveta,
+        linhas: dados.usadas,
+        aoFechar: function () { setGaveta(null); }
+      }),
+      barraSuperior,
+      aviso && h("div", {
+        className: "mx-6 mt-3 p-3 rounded",
+        style: { background: COR.coralSoft, color: COR.coral, fontSize: 12 }
+      }, aviso),
+      faixaIntegridade,
+      cartoes,
+      barraAbas,
+      h("div", { className: "px-6 pb-16 pt-3" },
+        aba === "dre" && abaDRE(),
+        aba === "caixa" && abaFluxoDeCaixa(),
+        (aba === "proj" || aba === "cc") && abaDimensao(),
+        aba === "conc" && abaConciliacao(),
+        aba === "achados" && abaAchados(),
+        aba === "abertos" && abaCompromissos()
+      )
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 12. MONTAGEM                                                        */
+  /* ------------------------------------------------------------------ */
+
+  window.__PainelRealizado = Painel;
+})();
 </script>
 <script>
 (function () {
