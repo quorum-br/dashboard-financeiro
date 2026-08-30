@@ -1109,6 +1109,245 @@
     );
   }
 
+
+  /* ------------------------------------------------------------------ */
+  /* 8-A. GRAFICOS DA APRESENTACAO                                       */
+  /* SVG puro, sem biblioteca. Formato 16:9 para virar slide depois.     */
+  /* ------------------------------------------------------------------ */
+
+  var SLIDE = { largura: 1280, altura: 720 };
+
+  /* Gradiente de azul, do mais escuro ao mais claro. A maior serie fica  */
+  /* na base da coluna e recebe o tom mais escuro.                       */
+  var AZUIS = [
+    "#0A2A47", "#16497A", "#216FA8", "#3E92C8",
+    "#74B4DC", "#A6CFE8", "#BBD9EE"
+  ];
+
+  /* Escolhe um topo de eixo redondo e o passo da grade. */
+  function escalaBonita(valorMaximo, divisoesDesejadas) {
+    if (!(valorMaximo > 0)) return { topo: 1, passo: 1 };
+    var divisoes = divisoesDesejadas || 5;
+    var passoCru = valorMaximo / divisoes;
+    var magnitude = Math.pow(10, Math.floor(Math.log(passoCru) / Math.LN10));
+    var normalizado = passoCru / magnitude;
+    var multiplicador = normalizado <= 1 ? 1 : (normalizado <= 2 ? 2 : (normalizado <= 2.5 ? 2.5 : (normalizado <= 5 ? 5 : 10)));
+    var passo = multiplicador * magnitude;
+    return { topo: Math.ceil(valorMaximo / passo) * passo, passo: passo };
+  }
+
+  /* Largura aproximada de um texto, para posicionar a legenda. */
+  function larguraAproximada(texto, tamanhoFonte) {
+    return String(texto).length * tamanhoFonte * 0.55;
+  }
+
+  /* Colunas empilhadas de receita bruta, abertas por tipo de receita. */
+  function GraficoReceitaBruta(props) {
+    var dados = props.dados;
+    var meses = props.meses;
+    var regime = props.regime;
+
+    /* Uma serie por grupo de receita, descartando o que ficou zerado. */
+    var series = SECOES_DRE[0].groups.map(function (grupo) {
+      var valores = {};
+      var total = 0;
+      meses.forEach(function (mes) {
+        var valor = dados.grupoMes(grupo, mes);
+        valores[mes] = valor;
+        total += valor;
+      });
+      return { nome: grupo, valores: valores, total: total };
+    }).filter(function (serie) {
+      return Math.abs(serie.total) > 0.005;
+    }).sort(function (a, b) {
+      return b.total - a.total;
+    });
+
+    /* Rotulo curto: "Receita de Patrocínio" vira "Patrocínio". */
+    series.forEach(function (serie) {
+      serie.rotulo = serie.nome.replace(/^Receitas? de /, "").replace(/^Receitas /, "");
+      serie.cor = null;
+    });
+    /* Espalha os tons ao longo do gradiente: com poucas series, usa os      */
+    /* extremos, para que faixas vizinhas nunca fiquem quase iguais.        */
+    series.forEach(function (serie, i) {
+      /* Com poucas series o tom mais claro fica lavado contra o fundo, entao */
+      /* o teto do gradiente so sobe ate o fim quando ha series suficientes.  */
+      var tetoTom = Math.min(AZUIS.length - 1, Math.max(series.length - 1, 5));
+      var passo = series.length > 1 ? tetoTom / (series.length - 1) : 0;
+      serie.cor = AZUIS[Math.round(i * passo)];
+    });
+
+    var totalPorMes = {};
+    meses.forEach(function (mes) {
+      totalPorMes[mes] = series.reduce(function (soma, serie) {
+        return soma + serie.valores[mes];
+      }, 0);
+    });
+
+    var maiorTotal = meses.reduce(function (maior, mes) {
+      return Math.max(maior, totalPorMes[mes]);
+    }, 0);
+
+    var moldura = {
+      className: "rounded overflow-hidden",
+      style: { background: COR.surface, border: "1px solid " + COR.line }
+    };
+
+    if (!series.length || maiorTotal <= 0) {
+      return h("div", moldura,
+        h("div", {
+          className: "flex items-center justify-center",
+          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
+        }, "Sem receita bruta no período para montar o gráfico.")
+      );
+    }
+
+    /* Area util do desenho. */
+    var margem = { topo: 104, direita: 48, baixo: 150, esquerda: 104 };
+    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
+    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
+    var baseY = margem.topo + alturaPlot;
+
+    var escala = escalaBonita(maiorTotal, 5);
+    var alturaDe = function (valor) { return (valor / escala.topo) * alturaPlot; };
+
+    var faixa = larguraPlot / meses.length;
+    var larguraColuna = Math.min(96, faixa * 0.58);
+
+    /* Grade horizontal e rotulos do eixo de valores. */
+    var grade = [];
+    for (var v = 0; v <= escala.topo + 0.0001; v += escala.passo) {
+      var y = baseY - alturaDe(v);
+      grade.push(h("line", {
+        key: "g" + v,
+        x1: margem.esquerda, y1: y, x2: margem.esquerda + larguraPlot, y2: y,
+        stroke: v === 0 ? COR.line : COR.lineSoft,
+        strokeWidth: v === 0 ? 1.5 : 1
+      }));
+      grade.push(h("text", {
+        key: "r" + v,
+        x: margem.esquerda - 16, y: y + 5,
+        textAnchor: "end",
+        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+      }, v === 0 ? "0" : formatarNumero(v, 0)));
+    }
+
+    /* Colunas empilhadas, maior serie na base. */
+    var colunas = [];
+    meses.forEach(function (mes, indiceMes) {
+      var centro = margem.esquerda + faixa * indiceMes + faixa / 2;
+      var x = centro - larguraColuna / 2;
+      var topoAcumulado = baseY;
+
+      series.forEach(function (serie) {
+        var valor = serie.valores[mes];
+        if (valor <= 0) return;
+        var altura = alturaDe(valor);
+        topoAcumulado -= altura;
+        colunas.push(h("rect", {
+          key: "b" + mes + serie.nome,
+          x: x, y: topoAcumulado, width: larguraColuna, height: altura,
+          fill: serie.cor,
+          stroke: COR.surface,
+          strokeWidth: 1.5
+        }));
+      });
+
+      /* Total no topo da coluna. */
+      if (totalPorMes[mes] > 0) {
+        colunas.push(h("text", {
+          key: "t" + mes,
+          x: centro, y: topoAcumulado - 14,
+          textAnchor: "middle",
+          style: {
+            fontSize: 19,
+            fill: COR.text,
+            fontWeight: 600,
+            fontVariantNumeric: "tabular-nums"
+          }
+        }, formatarNumero(totalPorMes[mes], 0)));
+      }
+
+      /* Rotulo do mes. */
+      colunas.push(h("text", {
+        key: "m" + mes,
+        x: centro, y: baseY + 30,
+        textAnchor: "middle",
+        style: { fontSize: 16, fill: COR.dim }
+      }, rotuloMes(mes)));
+    });
+
+    /* Legenda centralizada, quebrando em linhas quando nao couber. */
+    var LEGENDA_FONTE = 15;
+    var itensLegenda = series.map(function (serie) {
+      return { rotulo: serie.rotulo, cor: serie.cor, largura: 18 + 10 + larguraAproximada(serie.rotulo, LEGENDA_FONTE) + 34 };
+    });
+
+    var linhasLegenda = [];
+    var linhaCorrente = [];
+    var larguraCorrente = 0;
+    itensLegenda.forEach(function (item) {
+      if (linhaCorrente.length && larguraCorrente + item.largura > larguraPlot) {
+        linhasLegenda.push({ itens: linhaCorrente, largura: larguraCorrente });
+        linhaCorrente = [];
+        larguraCorrente = 0;
+      }
+      linhaCorrente.push(item);
+      larguraCorrente += item.largura;
+    });
+    if (linhaCorrente.length) linhasLegenda.push({ itens: linhaCorrente, largura: larguraCorrente });
+
+    var legenda = [];
+    linhasLegenda.forEach(function (linha, indiceLinha) {
+      var x = margem.esquerda + (larguraPlot - linha.largura) / 2;
+      var y = baseY + 72 + indiceLinha * 30;
+      linha.itens.forEach(function (item) {
+        legenda.push(h("rect", {
+          key: "lc" + item.rotulo,
+          x: x, y: y - 12, width: 18, height: 14, rx: 2, fill: item.cor
+        }));
+        legenda.push(h("text", {
+          key: "lt" + item.rotulo,
+          x: x + 28, y: y,
+          style: { fontSize: LEGENDA_FONTE, fill: COR.dim }
+        }, item.rotulo));
+        x += item.largura;
+      });
+    });
+
+    var periodo = meses.length
+      ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1])
+      : "sem período";
+
+    return h("div", moldura,
+      h("svg", {
+        viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura,
+        width: "100%",
+        preserveAspectRatio: "xMidYMid meet",
+        style: { display: "block", background: COR.surface }
+      },
+        /* Cabecalho do slide. */
+        h("text", {
+          x: margem.esquerda, y: 52,
+          style: { fontSize: 13, fill: COR.brass, letterSpacing: "3.6px" }
+        }, "QUORUM"),
+        h("text", {
+          x: margem.esquerda, y: 84,
+          style: { fontSize: 30, fill: COR.text, fontWeight: 600 }
+        }, "Receita Bruta"),
+        h("text", {
+          x: SLIDE.largura - margem.direita, y: 84,
+          textAnchor: "end",
+          style: { fontSize: 15, fill: COR.faint }
+        }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$"),
+        grade,
+        colunas,
+        legenda
+      )
+    );
+  }
+
   /* ------------------------------------------------------------------ */
   /* 9. GERADOR DE XLSX                                                  */
   /* O arquivo e montado a mao: XML das abas, styles.xml e um ZIP sem    */
@@ -2532,7 +2771,8 @@
       ["cc", "Por centro de custo"],
       ["conc", "Conciliação"],
       ["achados", "Achados (" + dados.achados.length + ")"],
-      ["abertos", "Compromissos futuros (" + emAberto.length + ")"]
+      ["abertos", "Compromissos futuros (" + emAberto.length + ")"],
+      ["apres", "Apresentação"]
     ];
 
     var barraAbas = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
@@ -3071,6 +3311,18 @@
     }
 
     /* ---------------------------------------------------------------- */
+    /* Aba: apresentacao (RI)                                           */
+    /* ---------------------------------------------------------------- */
+
+    function abaApresentacao() {
+      return h("div", { className: "space-y-3" },
+        h("div", { style: { fontSize: 11, color: COR.faint } },
+          "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
+        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime })
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
     /* Montagem final                                                   */
     /* ---------------------------------------------------------------- */
 
@@ -3097,7 +3349,8 @@
         (aba === "proj" || aba === "cc") && abaDimensao(),
         aba === "conc" && abaConciliacao(),
         aba === "achados" && abaAchados(),
-        aba === "abertos" && abaCompromissos()
+        aba === "abertos" && abaCompromissos(),
+        aba === "apres" && abaApresentacao()
       )
     );
   }
