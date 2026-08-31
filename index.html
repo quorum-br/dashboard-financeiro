@@ -495,8 +495,17 @@
     var usadas = linhas.filter(function (l) { return l[campoData]; });
     var semData = linhas.filter(function (l) { return !l[campoData]; });
 
+    /* A lista de meses da tela e a uniao de caixa e competencia em TODA a  */
+    /* base, nao so do regime escolhido. Um lancamento sem nota fiscal (um  */
+    /* aporte de socio via PIX, por exemplo) tem data de pagamento mas nao  */
+    /* tem data de emissao; se a lista de meses fosse calculada so a partir */
+    /* do regime ativo, um mes inteiro podia sumir da tela ao trocar entre  */
+    /* Caixa e Competencia, quando deveria so mudar o valor dentro dele.    */
     var chavesMes = new Set();
-    usadas.forEach(function (l) { chavesMes.add(chaveMes(l[campoData])); });
+    linhas.forEach(function (l) {
+      if (l.dPag) chavesMes.add(chaveMes(l.dPag));
+      if (l.dEmi) chavesMes.add(chaveMes(l.dEmi));
+    });
     var meses = Array.from(chavesMes).sort();
 
     var porCategoria = new Map();  /* grupo||categoria||mes */
