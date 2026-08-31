@@ -1805,48 +1805,52 @@
   /* sempre abrange varios anos quando tem dado suficiente para existir.    */
   var TONS_POR_ANO = ["#0A2A47", "#216FA8", "#74B4DC", "#B9C0CC"];
 
-  /* Soma de Receita Bruta nos 12 meses terminando em "mes" (formato        */
-  /* AAAA-MM), inclusive. Devolve null se faltar qualquer um dos 12 meses   */
-  /* no historico da empresa: uma soma parcial de 2 ou 3 meses fingindo    */
-  /* ser "ultimos 12 meses" e pior que nao mostrar nada.                    */
-  function somaLTM(dados, mesInicioHistorico, mesAlvo) {
+  /* Soma de Receita Bruta terminando em "mes" (formato AAAA-MM), inclusive. */
+  /* Quando ha 12 meses de historico da empresa disponiveis, soma a janela   */
+  /* movel completa (completo:true). Antes disso, soma o que existe desde   */
+  /* o inicio do historico (completo:false) — por pedido explicito de Alex, */
+  /* que prefere ver o acumulado parcial a nao ver nada, sabendo que a      */
+  /* leitura de "ultimos 12 meses" so vale a partir do primeiro ponto       */
+  /* completo. O grafico marca visualmente a diferenca entre os dois.       */
+  function janelaLTM(dados, mesInicioHistorico, mesAlvo) {
     var partesAlvo = mesAlvo.split("-");
     var indiceAlvo = Number(partesAlvo[0]) * 12 + (Number(partesAlvo[1]) - 1);
     var partesInicio = mesInicioHistorico.split("-");
     var indiceInicio = Number(partesInicio[0]) * 12 + (Number(partesInicio[1]) - 1);
-    if (indiceAlvo - indiceInicio < 11) return null;
+    var mesesDisponiveis = Math.min(12, indiceAlvo - indiceInicio + 1);
 
     var gruposReceita = SECOES_DRE[0].groups;
     var soma = 0;
-    for (var i = 0; i < 12; i++) {
+    for (var i = 0; i < mesesDisponiveis; i++) {
       var indiceMes = indiceAlvo - i;
       var mes = Math.floor(indiceMes / 12) + "-" + String((indiceMes % 12) + 1).padStart(2, "0");
       gruposReceita.forEach(function (grupo) {
         soma += dados.grupoMes(grupo, mes);
       });
     }
-    return soma;
+    return { soma: soma, completo: mesesDisponiveis >= 12 };
   }
 
   /* Colunas com a soma de Receita Bruta nos ultimos 12 meses (janela       */
   /* movel), e uma linha com o crescimento do LTM contra o LTM do mes       */
-  /* anterior. So plota um mes quando ele tem os 12 meses de historico da   */
-  /* empresa completos atras dele; o primeiro ponto de crescimento precisa  */
-  /* de mais um mes anterior a isso, para comparar dois LTM entre si.       */
+  /* anterior. Enquanto a empresa nao tem 12 meses de historico, a barra    */
+  /* mostra o acumulado parcial desde o inicio, mais clara e marcada com    */
+  /* asterisco: nao e uma leitura de "ultimos 12 meses" ainda, e o rodape   */
+  /* do grafico deixa isso explicito sempre que houver alguma barra assim.  */
   function GraficoReceitaBrutaLTM(props) {
     var dados = props.dados;
     var todosMeses = props.meses;
     var regime = props.regime;
 
     var mesInicioHistorico = todosMeses.length ? todosMeses[0] : null;
-
-    var mesesValidos = mesInicioHistorico
-      ? todosMeses.filter(function (mes) { return somaLTM(dados, mesInicioHistorico, mes) !== null; })
-      : [];
+    var mesesValidos = todosMeses.slice();
 
     var valoresBarra = {};
+    var completoBarra = {};
     mesesValidos.forEach(function (mes) {
-      valoresBarra[mes] = somaLTM(dados, mesInicioHistorico, mes);
+      var janela = janelaLTM(dados, mesInicioHistorico, mes);
+      valoresBarra[mes] = janela.soma;
+      completoBarra[mes] = janela.completo;
     });
 
     var crescimento = {};
@@ -1862,6 +1866,8 @@
       return Math.max(maior, valoresBarra[mes]);
     }, 0);
 
+    var temParcial = mesesValidos.some(function (mes) { return !completoBarra[mes]; });
+
     var moldura = {
       className: "rounded overflow-hidden mx-auto",
       style: {
@@ -1872,19 +1878,12 @@
       }
     };
 
-    if (!mesesValidos.length) {
-      var mesesFaltando = mesInicioHistorico
-        ? Math.max(0, 12 - (todosMeses.length))
-        : 12;
+    if (!mesesValidos.length || maiorBarra <= 0) {
       return h("div", moldura,
         h("div", {
-          className: "flex flex-col items-center justify-center text-center px-10",
-          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint, gap: 6 }
-        },
-          h("div", null, "Ainda não há 12 meses de histórico para montar o LTM."),
-          mesInicioHistorico && h("div", { style: { fontSize: 11 } },
-            "Faltam aproximadamente ", mesesFaltando, " mês(es), a partir de ", rotuloMes(mesInicioHistorico), ".")
-        )
+          className: "flex items-center justify-center",
+          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
+        }, "Sem receita bruta no período para montar o gráfico.")
       );
     }
 
@@ -1948,16 +1947,19 @@
       barras.push(h("rect", {
         key: "b" + mes,
         x: centro - larguraColuna / 2, y: topoBarra, width: larguraColuna, height: altura,
-        fill: corDoAno(mes)
+        fill: corDoAno(mes),
+        fillOpacity: completoBarra[mes] ? 1 : 0.45
       }));
       barras.push(h("text", {
         key: "t" + mes,
         x: centro, y: topoBarra - 10,
         textAnchor: "middle",
         style: {
-          fontSize: fonteValorBarra, fill: COR.text, fontWeight: 600, fontVariantNumeric: "tabular-nums"
+          fontSize: fonteValorBarra,
+          fill: completoBarra[mes] ? COR.text : COR.faint,
+          fontWeight: 600, fontVariantNumeric: "tabular-nums"
         }
-      }, formatarNumero(valor, 0)));
+      }, formatarNumero(valor, 0) + (completoBarra[mes] ? "" : " *")));
       barras.push(h("text", {
         key: "m" + mes,
         x: centro, y: baseY + 28,
@@ -2086,6 +2088,12 @@
           textAnchor: "end",
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
         }, String(props.numero || 1)),
+
+        temParcial && h("text", {
+          x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
+          textAnchor: "middle",
+          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" }
+        }, "* acumulado parcial, ainda sem 12 meses completos de histórico"),
 
         grade, barras, elementosLinha, legenda
       )
@@ -4194,8 +4202,8 @@
           "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
         h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
         h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
-        h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 3 }),
-        h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, regime: regime, numero: 4 })
+        h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, regime: regime, numero: 3 }),
+        h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4 })
       );
     }
 
