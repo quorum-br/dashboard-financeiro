@@ -1117,6 +1117,14 @@
 
   var SLIDE = { largura: 1280, altura: 720 };
 
+  /* Logotipo da QUORUM, o mesmo bitmap do favicon, embutido em base64 para  */
+  /* que o slide nao dependa de rede nem de outro arquivo do repositorio.    */
+  var LOGO_QUORUM = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAE+ElEQVR42s1XS2sUWxD+zjk9r2RMvKirSTRxMUF3dytkkdEsZFwJQ1woCio4GjGICuIvEAQ3ESQ/YUBEjaCzCAQXgoFkE0XFjaAx4qMVxiST7urvbrqbnvR0EnPlcgtOQxenqr5zqk49AJ9IKpJmM6tWq5lKpWIAGACmUqmYWq1mNitPUuH/QoqkUkqR5F8A/l67wXVdrKysIJ/Ph7yHDx9ifHwcU1NTEBEMDQ2hWq2iUqmEexqNBrLZLCzLamd3Tillk1QgaXwXDHMd+vr1K8fHx3n48GH29vYym81SKUUAzGazLBQKHB4e5u3bt/np0yduQMO+TRMFMERSSDokxXEcISk/f/6Uq1evyrZt2wRAy9Jai9Y6xs/lcjI6OipfvnwRkrK6uipR3SSH2gEo+ejEcRyS5IsXL7hv3z4CIACmUimm02kaY0JesIwxTKfTTKVSIa+/v5/T09MkSV+n+DZKiQD8k7Ner7Ozs5MAaFlWzGhXVxf7+/u5d+9ebt++PQbGsiwCYDqd5r179xjVvS4AkjI7O8uOjo5QWWA8l8vx7NmzrNfrXFxcZLPZ5OrqKj9//sypqSleuHCBXV1dMTnLsvjs2bP1b8BxnJLneWw0GlIsFmNKDh48yJcvX24UXHz37h2PHDkSk+/p6eG3b9/E8zw6jhMHYNt2iSSvX78ua6/9xIkT9Dwv9KXruvQ8r2W5rhv4mSRZrVZj7jh37pyQpG3b7V1g2zY7OztFax0KDQ4O0vM8ighd193wBqL7yuVy6AKtNVOplCwsLCTHwMTEBAGIZVlUSjGbzfLNmzckuSnjURCe5/HDhw/s7u6mUip4HXLz5s0WADqanh48eAClFIwxIImRkREUi0W4rgtjzKbTq9YaIoJCoYBTp06BJJRSUEphcnKydXOtVjMAMD09XdqzZw8BSOD7J0+ehP79XQri5Pnz5wRArTUByK5duzgxMVEKbftVDceOHSv5714AsKOjgx8/fiTJMACTrrsdBTK2bXPHjh1BjhDLslgsFkv++U34KRQKJWMMlVISPJulpaV1AQT84CUk7QmyqZ+2CSAEoLdSQkkCAL5//45bt25BKQWSIf+3aCsuCP6Xl5eZy+V4/vz5Fr//lgu2EoSB8qWlJfb19REAL1++3AIikNkwCKN5oFwuUyklmUyGAHjy5MloJWsLoLe3N1DOsbGxEEQgU61WqbVmOp2mUkoGBwf/fSKKAujp6QmrXhSEiLDZbHL//v0EQP9QsUQUS8X5fF6UUi2pWERaUmw7ANH0HYDwPI+vXr3i7t27g84pORWvV4yOHz8evnfHceg4Dj3P469fv1oABHJRECT59u1b7ty5k6dPn04uRtFyPDAwECunpVIpVo5XVlZiAKK3FwXx+vVrLiwsJJfjaEMyNzcXdkNrG5IzZ87w6dOnXFxc5I8fP2IAtNaJIP54S9bX19fSAwZdctJN+M3pxi1Z8IRmZmZamlLLshKb0uDVXLlyJYj4doEpIpLogsS2/Nq1a4lt+Vre/Py8TE5Ohv9KKbEsSwDIpUuX1m3LNxxM7ty503YwyWQyLBQKPHToEN+/f0+SfPToEbu7u2MxcePGjZbBZMuj2d27d1Gv1wEABw4cwMWLF8PRrNFoIJ/P4+jRo7h//z6MMRARZDIZNJtNlMvlucePH9sA/vshVWudWGL/+Hge3bNmhSf/B/hhF0r0E6KeAAAAAElFTkSuQmCC";
+
+  /* Distancia das bordas usada igualmente pelo logo e pelo numero do slide. */
+  var MARGEM_RODAPE = 34;
+  var TAMANHO_LOGO = 34;
+
   /* Gradiente de azul, do mais escuro ao mais claro. A maior serie fica  */
   /* na base da coluna e recebe o tom mais escuro.                       */
   var AZUIS = [
@@ -1210,6 +1218,7 @@
 
     /* Area util do desenho. */
     var margem = { topo: 148, direita: 92, baixo: 192, esquerda: 132 };
+    var RECUO_TITULO = 56;
     var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
     var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
     var baseY = margem.topo + alturaPlot;
@@ -1335,19 +1344,30 @@
       },
         /* Cabecalho do slide: titulo e, logo abaixo, o subtitulo. */
         h("text", {
-          x: margem.esquerda, y: 68,
+          x: RECUO_TITULO, y: 68,
           style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
         }, "RECEITA BRUTA"),
         h("text", {
-          x: margem.esquerda, y: 98,
+          x: RECUO_TITULO, y: 98,
           style: { fontSize: 15, fill: COR.faint }
         }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$"),
 
-        /* Assinatura no rodape esquerdo, dentro do slide. */
+        /* Logotipo no canto inferior esquerdo. */
+        h("image", {
+          href: LOGO_QUORUM,
+          x: MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO,
+          width: TAMANHO_LOGO,
+          height: TAMANHO_LOGO
+        }),
+
+        /* Numero do slide no canto inferior direito, na mesma margem. */
         h("text", {
-          x: margem.esquerda, y: SLIDE.altura - 34,
-          style: { fontSize: 13, fill: COR.brass, letterSpacing: "3.6px" }
-        }, "QUORUM"),
+          x: SLIDE.largura - MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
+          textAnchor: "end",
+          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+        }, String(props.numero || 1)),
         grade,
         colunas,
         legenda
@@ -3325,7 +3345,7 @@
       return h("div", { className: "space-y-3" },
         h("div", { style: { fontSize: 11, color: COR.faint } },
           "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
-        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime })
+        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 })
       );
     }
 
