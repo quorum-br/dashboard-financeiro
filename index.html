@@ -492,8 +492,22 @@
 
   function calcular(linhas, regime) {
     var campoData = regime === "caixa" ? "dPag" : "dEmi";
-    var usadas = linhas.filter(function (l) { return l[campoData]; });
-    var semData = linhas.filter(function (l) { return !l[campoData]; });
+
+    /* Data efetiva de cada linha no regime escolhido. Em competencia, um   */
+    /* lancamento sem nota fiscal (uma tarifa, um PIX de aporte, uma        */
+    /* cobranca de cartao) nao tem data de emissao; sem um substituto, a    */
+    /* linha inteira sumiria do resultado, nao so do mes certo, distorcendo */
+    /* EBITDA e Lucro Liquido. O substituto e a data de pagamento, a mesma  */
+    /* logica de "sem nota, reconhece quando o dinheiro se moveu" que ja    */
+    /* vale implicitamente em Caixa.                                       */
+    var usaFallback = regime !== "caixa";
+    linhas.forEach(function (l) {
+      l.dataRegime = regime === "caixa" ? l.dPag : (l.dEmi || l.dPag);
+      l.usouFallbackData = usaFallback && !l.dEmi && !!l.dPag;
+    });
+
+    var usadas = linhas.filter(function (l) { return l.dataRegime; });
+    var semData = linhas.filter(function (l) { return !l.dataRegime; });
 
     /* A lista de meses da tela e a uniao de caixa e competencia em TODA a  */
     /* base, nao so do regime escolhido. Um lancamento sem nota fiscal (um  */
@@ -513,7 +527,7 @@
     var totalPorMes = new Map();   /* mes */
 
     usadas.forEach(function (l) {
-      var mes = chaveMes(l[campoData]);
+      var mes = chaveMes(l.dataRegime);
       var chaveCat = l.grupo + "||" + l.categoria + "||" + mes;
       porCategoria.set(chaveCat, (porCategoria.get(chaveCat) || 0) + l.valor);
       var chaveConta = l.conta + "||" + mes;
@@ -646,7 +660,7 @@
         if (!ehReceita && !ehSaida) return;
         var valorDimensao = l[dimensao];
         valores.add(valorDimensao);
-        var chave = valorDimensao + "||" + chaveMes(l[campoData]) + "||" + (ehReceita ? "r" : "s");
+        var chave = valorDimensao + "||" + chaveMes(l.dataRegime) + "||" + (ehReceita ? "r" : "s");
         somas.set(chave, (somas.get(chave) || 0) + l.valor);
       });
 
@@ -690,21 +704,39 @@
       });
     });
 
-    /* Lancamentos que ficam de fora por nao ter data no regime escolhido. */
+    /* Lancamentos que ficam de fora por nao ter nenhuma data utilizavel,   */
+    /* nem de pagamento nem de emissao. Deve ser raro: normalmente so       */
+    /* titulos em aberto chegam aqui, e esses ja ficam fora de "usadas" por */
+    /* definicao (usadas exige dataRegime, que so falta quando faltam as    */
+    /* duas datas ao mesmo tempo).                                         */
     if (semData.length) {
       achados.push({
         nivel: "alerta",
-        titulo: "Lançamento sem data no regime escolhido",
+        titulo: "Lançamento sem nenhuma data utilizável",
         detalhe: semData.length + " lançamento(s), somando "
           + formatarNumero(semData.reduce(function (s, l) { return s + l.valor; }, 0), 2)
           + ", ficam fora do período"
       });
     }
 
+    /* Em competencia, lancamentos sem nota fiscal foram reconhecidos pela  */
+    /* data de pagamento. Fica registrado aqui para auditoria: o valor      */
+    /* entra no resultado certo, mas o mes onde ele caiu e uma aproximacao. */
+    var comFallback = usadas.filter(function (l) { return l.usouFallbackData; });
+    if (comFallback.length) {
+      achados.push({
+        nivel: "alerta",
+        titulo: "Reconhecido pela data de pagamento, sem nota fiscal",
+        detalhe: comFallback.length + " lançamento(s) sem data de emissão, somando "
+          + formatarNumero(comFallback.reduce(function (s, l) { return s + l.valor; }, 0), 2)
+          + ", contados no mês do pagamento em vez do mês de emissão"
+      });
+    }
+
     /* Possivel duplicidade: mesma data, categoria, valor e conta. */
     var possiveisDuplicatas = new Map();
     usadas.forEach(function (l) {
-      var assinatura = chaveMes(l[campoData]) + "|" + l[campoData].getDate() + "|"
+      var assinatura = chaveMes(l.dataRegime) + "|" + l.dataRegime.getDate() + "|"
         + l.categoria + "|" + l.valor.toFixed(2) + "|" + l.conta;
       if (!possiveisDuplicatas.has(assinatura)) possiveisDuplicatas.set(assinatura, []);
       possiveisDuplicatas.get(assinatura).push(l);
@@ -716,7 +748,7 @@
           titulo: "Possível duplicidade",
           detalhe: grupo.length + "x " + grupo[0].categoria + " de "
             + formatarNumero(grupo[0].valor, 2) + " em "
-            + grupo[0][campoData].toLocaleDateString("pt-BR") + " (" + grupo[0].conta + ")"
+            + grupo[0].dataRegime.toLocaleDateString("pt-BR") + " (" + grupo[0].conta + ")"
         });
       }
     });
@@ -972,7 +1004,7 @@
       if (ctx.projeto && l.projeto !== ctx.projeto) return false;
       if (ctx.centro && l.centro !== ctx.centro) return false;
       if (ctx.somenteResultado && ctx.gruposResultado.indexOf(l.grupo) < 0) return false;
-      if (ctx.mes && chaveMes(l[ctx.campo]) !== ctx.mes) return false;
+      if (ctx.mes && chaveMes(l.dataRegime) !== ctx.mes) return false;
       return true;
     });
 
@@ -1045,13 +1077,13 @@
     });
 
     var linhaALinha = selecionadas.slice().sort(function (a, b) {
-      return (a[ctx.campo] || 0) - (b[ctx.campo] || 0);
+      return (a.dataRegime || 0) - (b.dataRegime || 0);
     }).map(function (l) {
       return h("tr", { key: l.id, style: { borderBottom: "1px solid " + COR.lineSoft } },
         h("td", {
           className: "py-1 pr-2 whitespace-nowrap",
           style: { fontSize: 11, color: COR.faint }
-        }, l[ctx.campo] ? l[ctx.campo].toLocaleDateString("pt-BR") : "-"),
+        }, l.dataRegime ? l.dataRegime.toLocaleDateString("pt-BR") : "-"),
         h("td", { className: "py-1 pr-2", style: { fontSize: 11.5, color: COR.text } },
           h("div", { style: { whiteSpace: "normal", wordBreak: "break-word" } },
             l.contraparte,
@@ -1443,7 +1475,7 @@
 
     dados.usadas.forEach(function (l) {
       if (gruposReceita.indexOf(l.grupo) < 0) return;
-      var mes = chaveMes(l[dados.campo]);
+      var mes = chaveMes(l.dataRegime);
       if (!mes) return;
       /* So confia no nome se ele veio do cadastro de fato. Fallback por    */
       /* natureza ou por conta corrente vira "sem cliente identificado".    */
@@ -2340,14 +2372,14 @@
       var col = colunaLetra;
 
       var lancamentos = dados.usadas.slice().sort(function (a, b) {
-        return (a[campoData] || 0) - (b[campoData] || 0);
+        return (a.dataRegime || 0) - (b.dataRegime || 0);
       });
 
       /* ---------------- Aba 3: BD Contas ---------------- */
 
       var abaBase = {
         nome: "BD Contas",
-        cols: [20, 34, 40, 30, 16, 34, 13, 13, 14, 60],
+        cols: [20, 34, 40, 30, 16, 34, 13, 13, 14, 60, 22],
         linhas: [],
         freeze: { x: 0, y: 1 },
         niveis: 0
@@ -2356,7 +2388,7 @@
       var cabecalhosBase = [
         "Tipo", "Grupo", "Categoria", "Conta Corrente", "Situação",
         "Cliente ou Fornecedor", "Data de Emissão", "Data de Pagto ou Recbto",
-        "Pago ou Recebido", "Observação"
+        "Pago ou Recebido", "Observação", "Data Competência (efetiva)"
       ];
 
       abaBase.linhas.push({
@@ -2379,7 +2411,8 @@
             { col: 7, v: l.dEmi ? dataParaSerial(l.dEmi) : "", s: 17 },
             { col: 8, v: l.dPag ? dataParaSerial(l.dPag) : "", s: 17 },
             { col: 9, v: l.valor, s: MAPA_ESTILOS.bd[1] },
-            { col: 10, v: l.nota, s: MAPA_ESTILOS.bd[0] }
+            { col: 10, v: l.nota, s: MAPA_ESTILOS.bd[0] },
+            { col: 11, v: (l.dEmi || l.dPag) ? dataParaSerial(l.dEmi || l.dPag) : "", s: 17 }
           ]
         });
       });
@@ -2387,7 +2420,11 @@
       /* Fragmentos de formula reutilizados nas duas abas de cima. */
       var ultimaLinhaBase = lancamentos.length + 1;
       var BASE = "'BD Contas'";
-      var COL_DATA = campoData === "dPag" ? "$H" : "$G";
+      /* Em competencia a formula aponta para a coluna K, que ja tem o     */
+      /* fallback para data de pagamento quando nao ha nota fiscal — a      */
+      /* mesma regra usada na tela. Sem isso, o XLSX exportado subestimaria */
+      /* despesas sem nota fiscal, mesmo com a tela mostrando o valor certo.*/
+      var COL_DATA = campoData === "dPag" ? "$H" : "$K";
       var FAIXA_VALOR = BASE + "!$I$2:$I$" + ultimaLinhaBase;
 
       var criterioMes = function (colunaMes) {
