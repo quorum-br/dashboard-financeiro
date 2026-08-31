@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>QUORUM | Painel do Realizado</title>
+<title>Dashboard Financeiro QUORUM</title>
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#8A6A16" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
@@ -22,7 +22,7 @@
 </script>
 <script>
 /* ==========================================================================
-   QUORUM | Painel do Realizado
+   Dashboard Financeiro QUORUM
    Codigo legivel, sem build step. React via CDN, elementos criados com o
    helper h() no lugar de JSX. Nenhuma regra de calculo foi alterada em
    relacao a versao anterior: isto e traducao de forma, nao reescrita.
@@ -2409,7 +2409,7 @@
       return h("div", {
         className: "min-h-screen w-full flex items-center justify-center",
         style: { background: COR.bg, color: COR.faint, fontSize: 12 }
-      }, "Buscando a base na Omie...");
+      }, "Atualizando Dashboard Financeiro QUORUM");
     }
 
     /* Falha na busca. */
@@ -2426,7 +2426,7 @@
           h("h1", {
             className: "text-3xl mb-3",
             style: { fontWeight: 300, letterSpacing: "-0.01em" }
-          }, "Painel do Realizado"),
+          }, "Dashboard Financeiro QUORUM"),
           h("p", {
             className: "text-sm leading-relaxed mb-6",
             style: { color: COR.dim }
@@ -2585,7 +2585,7 @@
           className: "uppercase",
           style: { fontSize: 9, letterSpacing: "0.3em", color: COR.brass }
         }, "QUORUM"),
-        h("div", { className: "text-sm", style: { fontWeight: 600 } }, "Painel do Realizado")
+        h("div", { className: "text-sm", style: { fontWeight: 600 } }, "Dashboard Financeiro QUORUM")
       ),
 
       h("div", { className: "ml-2", style: { fontSize: 11, color: COR.faint } },
