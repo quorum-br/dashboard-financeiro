@@ -1190,8 +1190,13 @@
     }, 0);
 
     var moldura = {
-      className: "rounded overflow-hidden",
-      style: { background: COR.surface, border: "1px solid " + COR.line }
+      className: "rounded overflow-hidden mx-auto",
+      style: {
+        background: COR.surface,
+        border: "1px solid " + COR.line,
+        maxWidth: 1080,
+        width: "100%"
+      }
     };
 
     if (!series.length || maiorTotal <= 0) {
@@ -1204,7 +1209,7 @@
     }
 
     /* Area util do desenho. */
-    var margem = { topo: 104, direita: 48, baixo: 150, esquerda: 104 };
+    var margem = { topo: 148, direita: 92, baixo: 192, esquerda: 132 };
     var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
     var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
     var baseY = margem.topo + alturaPlot;
@@ -1281,14 +1286,15 @@
     /* Legenda centralizada, quebrando em linhas quando nao couber. */
     var LEGENDA_FONTE = 15;
     var itensLegenda = series.map(function (serie) {
-      return { rotulo: serie.rotulo, cor: serie.cor, largura: 18 + 10 + larguraAproximada(serie.rotulo, LEGENDA_FONTE) + 34 };
+      return { rotulo: serie.rotulo, cor: serie.cor, largura: 18 + 10 + larguraAproximada(serie.rotulo, LEGENDA_FONTE) + 28 };
     });
 
     var linhasLegenda = [];
     var linhaCorrente = [];
     var larguraCorrente = 0;
+    var larguraLegenda = SLIDE.largura - 120;
     itensLegenda.forEach(function (item) {
-      if (linhaCorrente.length && larguraCorrente + item.largura > larguraPlot) {
+      if (linhaCorrente.length && larguraCorrente + item.largura > larguraLegenda) {
         linhasLegenda.push({ itens: linhaCorrente, largura: larguraCorrente });
         linhaCorrente = [];
         larguraCorrente = 0;
@@ -1300,7 +1306,7 @@
 
     var legenda = [];
     linhasLegenda.forEach(function (linha, indiceLinha) {
-      var x = margem.esquerda + (larguraPlot - linha.largura) / 2;
+      var x = (SLIDE.largura - linha.largura) / 2;
       var y = baseY + 72 + indiceLinha * 30;
       linha.itens.forEach(function (item) {
         legenda.push(h("rect", {
@@ -1327,20 +1333,21 @@
         preserveAspectRatio: "xMidYMid meet",
         style: { display: "block", background: COR.surface }
       },
-        /* Cabecalho do slide. */
+        /* Cabecalho do slide: titulo e, logo abaixo, o subtitulo. */
         h("text", {
-          x: margem.esquerda, y: 52,
-          style: { fontSize: 13, fill: COR.brass, letterSpacing: "3.6px" }
-        }, "QUORUM"),
+          x: margem.esquerda, y: 68,
+          style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
+        }, "RECEITA BRUTA"),
         h("text", {
-          x: margem.esquerda, y: 84,
-          style: { fontSize: 30, fill: COR.text, fontWeight: 600 }
-        }, "Receita Bruta"),
-        h("text", {
-          x: SLIDE.largura - margem.direita, y: 84,
-          textAnchor: "end",
+          x: margem.esquerda, y: 98,
           style: { fontSize: 15, fill: COR.faint }
         }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$"),
+
+        /* Assinatura no rodape esquerdo, dentro do slide. */
+        h("text", {
+          x: margem.esquerda, y: SLIDE.altura - 34,
+          style: { fontSize: 13, fill: COR.brass, letterSpacing: "3.6px" }
+        }, "QUORUM"),
         grade,
         colunas,
         legenda
