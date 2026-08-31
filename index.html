@@ -1498,6 +1498,248 @@
     });
   }
 
+  /* Ajusta o topo e o piso do eixo do percentual aos proprios dados, em    */
+  /* vez de ir de 0% a 100%: e o que da variacao visivel numa linha que,    */
+  /* na pratica, costuma oscilar so alguns pontos percentuais.              */
+  function escalaPercentual(valores) {
+    var validos = valores.filter(function (v) { return v !== null && isFinite(v); });
+    var minimo = validos.length ? Math.min.apply(null, validos) : 0;
+    var maximo = validos.length ? Math.max.apply(null, validos) : 1;
+    var AMPLITUDE_MINIMA = 0.06;
+    var centro = (minimo + maximo) / 2;
+    var metade = Math.max((maximo - minimo) / 2 + 0.01, AMPLITUDE_MINIMA / 2);
+    var piso = Math.max(0, Math.floor((centro - metade) * 100) / 100);
+    var teto = Math.min(1, Math.ceil((centro + metade) * 100) / 100);
+    if (teto <= piso) teto = piso + 0.02;
+    var passoCru = (teto - piso) / 4;
+    var passo = Math.max(0.01, Math.round(passoCru * 100) / 100);
+    return { piso: piso, teto: teto, passo: passo };
+  }
+
+  /* Colunas de Receita Líquida em R$, com uma linha de percentual sobre a  */
+  /* Receita Bruta por cima. A linha vive numa faixa propria reservada no   */
+  /* topo do slide, separada da area das colunas, para nunca cruzar por    */
+  /* cima de uma barra alta.                                                */
+  function GraficoReceitaLiquida(props) {
+    var dados = props.dados;
+    var meses = props.meses;
+    var regime = props.regime;
+
+    var valoresBarra = {};
+    var percentuais = {};
+    meses.forEach(function (mes) {
+      var liquida = dados.receitaLiquida[mes];
+      var bruta = dados.S.receita[mes];
+      valoresBarra[mes] = liquida;
+      percentuais[mes] = bruta > 0.005 ? liquida / bruta : null;
+    });
+
+    var maiorBarra = meses.reduce(function (maior, mes) {
+      return Math.max(maior, valoresBarra[mes]);
+    }, 0);
+
+    var moldura = {
+      className: "rounded overflow-hidden mx-auto",
+      style: {
+        background: COR.surface,
+        border: "1px solid " + COR.line,
+        maxWidth: 1080,
+        width: "100%"
+      }
+    };
+
+    if (!meses.length || maiorBarra <= 0) {
+      return h("div", moldura,
+        h("div", {
+          className: "flex items-center justify-center",
+          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
+        }, "Sem receita líquida no período para montar o gráfico.")
+      );
+    }
+
+    /* Area util do desenho, no mesmo padrao dos outros slides. */
+    var margem = { topo: 148, direita: 92, baixo: 192, esquerda: 132 };
+    var RECUO_TITULO = 56;
+    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
+    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
+    var baseY = margem.topo + alturaPlot;
+
+    /* Faixa propria da linha, no topo do plot. As barras ficam proibidas  */
+    /* de crescer para dentro dela: por isso o topo delas nao e o topo do  */
+    /* plot inteiro, e sim logo abaixo dessa faixa, com um respiro.        */
+    var yTopoFaixaLinha = margem.topo + 40;
+    var ALTURA_FAIXA_LINHA = 90;
+    var yBaseFaixaLinha = yTopoFaixaLinha + ALTURA_FAIXA_LINHA;
+    var GAP_LINHA_BARRAS = 36;
+    var topoParaBarras = yBaseFaixaLinha + GAP_LINHA_BARRAS;
+    var alturaDisponivelBarras = baseY - topoParaBarras;
+
+    var escala = escalaBonita(maiorBarra, 4);
+    var alturaDeBarra = function (valor) { return (valor / escala.topo) * alturaDisponivelBarras; };
+
+    var faixa = larguraPlot / meses.length;
+    var larguraColuna = Math.min(96, faixa * 0.58);
+
+    /* Grade horizontal do eixo de R$, so na faixa das barras. */
+    var grade = [];
+    for (var v = 0; v <= escala.topo + 0.0001; v += escala.passo) {
+      var y = baseY - alturaDeBarra(v);
+      grade.push(h("line", {
+        key: "g" + v,
+        x1: margem.esquerda, y1: y, x2: margem.esquerda + larguraPlot, y2: y,
+        stroke: v === 0 ? COR.line : COR.lineSoft,
+        strokeWidth: v === 0 ? 1.5 : 1
+      }));
+      grade.push(h("text", {
+        key: "r" + v,
+        x: margem.esquerda - 16, y: y + 5,
+        textAnchor: "end",
+        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+      }, v === 0 ? "0" : formatarNumero(v, 0)));
+    }
+
+    /* Barras e seus rotulos. */
+    var barras = [];
+    var centros = {};
+    meses.forEach(function (mes, indiceMes) {
+      var centro = margem.esquerda + faixa * indiceMes + faixa / 2;
+      centros[mes] = centro;
+      var valor = valoresBarra[mes];
+      if (valor > 0) {
+        var altura = alturaDeBarra(valor);
+        var topoBarra = baseY - altura;
+        barras.push(h("rect", {
+          key: "b" + mes,
+          x: centro - larguraColuna / 2, y: topoBarra, width: larguraColuna, height: altura,
+          fill: AZUIS[1]
+        }));
+        barras.push(h("text", {
+          key: "t" + mes,
+          x: centro, y: topoBarra - 12,
+          textAnchor: "middle",
+          style: {
+            fontSize: 17, fill: COR.text, fontWeight: 600, fontVariantNumeric: "tabular-nums"
+          }
+        }, formatarNumero(valor, 0)));
+      }
+      barras.push(h("text", {
+        key: "m" + mes,
+        x: centro, y: baseY + 30,
+        textAnchor: "middle",
+        style: { fontSize: 16, fill: COR.dim }
+      }, rotuloMes(mes)));
+    });
+
+    /* Linha de percentual, com buraco nos meses sem receita bruta. */
+    var escalaPct = escalaPercentual(meses.map(function (mes) { return percentuais[mes]; }));
+    var yDoPercentual = function (p) {
+      var fracao = (p - escalaPct.piso) / (escalaPct.teto - escalaPct.piso);
+      return yBaseFaixaLinha - fracao * ALTURA_FAIXA_LINHA;
+    };
+
+    var segmentos = [];
+    var segmentoAtual = [];
+    meses.forEach(function (mes) {
+      var p = percentuais[mes];
+      if (p === null) {
+        if (segmentoAtual.length) segmentos.push(segmentoAtual);
+        segmentoAtual = [];
+        return;
+      }
+      segmentoAtual.push({ x: centros[mes], y: yDoPercentual(p) });
+    });
+    if (segmentoAtual.length) segmentos.push(segmentoAtual);
+
+    var elementosLinha = [];
+    segmentos.forEach(function (segmento, indiceSegmento) {
+      if (segmento.length > 1) {
+        elementosLinha.push(h("polyline", {
+          key: "seg" + indiceSegmento,
+          points: segmento.map(function (p) { return p.x + "," + p.y; }).join(" "),
+          fill: "none",
+          stroke: COR.brass,
+          strokeWidth: 2
+        }));
+      }
+    });
+    meses.forEach(function (mes) {
+      var p = percentuais[mes];
+      if (p === null) return;
+      var x = centros[mes];
+      var y = yDoPercentual(p);
+      elementosLinha.push(h("text", {
+        key: "pl" + mes,
+        x: x, y: y - 16,
+        textAnchor: "middle",
+        style: { fontSize: 13, fill: COR.brass, fontWeight: 600, fontVariantNumeric: "tabular-nums" }
+      }, formatarPercentual(p)));
+      elementosLinha.push(h("circle", {
+        key: "pm" + mes,
+        cx: x, cy: y, r: 5,
+        fill: COR.surface,
+        stroke: COR.brass,
+        strokeWidth: 2.5
+      }));
+    });
+
+    /* Legenda: um retangulo para a barra, uma linha com bolinha para o    */
+    /* percentual, os dois centralizados abaixo dos rotulos de mes.        */
+    var LEGENDA_FONTE = 15;
+    var legenda = [
+      h("rect", { key: "lb1", x: 0, y: 0, width: 18, height: 14, rx: 2, fill: AZUIS[1] }),
+      h("text", { key: "lt1", x: 28, y: 12, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, "Receita Líquida"),
+      h("line", { key: "ll2", x1: 190, y1: 7, x2: 208, y2: 7, stroke: COR.brass, strokeWidth: 2 }),
+      h("circle", { key: "lc2", cx: 199, cy: 7, r: 4, fill: COR.surface, stroke: COR.brass, strokeWidth: 2 }),
+      h("text", { key: "lt2", x: 218, y: 12, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, "% Receita Líquida")
+    ];
+    var larguraLegenda = 218 + larguraAproximada("% Receita Líquida", LEGENDA_FONTE);
+    var xLegenda = (SLIDE.largura - larguraLegenda) / 2;
+    var yLegenda = baseY + 72;
+
+    var periodo = meses.length
+      ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1])
+      : "sem período";
+
+    return h("div", moldura,
+      h("svg", {
+        viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura,
+        width: "100%",
+        preserveAspectRatio: "xMidYMid meet",
+        style: { display: "block", background: COR.surface }
+      },
+        h("text", {
+          x: RECUO_TITULO, y: 68,
+          style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
+        }, "RECEITA LÍQUIDA"),
+        h("text", {
+          x: RECUO_TITULO, y: 98,
+          style: { fontSize: 15, fill: COR.faint }
+        }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$"),
+
+        h("image", {
+          href: LOGO_QUORUM,
+          x: MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO,
+          width: TAMANHO_LOGO,
+          height: TAMANHO_LOGO
+        }),
+
+        h("text", {
+          x: SLIDE.largura - MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
+          textAnchor: "end",
+          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+        }, String(props.numero || 1)),
+
+        grade,
+        barras,
+        elementosLinha,
+        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda)
+      )
+    );
+  }
+
+
   /* ------------------------------------------------------------------ */
   /* 9. GERADOR DE XLSX                                                  */
   /* O arquivo e montado a mao: XML das abas, styles.xml e um ZIP sem    */
@@ -3593,7 +3835,8 @@
         h("div", { style: { fontSize: 11, color: COR.faint } },
           "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
         h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
-        h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 })
+        h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
+        h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 3 })
       );
     }
 
