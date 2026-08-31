@@ -1149,42 +1149,38 @@
     return String(texto).length * tamanhoFonte * 0.55;
   }
 
-  /* Colunas empilhadas de receita bruta, abertas por tipo de receita. */
-  function GraficoReceitaBruta(props) {
-    var dados = props.dados;
-    var meses = props.meses;
-    var regime = props.regime;
-
-    /* Uma serie por grupo de receita, descartando o que ficou zerado. */
-    var series = SECOES_DRE[0].groups.map(function (grupo) {
-      var valores = {};
-      var total = 0;
-      meses.forEach(function (mes) {
-        var valor = dados.grupoMes(grupo, mes);
-        valores[mes] = valor;
-        total += valor;
-      });
-      return { nome: grupo, valores: valores, total: total };
-    }).filter(function (serie) {
-      return Math.abs(serie.total) > 0.005;
-    }).sort(function (a, b) {
-      return b.total - a.total;
-    });
-
-    /* Rotulo curto: "Receita de Patrocínio" vira "Patrocínio". */
-    series.forEach(function (serie) {
-      serie.rotulo = serie.nome.replace(/^Receitas? de /, "").replace(/^Receitas /, "");
-      serie.cor = null;
-    });
-    /* Espalha os tons ao longo do gradiente: com poucas series, usa os      */
-    /* extremos, para que faixas vizinhas nunca fiquem quase iguais.        */
+  /* Espalha os tons ao longo do gradiente de azul: com poucas series usa   */
+  /* os extremos, para que faixas vizinhas nunca fiquem quase iguais. Grava  */
+  /* .cor em cada serie recebida, na ordem em que ja estiverem (maior        */
+  /* primeiro, que e quem fica na base da coluna).                          */
+  function colorirGradiente(series) {
     series.forEach(function (serie, i) {
-      /* Com poucas series o tom mais claro fica lavado contra o fundo, entao */
-      /* o teto do gradiente so sobe ate o fim quando ha series suficientes.  */
+      /* Com poucas series o tom mais claro fica lavado contra o fundo,     */
+      /* entao o teto do gradiente so sobe ate o fim com series suficientes. */
       var tetoTom = Math.min(AZUIS.length - 1, Math.max(series.length - 1, 5));
       var passo = series.length > 1 ? tetoTom / (series.length - 1) : 0;
       serie.cor = AZUIS[Math.round(i * passo)];
     });
+  }
+
+  /* Corta um texto longo demais para a legenda, com reticencias no fim. */
+  function truncar(texto, maximo) {
+    var t = String(texto);
+    return t.length > maximo ? t.slice(0, maximo - 1).trim() + "…" : t;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Slide generico de colunas empilhadas. Recebe as series ja prontas      */
+  /* (rotulo, cor, valores por mes), na ordem de empilhamento desejada, e   */
+  /* cuida so do desenho: grade, colunas, total no topo, legenda, cabecalho */
+  /* e rodape do slide. Todo grafico novo do mesmo formato usa este molde   */
+  /* em vez de reescrever o SVG do zero.                                    */
+  /* ---------------------------------------------------------------------- */
+  function SlideColunasEmpilhadas(props) {
+    var meses = props.meses;
+    var regime = props.regime;
+    var series = props.series;
+    var numero = props.numero;
 
     var totalPorMes = {};
     meses.forEach(function (mes) {
@@ -1212,7 +1208,7 @@
         h("div", {
           className: "flex items-center justify-center",
           style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
-        }, "Sem receita bruta no período para montar o gráfico.")
+        }, props.vazio || "Sem dados no período para montar o gráfico.")
       );
     }
 
@@ -1260,7 +1256,7 @@
         var altura = alturaDe(valor);
         topoAcumulado -= altura;
         colunas.push(h("rect", {
-          key: "b" + mes + serie.nome,
+          key: "b" + mes + serie.rotulo,
           x: x, y: topoAcumulado, width: larguraColuna, height: altura,
           fill: serie.cor,
           stroke: COR.surface,
@@ -1346,7 +1342,7 @@
         h("text", {
           x: RECUO_TITULO, y: 68,
           style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
-        }, "RECEITA BRUTA"),
+        }, props.titulo),
         h("text", {
           x: RECUO_TITULO, y: 98,
           style: { fontSize: 15, fill: COR.faint }
@@ -1367,12 +1363,139 @@
           y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
           textAnchor: "end",
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
-        }, String(props.numero || 1)),
+        }, String(numero || 1)),
         grade,
         colunas,
         legenda
       )
     );
+  }
+
+  /* Colunas empilhadas de receita bruta, abertas por tipo de receita. */
+  function GraficoReceitaBruta(props) {
+    var dados = props.dados;
+    var meses = props.meses;
+    var regime = props.regime;
+
+    /* Uma serie por grupo de receita, descartando o que ficou zerado. */
+    var series = SECOES_DRE[0].groups.map(function (grupo) {
+      var valores = {};
+      var total = 0;
+      meses.forEach(function (mes) {
+        var valor = dados.grupoMes(grupo, mes);
+        valores[mes] = valor;
+        total += valor;
+      });
+      return { nome: grupo, valores: valores, total: total };
+    }).filter(function (serie) {
+      return Math.abs(serie.total) > 0.005;
+    }).sort(function (a, b) {
+      return b.total - a.total;
+    });
+
+    /* Rotulo curto: "Receita de Patrocínio" vira "Patrocínio". */
+    series.forEach(function (serie) {
+      serie.rotulo = serie.nome.replace(/^Receitas? de /, "").replace(/^Receitas /, "");
+    });
+    colorirGradiente(series);
+
+    return h(SlideColunasEmpilhadas, {
+      titulo: "RECEITA BRUTA",
+      series: series,
+      meses: meses,
+      regime: regime,
+      numero: props.numero
+    });
+  }
+
+  /* Quantos clientes aparecem nomeados individualmente antes de agrupar o  */
+  /* resto em "Outros clientes". Mantido igual ao numero de tons do        */
+  /* gradiente para nunca faltar cor propria a um cliente nomeado.         */
+  var LIMITE_CLIENTES_NO_GRAFICO = 6;
+
+  /* Colunas empilhadas de receita bruta, abertas por cliente. Os maiores   */
+  /* clientes do periodo aparecem nomeados, do maior para o menor; o resto  */
+  /* vira uma unica faixa "Outros clientes", sempre no topo da pilha e em   */
+  /* cinza neutro, fora do gradiente de azul, para nao competir com nomes.  */
+  /* Rotulo usado quando o lancamento de receita nao tem fornecedor        */
+  /* cadastrado na Omie. Sem isso, o painel cairia no ultimo recurso de     */
+  /* resolverContraparte (o nome da conta bancaria), o que faria a conta    */
+  /* corrente aparecer como se fosse um cliente no grafico.                 */
+  var SEM_CLIENTE_ROTULO = "Sem cliente identificado";
+
+  function GraficoReceitaPorCliente(props) {
+    var dados = props.dados;
+    var meses = props.meses;
+    var regime = props.regime;
+
+    var gruposReceita = SECOES_DRE[0].groups;
+    var somasPorCliente = new Map();
+    var totalPorCliente = new Map();
+
+    dados.usadas.forEach(function (l) {
+      if (gruposReceita.indexOf(l.grupo) < 0) return;
+      var mes = chaveMes(l[dados.campo]);
+      if (!mes) return;
+      /* So confia no nome se ele veio do cadastro de fato. Fallback por    */
+      /* natureza ou por conta corrente vira "sem cliente identificado".    */
+      var cliente = l.contraOrigem === "cadastro" ? l.contraparte : SEM_CLIENTE_ROTULO;
+      var chave = cliente + "||" + mes;
+      somasPorCliente.set(chave, (somasPorCliente.get(chave) || 0) + l.valor);
+      totalPorCliente.set(cliente, (totalPorCliente.get(cliente) || 0) + l.valor);
+    });
+
+    var ranking = Array.from(totalPorCliente.entries())
+      .filter(function (par) { return par[0] !== SEM_CLIENTE_ROTULO && Math.abs(par[1]) > 0.005; })
+      .sort(function (a, b) { return b[1] - a[1]; });
+
+    var principais = ranking.slice(0, LIMITE_CLIENTES_NO_GRAFICO);
+    var demais = ranking.slice(LIMITE_CLIENTES_NO_GRAFICO);
+
+    var series = principais.map(function (par) {
+      var cliente = par[0];
+      var valores = {};
+      meses.forEach(function (mes) {
+        valores[mes] = somasPorCliente.get(cliente + "||" + mes) || 0;
+      });
+      return { rotulo: truncar(cliente, 26), valores: valores };
+    });
+
+    /* A cor por gradiente considera so os clientes nomeados de verdade:   */
+    /* "Outros" e "sem cliente" recebem cinza fixo, escolhido depois, para */
+    /* nao serem confundidos com um cliente de verdade.                   */
+    colorirGradiente(series);
+
+    if (demais.length) {
+      var valoresOutros = {};
+      meses.forEach(function (mes) {
+        valoresOutros[mes] = demais.reduce(function (soma, par) {
+          return soma + (somasPorCliente.get(par[0] + "||" + mes) || 0);
+        }, 0);
+      });
+      series.push({
+        rotulo: "Outros clientes (" + demais.length + ")",
+        valores: valoresOutros,
+        cor: "#B9C0CC"
+      });
+    }
+
+    var totalSemCliente = totalPorCliente.get(SEM_CLIENTE_ROTULO) || 0;
+    if (Math.abs(totalSemCliente) > 0.005) {
+      var valoresSemCliente = {};
+      meses.forEach(function (mes) {
+        valoresSemCliente[mes] = somasPorCliente.get(SEM_CLIENTE_ROTULO + "||" + mes) || 0;
+      });
+      series.push({ rotulo: SEM_CLIENTE_ROTULO, valores: valoresSemCliente, cor: "#D8DEE7" });
+    }
+
+    return h(SlideColunasEmpilhadas, {
+      titulo: "RECEITA BRUTA POR CLIENTE",
+      series: series,
+      meses: meses,
+      regime: regime,
+      numero: props.numero,
+      vazio: "Sem receita atribuída a cliente no período para montar o gráfico."
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -3469,7 +3592,8 @@
       return h("div", { className: "space-y-3" },
         h("div", { style: { fontSize: 11, color: COR.faint } },
           "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
-        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 })
+        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
+        h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 })
       );
     }
 
