@@ -18,7 +18,7 @@
 <body>
 <div id="root"></div>
 <script>
-  window.__QUORUM_API__ = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-base?k=" + encodeURIComponent(new URLSearchParams(window.location.search).get("k") || "");
+  window.__QUORUM_API__ = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-base";
 </script>
 <script>
 /* ==========================================================================
@@ -1692,6 +1692,9 @@
     },
     setItem: function (chave, valor) {
       try { window.localStorage.setItem(chave, valor); } catch (e) {}
+    },
+    removeItem: function (chave) {
+      try { window.localStorage.removeItem(chave); } catch (e) {}
     }
   };
 
@@ -1732,6 +1735,70 @@
     };
   }
 
+
+  /* ------------------------------------------------------------------ */
+  /* 10-A. TELA DE LOGIN                                                 */
+  /* Substitui a chave na URL por uma senha guardada no navegador.       */
+  /* A senha nunca e validada aqui: e so enviada ao n8n por header, que   */
+  /* e quem decide se ela e valida.                                      */
+  /* ------------------------------------------------------------------ */
+
+  function TelaLogin(props) {
+    var estValor = useState("");
+    var valor = estValor[0], setValor = estValor[1];
+
+    function enviar(evento) {
+      if (evento && evento.preventDefault) evento.preventDefault();
+      var limpo = valor.trim();
+      if (!limpo) return;
+      props.aoEntrar(limpo);
+    }
+
+    return h("div", {
+      className: "min-h-screen w-full flex items-center justify-center p-6",
+      style: { background: COR.bg, color: COR.text }
+    },
+      h("form", { onSubmit: enviar, className: "max-w-sm w-full" },
+        h("div", {
+          className: "uppercase mb-2",
+          style: { fontSize: 10, letterSpacing: "0.3em", color: COR.brass }
+        }, "QUORUM"),
+        h("h1", {
+          className: "text-2xl mb-1",
+          style: { fontWeight: 300, letterSpacing: "-0.01em" }
+        }, "Dashboard Financeiro"),
+        h("p", {
+          className: "text-sm mb-5",
+          style: { color: COR.faint }
+        }, "Digite a senha para continuar."),
+        h("input", {
+          type: "password",
+          autoFocus: true,
+          value: valor,
+          onChange: function (evento) { setValor(evento.target.value); },
+          placeholder: "senha",
+          className: "w-full px-3 py-2.5 rounded mb-3",
+          style: {
+            fontSize: 14,
+            background: COR.surface,
+            border: "1px solid " + (props.erro ? COR.coral : COR.line),
+            color: COR.text,
+            outline: "none"
+          }
+        }),
+        props.erro && h("div", {
+          className: "text-sm mb-3",
+          style: { color: COR.coral }
+        }, props.erro),
+        h("button", {
+          type: "submit",
+          className: "w-full py-2.5 rounded text-sm",
+          style: { background: COR.brass, color: "#FFFFFF", fontWeight: 600 }
+        }, props.entrando ? "Entrando..." : "Entrar")
+      )
+    );
+  }
+
   /* ------------------------------------------------------------------ */
   /* 11. PAINEL                                                          */
   /* ------------------------------------------------------------------ */
@@ -1770,8 +1837,30 @@
     var estGaveta = useState(null);            var gaveta = estGaveta[0], setGaveta = estGaveta[1];
     var estAviso = useState("");               var aviso = estAviso[0], setAviso = estAviso[1];
 
+    /* Autenticacao: chave lida da URL antiga (?k=) ou da memoria do        */
+    /* navegador. Nula significa "mostrar tela de login".                  */
+    var estChave = useState(function () {
+      var daUrl = new URLSearchParams(window.location.search).get("k");
+      return daUrl || armazenamento.getItem("quorum_chave") || null;
+    });
+    var chave = estChave[0], setChave = estChave[1];
+    var estErroLogin = useState("");            var erroLogin = estErroLogin[0], setErroLogin = estErroLogin[1];
+    var estEntrando = useState(false);          var entrando = estEntrando[0], setEntrando = estEntrando[1];
+
     var refUpload = useRef(null);
     var campoData = regime === "caixa" ? "dPag" : "dEmi";
+
+    /* Limpa o ?k= da barra de enderecos assim que a chave foi capturada,   */
+    /* e guarda a chave na memoria do navegador para as proximas visitas.   */
+    useEffect(function () {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("k")) {
+        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+      }
+    }, []);
+    useEffect(function () {
+      if (chave) armazenamento.setItem("quorum_chave", chave);
+    }, [chave]);
 
     /* Preferencias persistidas entre visitas. */
     useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
@@ -1779,17 +1868,26 @@
     useEffect(function () { armazenamento.setItem("quorum_zeradas", mostrarZeradas ? "1" : "0"); }, [mostrarZeradas]);
     useEffect(function () { armazenamento.setItem("quorum_extrato", JSON.stringify(saldosExtrato)); }, [saldosExtrato]);
 
-    /* Busca a base na Omie, via webhook. */
+    /* Busca a base na Omie, via webhook. A senha vai por header, nunca   */
+    /* mais pela URL. Uma recusa 401 derruba a sessao e volta pra tela de  */
+    /* login, em vez de cair no aviso vermelho generico de erro de rede.   */
     function buscarBase() {
       if (!URL_API) {
         setAviso("A URL da base não foi configurada nesta página. Fale com o Alex.");
         setCarregando(false);
         return Promise.resolve();
       }
+      if (!chave) return Promise.resolve();
       setCarregando(true);
+      setEntrando(true);
       setAviso("");
-      return fetch(URL_API, { cache: "no-store" })
+      return fetch(URL_API, { cache: "no-store", headers: { "x-quorum-key": chave } })
         .then(function (r) {
+          if (r.status === 401) {
+            var recusado = new Error("Senha incorreta.");
+            recusado.autenticacaoRecusada = true;
+            throw recusado;
+          }
           if (!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
@@ -1801,14 +1899,21 @@
           setResposta(dados);
           setAtualizadoEm(new Date());
           setGaveta(null);
+          setErroLogin("");
         })
         .catch(function (erro) {
+          if (erro && erro.autenticacaoRecusada) {
+            armazenamento.removeItem("quorum_chave");
+            setChave(null);
+            setErroLogin("Senha incorreta. Tenta de novo.");
+            return;
+          }
           setAviso("Não consegui buscar a base agora: " + erro.message + ". Tenta de novo em alguns segundos.");
         })
-        .then(function () { setCarregando(false); });
+        .then(function () { setCarregando(false); setEntrando(false); });
     }
 
-    useEffect(function () { buscarBase(); }, []);
+    useEffect(function () { if (chave) buscarBase(); }, [chave]);
 
     /* Le um ou mais extratos xlsx e acumula os saldos por conta e mes. */
     function carregarExtratos(listaArquivos) {
@@ -2404,6 +2509,15 @@
       };
     }, [dados, ultimoMes]);
 
+    /* Sem chave, nem tenta buscar: mostra a tela de login direto. */
+    if (!chave) {
+      return h(TelaLogin, {
+        erro: erroLogin,
+        entrando: entrando,
+        aoEntrar: function (valor) { setErroLogin(""); setChave(valor); }
+      });
+    }
+
     /* Primeira carga. */
     if (carregando && !dados) {
       return h("div", {
@@ -2691,6 +2805,16 @@
         },
         title: "Busca a base de novo na Omie agora, sem esperar a próxima abertura"
       }, carregando ? "Atualizando..." : "Atualizar agora"),
+
+      h("button", {
+        onClick: function () {
+          armazenamento.removeItem("quorum_chave");
+          setChave(null);
+        },
+        className: "px-2 py-1.5",
+        style: { fontSize: 11, color: COR.faint },
+        title: "Esquece a senha guardada neste navegador"
+      }, "Sair"),
 
       h("input", {
         ref: refUpload,
