@@ -635,14 +635,18 @@
     linhas.forEach(function (l) {
       if (!CHAVES_DO_PLANO.has(l.grupo + "||" + l.categoria)) {
         var rotulo = l.grupo + " > " + l.categoria;
-        foraDoPlano.set(rotulo, (foraDoPlano.get(rotulo) || 0) + l.valor);
+        if (!foraDoPlano.has(rotulo)) foraDoPlano.set(rotulo, { valor: 0, linhas: [] });
+        var registro = foraDoPlano.get(rotulo);
+        registro.valor += l.valor;
+        registro.linhas.push(l);
       }
     });
-    foraDoPlano.forEach(function (valor, rotulo) {
+    foraDoPlano.forEach(function (registro, rotulo) {
       achados.push({
         nivel: "erro",
         titulo: "Categoria fora do plano de contas",
-        detalhe: rotulo + " - " + formatarNumero(valor, 2)
+        detalhe: rotulo + " - " + formatarNumero(registro.valor, 2),
+        linhas: registro.linhas
       });
     });
 
@@ -657,7 +661,8 @@
         titulo: "Lançamento sem nenhuma data utilizável",
         detalhe: semData.length + " lançamento(s), somando "
           + formatarNumero(semData.reduce(function (s, l) { return s + l.valor; }, 0), 2)
-          + ", ficam fora do período"
+          + ", ficam fora do período",
+        linhas: semData
       });
     }
 
@@ -671,7 +676,8 @@
         titulo: "Reconhecido pela data de pagamento, sem nota fiscal",
         detalhe: comFallback.length + " lançamento(s) sem data de emissão, somando "
           + formatarNumero(comFallback.reduce(function (s, l) { return s + l.valor; }, 0), 2)
-          + ", contados no mês do pagamento em vez do mês de emissão"
+          + ", contados no mês do pagamento em vez do mês de emissão",
+        linhas: comFallback
       });
     }
 
@@ -690,7 +696,8 @@
           titulo: "Possível duplicidade",
           detalhe: grupo.length + "x " + grupo[0].categoria + " de "
             + formatarNumero(grupo[0].valor, 2) + " em "
-            + grupo[0].dataRegime.toLocaleDateString("pt-BR") + " (" + grupo[0].conta + ")"
+            + grupo[0].dataRegime.toLocaleDateString("pt-BR") + " (" + grupo[0].conta + ")",
+          linhas: grupo
         });
       }
     });
@@ -701,7 +708,8 @@
         achados.push({
           nivel: "alerta",
           titulo: "Lançamento cancelado ainda na base",
-          detalhe: l.categoria + " - " + formatarNumero(l.valor, 2) + " - " + l.situacao
+          detalhe: l.categoria + " - " + formatarNumero(l.valor, 2) + " - " + l.situacao,
+          linhas: [l]
         });
       }
     });
@@ -713,7 +721,8 @@
           nivel: "erro",
           titulo: "Base não fecha com o fluxo",
           detalhe: rotuloMes(mes) + " tem diferença de " + formatarNumero(integridade[mes], 2)
-            + " entre a soma da base e o fluxo de caixa"
+            + " entre a soma da base e o fluxo de caixa",
+          linhas: usadas.filter(function (l) { return chaveMes(l.dataRegime) === mes; })
         });
       }
     });
@@ -817,7 +826,9 @@
 
     var celulaAcumulado = h("td", {
       className: "px-3 py-1 text-right whitespace-nowrap",
-      style: Object.assign({}, estiloNumero, { borderLeft: "1px solid " + COR.line })
+      style: Object.assign({}, estiloNumero, { borderLeft: "1px solid " + COR.line }),
+      onClick: clicavel && props.formato !== "pct" ? function () { props.aoAbrir(null); } : undefined,
+      title: clicavel && props.formato !== "pct" ? "Abrir os lançamentos do período inteiro" : undefined
     }, props.formato === "pct" ? "" : formatarNumero(totalAcumulado, casas));
 
     return h("tr", {
@@ -939,16 +950,22 @@
     var ctx = props.ctx;
     if (!ctx) return null;
 
-    var selecionadas = props.linhas.filter(function (l) {
-      if (ctx.grupo && l.grupo !== ctx.grupo) return false;
-      if (ctx.categoria && l.categoria !== ctx.categoria) return false;
-      if (ctx.grupos && ctx.grupos.indexOf(l.grupo) < 0) return false;
-      if (ctx.projeto && l.projeto !== ctx.projeto) return false;
-      if (ctx.centro && l.centro !== ctx.centro) return false;
-      if (ctx.somenteResultado && ctx.gruposResultado.indexOf(l.grupo) < 0) return false;
-      if (ctx.mes && chaveMes(l.dataRegime) !== ctx.mes) return false;
-      return true;
-    });
+    /* Achado abre com a lista pronta (linhas ja identificadas na apuracao */
+    /* do achado, como duplicidade ou sem data), em vez de recalcular um   */
+    /* filtro por grupo/categoria/mes que nem sempre existe para esses     */
+    /* casos.                                                              */
+    var selecionadas = ctx.listaFixa
+      ? ctx.listaFixa
+      : props.linhas.filter(function (l) {
+          if (ctx.grupo && l.grupo !== ctx.grupo) return false;
+          if (ctx.categoria && l.categoria !== ctx.categoria) return false;
+          if (ctx.grupos && ctx.grupos.indexOf(l.grupo) < 0) return false;
+          if (ctx.projeto && l.projeto !== ctx.projeto) return false;
+          if (ctx.centro && l.centro !== ctx.centro) return false;
+          if (ctx.somenteResultado && ctx.gruposResultado.indexOf(l.grupo) < 0) return false;
+          if (ctx.mes && chaveMes(l.dataRegime) !== ctx.mes) return false;
+          return true;
+        });
 
     /* Consolidacao por contraparte, da maior para a menor em valor absoluto. */
     var mapaContraparte = new Map();
@@ -4305,6 +4322,11 @@
     /* ---------------------------------------------------------------- */
 
     function abaAchados() {
+      function abrirAchado(achado) {
+        if (!achado.linhas || !achado.linhas.length) return;
+        setGaveta({ titulo: achado.titulo, detalhe: achado.detalhe, listaFixa: achado.linhas, campo: campoData });
+      }
+
       return h("div", { className: "space-y-2" },
         dados.achados.length === 0 && h("div", {
           className: "rounded p-4",
@@ -4316,22 +4338,29 @@
           }
         }, "Nenhum achado. Categorias dentro do plano, sem duplicidade aparente, sem cancelado na base e fluxo fechando com a base."),
         dados.achados.map(function (achado, indice) {
+          var temLinhas = !!(achado.linhas && achado.linhas.length);
           return h("div", {
             key: indice,
             className: "rounded px-4 py-3",
             style: {
               background: COR.surface,
               borderLeft: "3px solid " + (achado.nivel === "erro" ? COR.coral : COR.brass),
-              border: "1px solid " + COR.line
-            }
+              border: "1px solid " + COR.line,
+              cursor: temLinhas ? "pointer" : "default"
+            },
+            onClick: temLinhas ? function () { abrirAchado(achado); } : undefined,
+            title: temLinhas ? "Ver os " + achado.linhas.length + " lançamento(s) por trás deste achado" : undefined
           },
-            h("div", {
-              style: {
-                fontSize: 12,
-                color: achado.nivel === "erro" ? COR.coral : COR.brass,
-                fontWeight: 600
-              }
-            }, achado.titulo),
+            h("div", { className: "flex items-center justify-between gap-3" },
+              h("div", {
+                style: {
+                  fontSize: 12,
+                  color: achado.nivel === "erro" ? COR.coral : COR.brass,
+                  fontWeight: 600
+                }
+              }, achado.titulo),
+              temLinhas && h("span", { style: { fontSize: 10, color: COR.faint } }, "ver lançamentos")
+            ),
             h("div", { className: "mt-0.5", style: { fontSize: 12, color: COR.dim } }, achado.detalhe)
           );
         })
