@@ -2026,11 +2026,16 @@
   /* do grafico deixa isso explicito sempre que houver alguma barra assim.  */
   function GraficoReceitaBrutaLTM(props) {
     var dados = props.dados;
-    var todosMeses = props.meses;
     var regime = props.regime;
 
-    var mesInicioHistorico = todosMeses.length ? todosMeses[0] : null;
-    var mesesValidos = todosMeses.slice();
+    /* O inicio do historico vem SEMPRE da base inteira (props.todosMeses),  */
+    /* nunca do filtro de exibicao: se Alex filtrar a tela pra mostrar so    */
+    /* agosto, a janela de 12 meses ainda soma os meses reais anteriores, e  */
+    /* o rotulo "completo vs parcial" continua correto. So os meses          */
+    /* efetivamente exibidos (props.meses, ja filtrado) ganham barra.        */
+    var baseHistorico = props.todosMeses && props.todosMeses.length ? props.todosMeses : props.meses;
+    var mesInicioHistorico = baseHistorico.length ? baseHistorico[0] : null;
+    var mesesValidos = props.meses.slice();
 
     var valoresBarra = {};
     var completoBarra = {};
@@ -3636,6 +3641,60 @@
         })
       ),
 
+      /* Filtro livre de meses: qual mes aparece em toda a tela (tabelas e   */
+      /* apresentacao), independente do que a base tem no total.             */
+      h("div", { style: { position: "relative" } },
+        h("button", {
+          onClick: function () { setFiltroMesesAberto(!filtroMesesAberto); },
+          className: "px-3 py-1.5 rounded",
+          style: estiloBotao(mesesSelecionados !== null),
+          title: "Escolhe quais meses aparecem em todo o painel, tabelas e apresentação"
+        }, mesesSelecionados === null
+             ? "Todos os meses"
+             : "Meses: " + mesesSelecionados.length + " de " + todosMeses.length),
+
+        filtroMesesAberto && h(React.Fragment, null,
+          h("div", {
+            onClick: function () { setFiltroMesesAberto(false); },
+            style: { position: "fixed", inset: 0, zIndex: 40 }
+          }),
+          h("div", {
+            className: "absolute mt-1 rounded p-3",
+            style: {
+              zIndex: 41, background: COR.surface, border: "1px solid " + COR.line,
+              minWidth: 190, boxShadow: "0 4px 16px rgba(0,0,0,0.12)"
+            }
+          },
+            h("div", { className: "flex justify-between gap-3 mb-2 pb-2", style: { fontSize: 11, borderBottom: "1px solid " + COR.lineSoft } },
+              h("button", { onClick: function () { setMesesSelecionados(null); }, style: { color: COR.brass, fontWeight: 600 } }, "Todos"),
+              h("button", { onClick: function () { setMesesSelecionados([]); }, style: { color: COR.faint } }, "Limpar")
+            ),
+            h("div", { className: "space-y-1", style: { maxHeight: 260, overflowY: "auto" } },
+              todosMeses.map(function (mes) {
+                var marcado = mesesSelecionados === null || mesesSelecionados.indexOf(mes) >= 0;
+                return h("label", {
+                  key: mes,
+                  className: "flex items-center gap-2 cursor-pointer px-1 py-0.5 rounded",
+                  style: { fontSize: 12, color: COR.dim }
+                },
+                  h("input", {
+                    type: "checkbox",
+                    checked: marcado,
+                    onChange: function () {
+                      var baseAtual = mesesSelecionados === null ? todosMeses.slice() : mesesSelecionados.slice();
+                      var indice = baseAtual.indexOf(mes);
+                      if (indice >= 0) baseAtual.splice(indice, 1); else baseAtual.push(mes);
+                      setMesesSelecionados(baseAtual.length === todosMeses.length ? null : baseAtual);
+                    }
+                  }),
+                  rotuloMes(mes)
+                );
+              })
+            )
+          )
+        )
+      ),
+
       /* Esconder ou mostrar categorias sem movimento. */
       h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
         [[false, "Só com valor"], [true, "Todas as linhas"]].map(function (par) {
@@ -4343,7 +4402,7 @@
           "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
         h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
         h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
-        h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, regime: regime, numero: 3 }),
+        h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3 }),
         h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4 }),
         h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5 })
       );
@@ -4371,13 +4430,20 @@
       cartoes,
       barraAbas,
       h("div", { className: "px-6 pb-16 pt-3" },
-        aba === "dre" && abaDRE(),
-        aba === "caixa" && abaFluxoDeCaixa(),
-        (aba === "proj" || aba === "cc") && abaDimensao(),
-        aba === "conc" && abaConciliacao(),
-        aba === "achados" && abaAchados(),
-        aba === "abertos" && abaCompromissos(),
-        aba === "apres" && abaApresentacao()
+        !meses.length
+          ? h("div", {
+              className: "flex items-center justify-center text-center py-16",
+              style: { fontSize: 12, color: COR.faint }
+            }, "Nenhum mês selecionado. Abra \"Meses\" no topo e marque pelo menos um.")
+          : h(React.Fragment, null,
+              aba === "dre" && abaDRE(),
+              aba === "caixa" && abaFluxoDeCaixa(),
+              (aba === "proj" || aba === "cc") && abaDimensao(),
+              aba === "conc" && abaConciliacao(),
+              aba === "achados" && abaAchados(),
+              aba === "abertos" && abaCompromissos(),
+              aba === "apres" && abaApresentacao()
+            )
       )
     );
   }
