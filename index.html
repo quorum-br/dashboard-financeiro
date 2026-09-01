@@ -67,259 +67,150 @@
 
   /* ------------------------------------------------------------------ */
   /* 2. PLANO DE CONTAS                                                  */
-  /* Cada grupo tem seus itens. O segundo valor de cada item diz se a     */
-  /* categoria esta ativa: false marca "inativa" na tela.                */
+  /* Nao existe plano fixo neste arquivo, de proposito. O catalogo chega  */
+  /* da Omie a cada carga, no campo "categorias" da base, e e a unica     */
+  /* fonte de verdade sobre quais categorias existem, como se chamam e    */
+  /* quais estao inativas. Uma lista fixa aqui seria um retrato congelado */
+  /* no dia em que foi escrita: foi assim que uma categoria renomeada na  */
+  /* Omie continuou aparecendo com o nome antigo e, pior, saiu calada da  */
+  /* conciliacao de caixa.                                               */
   /* ------------------------------------------------------------------ */
 
-  var PLANO_DE_CONTAS = [
-    { grupo: "Receita de Patrocínio", itens: [
-      ["Patrocínio | Evento Spot", true],
-      ["Patrocínio | Cota Master", true]
-    ]},
-    { grupo: "Receita de Eventos Abertos", itens: [
-      ["Eventos Abertos | Venda de Ingressos", true],
-      ["Eventos Abertos | Sponsorships", true]
-    ]},
-    { grupo: "Receita de Evento Fechado", itens: [
-      ["Evento Fechado | Sponsorships", true]
-    ]},
-    { grupo: "Receita de Quorum House", itens: [
-      ["Quorum House | Evento Fechado", true],
-      ["Quorum House | Eventos Abertos", true]
-    ]},
-    { grupo: "Receita de Assinaturas", itens: [
-      ["QR Review | Subscription", true],
-      ["QR Insights | Subscription", true]
-    ]},
-    { grupo: "Receita de Advisory", itens: [
-      ["QR Advisory", true]
-    ]},
-    { grupo: "Receita de Comissões", itens: [
-      ["Comissão sobre Negócios Originados", true]
-    ]},
-    { grupo: "Receitas Financeiras", itens: [
-      ["Descontos Obtidos", true],
-      ["Juros Recebidos", true],
-      ["Rendimentos de Aplicações", true],
-      ["Multas Recebidas", true]
-    ]},
-    { grupo: "Outras Receitas Operacionais", itens: [
-      ["Recuperação de Despesas", true],
-      ["Reembolso de Despesas", true]
-    ]},
-    { grupo: "Resultado Não Operacional (Receitas)", itens: [
-      ["Ganho na Venda de Ativos", true]
-    ]},
-    { grupo: "Movimentações do Passivo - Entradas", itens: [
-      ["Adiantamento de Clientes", true],
-      ["Mútuo de Sócios (Entrada)", true],
-      ["AFAC - Sócios", true],
-      ["Empréstimos Bancários - Captação", true]
-    ]},
-    { grupo: "Custo de Patrocínio", itens: [
-      ["Happy Hour Quorum", true],
-      ["Happy Hour Spot", true],
-      ["Outros Custos de Patrocínio", true]
-    ]},
-    { grupo: "Custo de Eventos Abertos", itens: [
-      ["Quorum Day", true],
-      ["Lançamento Quorum", true],
-      ["Outros Custos de Eventos Abertos", true]
-    ]},
-    { grupo: "Custo de Evento Fechado", itens: [
-      ["Quorum Roundtable", true],
-      ["Outros Custos de Evento Fechado", true]
-    ]},
-    { grupo: "Custo de Quorum House", itens: [
-      ["Aluguel e Infraestrutura Quorum House", true],
-      ["Reforma Quorum House", true],
-      ["Outros Custos de Quorum House", true]
-    ]},
-    { grupo: "Custo de Assinaturas", itens: [
-      ["Take Rate LMS - Hotmart (Custo de Assinaturas)", true],
-      ["Plataforma LMS (Custo de Assinaturas)", true],
-      ["Agentes IA (Custo de Assinaturas)", true],
-      ["Outros Custos de Assinaturas", true]
-    ]},
-    { grupo: "Custo de Advisory", itens: [
-      ["Pagamento a Advisors (Prestação de Serviço)", true],
-      ["Outros Custos de Advisory", true]
-    ]},
-    { grupo: "Outros Custos dos Serviços", itens: [
-      ["Outros Custos Não Listados", true]
-    ]},
-    { grupo: "Despesas com Pessoal", itens: [
-      ["Outros Benefícios", true],
-      ["Seguro de Vida", true],
-      ["Vale Refeição", true],
-      ["Vale Transporte", true],
-      ["Assistência Médica", true],
-      ["Pensão Alimentícia", true],
-      ["IRRF sobre Folha", true],
-      ["FGTS", true],
-      ["INSS sobre Folha", true],
-      ["13º Salário", true],
-      ["Rescisões", true],
-      ["Férias", true],
-      ["Adiantamento de Salário", true],
-      ["Salários e Pró-labore", true]
-    ]},
-    { grupo: "Despesas Administrativas", itens: [
-      ["Ferramentas e Software", true],
-      ["Limpeza", true],
-      ["Segurança", true],
-      ["Advogados", true],
-      ["Contabilidade", true],
-      ["IPTU", true],
-      ["Seguros", true],
-      ["Manutenção de Imobilizado", true],
-      ["Material de Escritório", true],
-      ["Telefonia e Internet", true],
-      ["Energia Elétrica", true],
-      ["Água e Esgoto", true],
-      ["Condomínio", true],
-      ["Aluguel (Escritório)", true],
-      ["Seguro Homem-Chave", true],
-      ["Taxas (TFE e outras municipais)", true]
-    ]},
-    { grupo: "Despesas de Vendas e Marketing", itens: [
-      ["Produção de Conteúdo | Freela Edição e Gravação", true],
-      ["Produção de Conteúdo | Aluguel de Estúdio", true],
-      ["Mídia | Aquisição QR Review", true],
-      ["Mídia | Aquisição QR Insights", true],
-      ["Mídia | PR Agency", true],
-      ["Mídia | Impulsionamento", true],
-      ["Despesas de Viagens", true],
-      ["Marketing (Geral)", true],
-      ["Brindes e Materiais Promocionais", true]
-    ]},
-    { grupo: "Despesas com Tecnologia", itens: [
-      ["Take Rate LMS - Hotmart (Despesa de Tecnologia)", true],
-      ["Plataforma LMS (Despesa de Tecnologia)", true],
-      ["Agentes IA (Despesa de Tecnologia)", true]
-    ]},
-    { grupo: "Despesas Comerciais e de Representação", itens: [
-      ["Comissão de Sócios Advisors", true],
-      ["Despesas Comerciais Diversas", true]
-    ]},
-    { grupo: "Despesas Financeiras", itens: [
-      ["IOF", true],
-      ["Tarifas Bancárias", true],
-      ["Multas Pagas", true],
-      ["Juros sobre Empréstimos", true],
-      ["Descontos Concedidos", true]
-    ]},
-    { grupo: "Impostos e Taxas", itens: [
-      ["Simples Nacional (DAS)", true],
-      ["ISS (reserva - regime futuro)", false],
-      ["PIS (reserva - regime futuro)", false],
-      ["COFINS (reserva - regime futuro)", false],
-      ["CSLL (reserva - regime futuro)", false],
-      ["IRPJ (reserva - regime futuro)", false]
-    ]},
-    { grupo: "Impostos sobre o Lucro (regime futuro)", itens: [
-      ["CSLL sobre o Lucro (regime futuro)", false],
-      ["IRPJ sobre o Lucro (regime futuro)", false]
-    ]},
-    { grupo: "Lucros/Dividendos a Distribuir a Sócios", itens: [
-      ["Div. a Pagar - Carlo Merquior Worms Till", true],
-      ["Div. a Pagar - Alex Armstrong de Sousa", true],
-      ["Div. a Pagar - Alex Reche Franco (Minoritário)", true],
-      ["Div. a Pagar - Luiz Augusto Martins (Minoritário)", true],
-      ["Div. a Pagar - Tatiana Pinheiro de Oliveira (Minoritário)", true]
-    ]},
-    { grupo: "Movimentações do Passivo - Saídas", itens: [
-      ["Mútuo de Sócios (Devolução)", true],
-      ["Partes Relacionadas (a Pagar)", true],
-      ["Empréstimos Bancários - Amortização", true],
-      ["Provisões Diversas", true]
-    ]},
-    { grupo: "Movimentação do Ativo", itens: [
-      ["Adiantamento a Fornecedores", true],
-      ["Adiantamento a Funcionários", true],
-      ["Partes Relacionadas (a Receber)", true],
-      ["Despesas Antecipadas", true],
-      ["Aplicações de Liquidez Imediata", true]
-    ]},
-    { grupo: "Investimentos em Imobilizado e Intangível", itens: [
-      ["Compra de Equipamentos de Informática", true],
-      ["Compra de Móveis e Utensílios", true],
-      ["Compra de Máquinas e Equipamentos", true],
-      ["Compra de Instalações", true],
-      ["Aquisição de Software e Licenças (Capitalizável)", true],
-      ["Registro de Marcas e Patentes", true]
-    ]},
-    { grupo: "Resultado Não Operacional (Despesas)", itens: [
-      ["Perda na Venda de Ativos", true]
-    ]},
-    { grupo: "Transferência", itens: [
-      ["Entrada de Transferência", true],
-      ["Saída de Transferência", true]
-    ]}
-  ];
+  var SEM_GRUPO = "Sem grupo";
 
-  /* Conjunto "grupo||categoria" para detectar categoria fora do plano. */
-  var CHAVES_DO_PLANO = (function () {
-    var mapa = new Map();
-    PLANO_DE_CONTAS.forEach(function (bloco) {
-      bloco.itens.forEach(function (item) {
-        mapa.set(bloco.grupo + "||" + item[0], true);
-      });
-    });
-    return mapa;
-  })();
+  var PLANO_DE_CONTAS = [];        /* [{ codigo, grupo, itens: [[nome, ativa, codigo]] }] */
+  var CHAVES_DO_PLANO = new Map(); /* "grupo||categoria" -> true */
+  var CODIGO_DO_GRUPO = new Map(); /* nome do grupo -> codigo do grupo */
+  var NOME_DA_CATEGORIA = new Map(); /* codigo da categoria -> nome */
 
   /* ------------------------------------------------------------------ */
   /* 3. SECOES DO DRE E DO FLUXO DE CAIXA                                */
+  /* Quais categorias existem e o nome delas e fato, vem da Omie. Em que  */
+  /* linha do resultado cada grupo entra e decisao gerencial nossa, e por */
+  /* isso mora aqui. O vinculo e feito pelo CODIGO do grupo, nunca pelo   */
+  /* nome: codigo e estavel, nome muda quando alguem renomeia na Omie.    */
+  /* Grupo que nao esteja neste mapa nao some: cai em "Nao classificado", */
+  /* visivel no fluxo, pedindo classificacao.                            */
   /* ------------------------------------------------------------------ */
 
-  var SECOES_DRE = [
-    { key: "receita", label: "Receita Bruta", sign: 1, groups: [
-      "Receita de Patrocínio", "Receita de Eventos Abertos", "Receita de Evento Fechado",
-      "Receita de Quorum House", "Receita de Assinaturas", "Receita de Advisory",
-      "Receita de Comissões"
-    ]},
-    { key: "impostos", label: "Impostos e Deduções", sign: -1, groups: ["Impostos e Taxas"] },
-    { key: "custo", label: "Custo dos Serviços Prestados", sign: -1, groups: [
-      "Custo de Patrocínio", "Custo de Eventos Abertos", "Custo de Evento Fechado",
-      "Custo de Quorum House", "Custo de Assinaturas", "Custo de Advisory",
-      "Outros Custos dos Serviços"
-    ]},
-    { key: "despesas", label: "Despesas Fixas", sign: -1, groups: [
-      "Despesas com Pessoal", "Despesas Administrativas", "Despesas de Vendas e Marketing",
-      "Despesas com Tecnologia", "Despesas Comerciais e de Representação"
-    ]},
-    { key: "finRec", label: "Receitas Financeiras", sign: 1, groups: ["Receitas Financeiras"] },
-    { key: "finDesp", label: "Despesas Financeiras", sign: -1, groups: ["Despesas Financeiras"] },
-    { key: "outrasRec", label: "Outras Receitas e Não Operacional", sign: 1, groups: [
-      "Outras Receitas Operacionais", "Resultado Não Operacional (Receitas)"
-    ]},
-    { key: "outrasDesp", label: "Resultado Não Operacional (Despesas)", sign: -1, groups: [
-      "Resultado Não Operacional (Despesas)"
-    ]},
-    { key: "impLucro", label: "Impostos sobre o Lucro", sign: -1, groups: [
-      "Impostos sobre o Lucro (regime futuro)"
-    ]}
-  ];
+  var SECAO_POR_CODIGO_GRUPO = {
+    "1.01": "receita",   "1.02": "receita",   "1.03": "receita",
+    "1.04": "receita",   "1.05": "receita",   "1.06": "receita",
+    "1.07": "receita",
+    "1.08": "finRec",
+    "1.09": "outrasRec", "1.10": "outrasRec",
+    "2.01": "custo",     "2.02": "custo",     "2.03": "custo",
+    "2.04": "custo",     "2.05": "custo",     "2.06": "custo",
+    "2.07": "custo",
+    "2.08": "despesas",  "2.09": "despesas",  "2.10": "despesas",
+    "2.11": "despesas",  "2.12": "despesas",
+    "2.13": "finDesp",
+    "2.14": "impostos",
+    "2.15": "impLucro",
+    "2.20": "outrasDesp",
+    "1.11": "entradas",
+    "2.16": "saidas",    "2.17": "saidas",
+    "2.18": "ativo",
+    "2.19": "capex",
+    "0.01": "transf"
+  };
 
-  /* Todos os grupos que entram no resultado, usados no filtro por projeto e centro. */
-  var GRUPOS_DE_RESULTADO = SECOES_DRE.reduce(function (acc, secao) {
-    return acc.concat(secao.groups);
-  }, []);
+  var SECOES_DRE = [
+    { key: "receita", label: "Receita Bruta", sign: 1, groups: [] },
+    { key: "impostos", label: "Impostos e Deduções", sign: -1, groups: [] },
+    { key: "custo", label: "Custo dos Serviços Prestados", sign: -1, groups: [] },
+    { key: "despesas", label: "Despesas Fixas", sign: -1, groups: [] },
+    { key: "finRec", label: "Receitas Financeiras", sign: 1, groups: [] },
+    { key: "finDesp", label: "Despesas Financeiras", sign: -1, groups: [] },
+    { key: "outrasRec", label: "Outras Receitas e Não Operacional", sign: 1, groups: [] },
+    { key: "outrasDesp", label: "Resultado Não Operacional (Despesas)", sign: -1, groups: [] },
+    { key: "impLucro", label: "Impostos sobre o Lucro", sign: -1, groups: [] }
+  ];
 
   var SECOES_FLUXO = [
-    { key: "entradas", label: "Entradas Não Operacionais", sign: 1, groups: [
-      "Movimentações do Passivo - Entradas"
-    ]},
-    { key: "saidas", label: "Saídas Não Operacionais", sign: -1, groups: [
-      "Movimentações do Passivo - Saídas", "Lucros/Dividendos a Distribuir a Sócios"
-    ]},
-    { key: "ativo", label: "Movimentação do Ativo", sign: -1, groups: ["Movimentação do Ativo"] },
-    { key: "capex", label: "Investimentos", sign: -1, groups: [
-      "Investimentos em Imobilizado e Intangível"
-    ]},
-    { key: "transf", label: "Transferências entre Contas", sign: 1, groups: ["Transferência"] }
+    { key: "entradas", label: "Entradas Não Operacionais", sign: 1, groups: [] },
+    { key: "saidas", label: "Saídas Não Operacionais", sign: -1, groups: [] },
+    { key: "ativo", label: "Movimentação do Ativo", sign: -1, groups: [] },
+    { key: "capex", label: "Investimentos", sign: -1, groups: [] },
+    { key: "transf", label: "Transferências entre Contas", sign: 1, groups: [] },
+    { key: "naoClassificado", label: "Não classificado", sign: 1, groups: [] }
   ];
+
+  var TODAS_AS_SECOES = SECOES_DRE.concat(SECOES_FLUXO);
+
+  var SECAO_POR_CHAVE = (function () {
+    var mapa = {};
+    TODAS_AS_SECOES.forEach(function (s) { mapa[s.key] = s; });
+    return mapa;
+  })();
+
+  var GRUPOS_DE_RESULTADO = [];
+
+  /* Le o catalogo que veio da Omie e remonta plano de contas e secoes.   */
+  /* Chamado a cada carga da base, antes de qualquer calculo.             */
+  function aplicarCatalogo(categorias) {
+    var lista = Array.isArray(categorias) ? categorias : [];
+    var porCodigo = new Map();
+    lista.forEach(function (c) {
+      if (c && c.codigo) porCodigo.set(String(c.codigo), c);
+    });
+
+    /* Na Omie, categoria totalizadora e o grupo; as folhas sao os itens. */
+    var blocos = new Map();
+    function bloco(codigoGrupo) {
+      var chave = String(codigoGrupo || "");
+      if (!blocos.has(chave)) {
+        var reg = porCodigo.get(chave);
+        blocos.set(chave, {
+          codigo: chave,
+          grupo: (reg && reg.nome) ? reg.nome : (chave ? "[grupo " + chave + "]" : SEM_GRUPO),
+          itens: []
+        });
+      }
+      return blocos.get(chave);
+    }
+
+    NOME_DA_CATEGORIA = new Map();
+    lista.forEach(function (c) {
+      if (!c || !c.codigo) return;
+      NOME_DA_CATEGORIA.set(String(c.codigo), c.nome);
+      if (c.totalizadora) return;
+      bloco(c.pai).itens.push([c.nome, !c.inativa, String(c.codigo)]);
+    });
+
+    PLANO_DE_CONTAS = Array.from(blocos.values()).filter(function (b) {
+      return b.itens.length;
+    });
+
+    CHAVES_DO_PLANO = new Map();
+    CODIGO_DO_GRUPO = new Map();
+    PLANO_DE_CONTAS.forEach(function (b) {
+      CODIGO_DO_GRUPO.set(b.grupo, b.codigo);
+      b.itens.forEach(function (item) {
+        CHAVES_DO_PLANO.set(b.grupo + "||" + item[0], true);
+      });
+    });
+
+    TODAS_AS_SECOES.forEach(function (s) { s.groups = []; });
+    PLANO_DE_CONTAS.forEach(function (b) {
+      var secao = SECAO_POR_CHAVE[SECAO_POR_CODIGO_GRUPO[b.codigo] || "naoClassificado"];
+      if (secao) secao.groups.push(b.grupo);
+    });
+
+    GRUPOS_DE_RESULTADO = SECOES_DRE.reduce(function (acc, s) {
+      return acc.concat(s.groups);
+    }, []);
+  }
+
+  /* Secao a que um lancamento pertence. Vale a mesma regra do catalogo:  */
+  /* decide pelo codigo do grupo; sem codigo conhecido, "Nao             */
+  /* classificado", que existe justamente para que nada saia da conta.    */
+  function secaoDaLinha(linha) {
+    var codigo = linha.codigoGrupo
+      || CODIGO_DO_GRUPO.get(linha.grupo)
+      || "";
+    return SECAO_POR_CODIGO_GRUPO[codigo] || "naoClassificado";
+  }
 
   var MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -411,14 +302,16 @@
   /* Lancamentos sem fornecedor cadastrado ganham nome pela categoria.   */
   /* ------------------------------------------------------------------ */
 
+  /* Indexado pelo CODIGO da categoria, nao pelo nome: renomear a          */
+  /* categoria na Omie nao pode fazer a contraparte sumir da tela.         */
   var CONTRAPARTE_POR_NATUREZA = {
-    "Tarifas Bancárias": "Omie.CASH - tarifa",
-    "IOF": "Receita Federal - IOF",
-    "Descontos Obtidos": "Omie.CASH - cashback",
-    "Rendimentos de Aplicações": "Omie.CASH - rendimento",
-    "Simples Nacional (DAS)": "Receita Federal - DAS",
-    "Entrada de Transferência": "Transferência entre contas próprias",
-    "Saída de Transferência": "Transferência entre contas próprias"
+    "2.13.97": "Omie.CASH - tarifa",
+    "2.13.96": "Receita Federal - IOF",
+    "1.08.97": "Omie.CASH - cashback",
+    "1.08.99": "Omie.CASH - rendimento",
+    "2.14.99": "Receita Federal - DAS",
+    "0.01.01": "Transferência entre contas próprias",
+    "0.01.02": "Transferência entre contas próprias"
   };
 
   /* ------------------------------------------------------------------ */
@@ -427,9 +320,12 @@
   /* precisa: DRE, fluxo, saldos por conta, dimensoes e achados.         */
   /* ------------------------------------------------------------------ */
 
+  /* Ordem de exibicao dos centros de custo. Os nomes tem que bater com os */
+  /* departamentos cadastrados na Omie, senao o centro cai no fim da lista */
+  /* silenciosamente. "AdmeFin" e "QUORUM" estavam faltando aqui.          */
   var ORDEM_CENTROS = [
-    "CEO", "CFO", "Adm&Fin", "QR Insights", "QR Review", "QR Advisory",
-    "Comercial", "Contabilidade", "Jurídico", "Outros não listados"
+    "QUORUM", "CEO", "CFO", "QR Insights", "QR Review", "QR Advisory",
+    "Comercial", "AdmeFin", "Contabilidade", "Jurídico", "Outros não listados"
   ];
 
   function calcular(linhas, regime) {
@@ -465,16 +361,29 @@
     var meses = Array.from(chavesMes).sort();
 
     var porCategoria = new Map();  /* grupo||categoria||mes */
+    var porGrupo = new Map();      /* grupo||mes */
+    var porSecao = new Map();      /* secao||mes */
     var porConta = new Map();      /* conta||mes */
     var totalPorMes = new Map();   /* mes */
 
+    /* Todo somatorio abaixo e feito varrendo os lancamentos, um por um.   */
+    /* Nenhum deles consulta lista de categorias para decidir se soma ou   */
+    /* nao: e isso que torna impossivel um lancamento entrar na base e     */
+    /* sumir do fluxo, que era exatamente a falha que fazia o painel       */
+    /* acusar "base nao fecha" quando surgia categoria nova.               */
+    var gruposNaBase = new Set();
     usadas.forEach(function (l) {
       var mes = chaveMes(l.dataRegime);
       var chaveCat = l.grupo + "||" + l.categoria + "||" + mes;
       porCategoria.set(chaveCat, (porCategoria.get(chaveCat) || 0) + l.valor);
+      var chaveGrupo = l.grupo + "||" + mes;
+      porGrupo.set(chaveGrupo, (porGrupo.get(chaveGrupo) || 0) + l.valor);
+      var chaveSecao = secaoDaLinha(l) + "||" + mes;
+      porSecao.set(chaveSecao, (porSecao.get(chaveSecao) || 0) + l.valor);
       var chaveConta = l.conta + "||" + mes;
       porConta.set(chaveConta, (porConta.get(chaveConta) || 0) + l.valor);
       totalPorMes.set(mes, (totalPorMes.get(mes) || 0) + l.valor);
+      gruposNaBase.add(l.grupo);
     });
 
     /* Valor bruto de uma categoria num mes. */
@@ -482,31 +391,35 @@
       return porCategoria.get(grupo + "||" + categoria + "||" + mes) || 0;
     }
 
-    /* Soma de todas as categorias de um grupo num mes. */
+    /* Soma de um grupo num mes, direto dos lancamentos. */
     function grupoMes(grupo, mes) {
-      var bloco = PLANO_DE_CONTAS.filter(function (b) { return b.grupo === grupo; })[0];
-      if (!bloco) return 0;
-      return bloco.itens.reduce(function (soma, item) {
-        return soma + bruto(grupo, item[0], mes);
-      }, 0);
+      return porGrupo.get(grupo + "||" + mes) || 0;
     }
 
-    /* Soma de uma secao num mes. Transferencia soma entrada e saida. */
-    function secaoMes(secao, mes) {
-      if (secao.key === "transf") {
-        return bruto("Transferência", "Entrada de Transferência", mes)
-             + bruto("Transferência", "Saída de Transferência", mes);
-      }
-      return secao.groups.reduce(function (soma, grupo) {
-        return soma + grupoMes(grupo, mes);
-      }, 0);
-    }
+    /* Grupos que aparecem nos lancamentos e nao vieram no catalogo da     */
+    /* Omie. Devem ser raros, mas continuam somando e ficam visiveis.      */
+    var secoesLocais = TODAS_AS_SECOES.map(function (s) {
+      return { key: s.key, label: s.label, sign: s.sign, groups: s.groups.slice() };
+    });
+    var secaoLocalPorChave = {};
+    secoesLocais.forEach(function (s) { secaoLocalPorChave[s.key] = s; });
+    gruposNaBase.forEach(function (nomeGrupo) {
+      var jaListado = secoesLocais.some(function (s) {
+        return s.groups.indexOf(nomeGrupo) >= 0;
+      });
+      if (jaListado) return;
+      var codigo = CODIGO_DO_GRUPO.get(nomeGrupo) || "";
+      var chave = SECAO_POR_CODIGO_GRUPO[codigo] || "naoClassificado";
+      secaoLocalPorChave[chave].groups.push(nomeGrupo);
+    });
 
-    /* Totais por secao: S[key][mes] */
+    /* Totais por secao: S[key][mes], somados linha a linha. */
     var S = {};
-    SECOES_DRE.concat(SECOES_FLUXO).forEach(function (secao) {
+    secoesLocais.forEach(function (secao) {
       S[secao.key] = {};
-      meses.forEach(function (mes) { S[secao.key][mes] = secaoMes(secao, mes); });
+      meses.forEach(function (mes) {
+        S[secao.key][mes] = porSecao.get(secao.key + "||" + mes) || 0;
+      });
     });
 
     /* Monta um mapa mes -> valor a partir de uma funcao. */
@@ -523,8 +436,13 @@
     var outras         = porMes(function (m) { return S.outrasRec[m] + S.outrasDesp[m]; });
     var ebit           = porMes(function (m) { return ebitda[m] + resultadoFin[m] + outras[m]; });
     var lucroLiquido   = porMes(function (m) { return ebit[m] + S.impLucro[m]; });
+    /* O fluxo de caixa livre soma o resultado e todas as secoes de fluxo, */
+    /* inclusive "Nao classificado". Incluir esse balde e o que garante    */
+    /* que a base sempre feche: dinheiro que se moveu aparece no fluxo     */
+    /* mesmo quando ainda nao sabemos em que linha ele entra.              */
     var fcl            = porMes(function (m) {
-      return lucroLiquido[m] + S.entradas[m] + S.saidas[m] + S.ativo[m] + S.capex[m] + S.transf[m];
+      return lucroLiquido[m] + S.entradas[m] + S.saidas[m] + S.ativo[m]
+           + S.capex[m] + S.transf[m] + S.naoClassificado[m];
     });
 
     /* Resultado acumulado mes a mes. */
@@ -556,12 +474,17 @@
       return Math.round(((totalPorMes.get(mes) || 0) - fcl[mes]) * 100) / 100;
     });
 
-    /* Grupos que contam como receita e como saida nas visoes por dimensao. */
-    var GRUPOS_RECEITA = SECOES_DRE[0].groups
-      .concat(SECOES_DRE[4].groups, SECOES_DRE[6].groups);
-    var GRUPOS_SAIDA = SECOES_DRE[1].groups
-      .concat(SECOES_DRE[2].groups, SECOES_DRE[3].groups, SECOES_DRE[5].groups,
-              SECOES_DRE[7].groups, SECOES_DRE[8].groups);
+    /* Grupos que contam como receita e como saida nas visoes por dimensao, */
+    /* lidos das secoes ja montadas com o catalogo desta carga.             */
+    function gruposDe() {
+      var chaves = Array.prototype.slice.call(arguments);
+      return chaves.reduce(function (acc, chave) {
+        return acc.concat((secaoLocalPorChave[chave] || { groups: [] }).groups);
+      }, []);
+    }
+    var GRUPOS_RECEITA = gruposDe("receita", "finRec", "outrasRec");
+    var GRUPOS_SAIDA = gruposDe("impostos", "custo", "despesas", "finDesp",
+                                "outrasDesp", "impLucro");
 
     /* Ordena a lista de uma dimensao, deixando o "sem informacao" por ultimo. */
     function ordenarDimensao(lista, dimensao) {
@@ -681,16 +604,32 @@
       });
     }
 
-    /* Possivel duplicidade: mesma data, categoria, valor e conta. */
+    /* Possivel duplicidade. Repetir data, categoria, valor e conta nao e   */
+    /* suficiente: tres tarifas de meio real no mesmo dia sao tres tarifas  */
+    /* de verdade, e quatro aportes iguais sao quatro depositos de verdade. */
+    /* Por isso o documento entra na assinatura, e um grupo so vira alerta  */
+    /* quando nao da para provar que sao eventos distintos. Prova aceita:   */
+    /* cada linha com titulo proprio na Omie e ja conciliada com o banco.   */
     var possiveisDuplicatas = new Map();
     usadas.forEach(function (l) {
       var assinatura = chaveMes(l.dataRegime) + "|" + l.dataRegime.getDate() + "|"
-        + l.categoria + "|" + l.valor.toFixed(2) + "|" + l.conta;
+        + l.categoria + "|" + l.valor.toFixed(2) + "|" + l.conta + "|" + (l.documento || "");
       if (!possiveisDuplicatas.has(assinatura)) possiveisDuplicatas.set(assinatura, []);
       possiveisDuplicatas.get(assinatura).push(l);
     });
+
+    /* Eventos distintos comprovados: identificadores proprios, todos      */
+    /* diferentes entre si, e dinheiro ja conciliado no extrato.           */
+    function eventosDistintos(grupo) {
+      var ids = grupo.map(function (l) { return l.idTitulo || l.idMovimento || ""; });
+      var todosIdentificados = ids.every(function (id) { return !!id; });
+      if (!todosIdentificados) return false;
+      if (new Set(ids).size !== ids.length) return false;
+      return grupo.every(function (l) { return l.liquidado; });
+    }
+
     possiveisDuplicatas.forEach(function (grupo) {
-      if (grupo.length > 1) {
+      if (grupo.length > 1 && !eventosDistintos(grupo)) {
         achados.push({
           nivel: "alerta",
           titulo: "Possível duplicidade",
@@ -731,6 +670,13 @@
       meses: meses,
       bruto: bruto,
       grupoMes: grupoMes,
+      /* As secoes desta carga, ja com os grupos que realmente aparecem.   */
+      /* O render usa esta lista, e nao a constante do modulo, para que a  */
+      /* soma da secao e os grupos exibidos embaixo dela sejam a mesma     */
+      /* coisa, sempre.                                                    */
+      secoes: secoesLocais,
+      secoesDre: secoesLocais.slice(0, SECOES_DRE.length),
+      secoesFluxo: secoesLocais.slice(SECOES_DRE.length),
       S: S,
       receitaLiquida: receitaLiquida,
       lucroBruto: lucroBruto,
@@ -1378,7 +1324,7 @@
     var regime = props.regime;
 
     /* Uma serie por grupo de receita, descartando o que ficou zerado. */
-    var series = SECOES_DRE[0].groups.map(function (grupo) {
+    var series = (dados.secoesDre ? dados.secoesDre[0].groups : SECOES_DRE[0].groups).map(function (grupo) {
       var valores = {};
       var total = 0;
       meses.forEach(function (mes) {
@@ -1428,7 +1374,7 @@
     var meses = props.meses;
     var regime = props.regime;
 
-    var gruposReceita = SECOES_DRE[0].groups;
+    var gruposReceita = (dados.secoesDre ? dados.secoesDre[0].groups : SECOES_DRE[0].groups);
     var somasPorCliente = new Map();
     var totalPorCliente = new Map();
 
@@ -2023,7 +1969,7 @@
     var indiceInicio = Number(partesInicio[0]) * 12 + (Number(partesInicio[1]) - 1);
     var mesesDisponiveis = Math.min(12, indiceAlvo - indiceInicio + 1);
 
-    var gruposReceita = SECOES_DRE[0].groups;
+    var gruposReceita = (dados.secoesDre ? dados.secoesDre[0].groups : SECOES_DRE[0].groups);
     var soma = 0;
     for (var i = 0; i < mesesDisponiveis; i++) {
       var indiceMes = indiceAlvo - i;
@@ -2641,7 +2587,7 @@
     var cadastrada = (linha.contraparte || "").trim();
     if (cadastrada) return { nome: cadastrada, origem: "cadastro" };
 
-    var porNatureza = CONTRAPARTE_POR_NATUREZA[linha.categoria];
+    var porNatureza = CONTRAPARTE_POR_NATUREZA[linha.codigo_categoria];
     if (porNatureza) return { nome: porNatureza, origem: "natureza" };
 
     if (linha.documento) {
@@ -2655,10 +2601,15 @@
     var contraparte = resolverContraparte(linha);
     return {
       id: linha.id || "L" + indice,
+      idTitulo: linha.id || "",
+      idMovimento: linha.id_movimento || "",
       grupo: linha.grupo,
       categoria: linha.categoria,
+      codigoCategoria: linha.codigo_categoria || "",
+      codigoGrupo: linha.codigo_grupo || "",
       conta: linha.conta,
       situacao: linha.situacao,
+      liquidado: String(linha.liquidado || "").toUpperCase() === "S",
       documento: linha.documento || "",
       contraparte: contraparte.nome,
       contraOrigem: contraparte.origem,
@@ -2838,6 +2789,10 @@
           return r.json();
         })
         .then(function (dados) {
+          /* O catalogo tem que ser aplicado antes de normalizar e calcular: */
+          /* e ele que diz quais categorias existem, como se chamam, quais   */
+          /* estao inativas e em que secao cada grupo entra.                 */
+          aplicarCatalogo(dados.categorias);
           var realizadas = (dados.linhas || []).map(normalizarLinha).filter(function (l) { return l.dPag; });
           var futuras = (dados.linhas || []).filter(function (l) { return !l.pagamento; });
           setLinhas(realizadas);
@@ -3082,9 +3037,9 @@
         linhaDaSecao[secao.key] = linhaTotalSecao;
       }
 
-      escreverSecao(SECOES_DRE[0]);
+      escreverSecao(dados.secoesDre[0]);
       linhaVazia();
-      escreverSecao(SECOES_DRE[1]);
+      escreverSecao(dados.secoesDre[1]);
 
       var linhaReceitaLiquida = escreverLinha("total", "(=) Receita Líquida", function (c) {
         return c + linhaDaSecao.receita + "+" + c + linhaDaSecao.impostos;
@@ -3093,7 +3048,7 @@
         return "IFERROR(" + c + linhaReceitaLiquida + "/" + c + linhaDaSecao.receita + ",0)";
       });
       linhaVazia();
-      escreverSecao(SECOES_DRE[2]);
+      escreverSecao(dados.secoesDre[2]);
 
       var linhaLucroBruto = escreverLinha("total", "(=) Lucro Bruto", function (c) {
         return c + linhaReceitaLiquida + "+" + c + linhaDaSecao.custo;
@@ -3102,7 +3057,7 @@
         return "IFERROR(" + c + linhaLucroBruto + "/" + c + linhaReceitaLiquida + ",0)";
       });
       linhaVazia();
-      escreverSecao(SECOES_DRE[3]);
+      escreverSecao(dados.secoesDre[3]);
 
       var linhaEbitda = escreverLinha("total", "(=) EBITDA", function (c) {
         return c + linhaLucroBruto + "+" + c + linhaDaSecao.despesas;
@@ -3111,10 +3066,10 @@
         return "IFERROR(" + c + linhaEbitda + "/" + c + linhaReceitaLiquida + ",0)";
       });
       linhaVazia();
-      escreverSecao(SECOES_DRE[4]);
-      escreverSecao(SECOES_DRE[5]);
-      escreverSecao(SECOES_DRE[6]);
-      escreverSecao(SECOES_DRE[7]);
+      escreverSecao(dados.secoesDre[4]);
+      escreverSecao(dados.secoesDre[5]);
+      escreverSecao(dados.secoesDre[6]);
+      escreverSecao(dados.secoesDre[7]);
       linhaVazia();
 
       var linhaEbit = escreverLinha("total", "(=) Resultado Antes de Impostos", function (c) {
@@ -3125,7 +3080,7 @@
         return "IFERROR(" + c + linhaEbit + "/" + c + linhaReceitaLiquida + ",0)";
       });
       linhaVazia();
-      escreverSecao(SECOES_DRE[8]);
+      escreverSecao(dados.secoesDre[8]);
 
       var linhaLucroLiquido = escreverLinha("total", "(=) Lucro Líquido", function (c) {
         return c + linhaEbit + "+" + c + linhaDaSecao.impLucro;
@@ -3164,7 +3119,7 @@
         return c + linhaLucroLiquido;
       });
       linhaVazia();
-      SECOES_FLUXO.forEach(function (secao) { escreverSecao(secao); });
+      dados.secoesFluxo.forEach(function (secao) { escreverSecao(secao); });
 
       var linhaFcl = escreverLinha("total", "(=) Fluxo de Caixa Livre do mês", function (c) {
         return c + linhaLucroNoFluxo + "+" + c + linhaDaSecao.entradas + "+" + c + linhaDaSecao.saidas
@@ -3726,12 +3681,12 @@
 
     function abaDRE() {
       return h(Tabela, null,
-        linhasDaSecao(SECOES_DRE[0]),
-        linhasDaSecao(SECOES_DRE[1]),
+        linhasDaSecao(dados.secoesDre[0]),
+        linhasDaSecao(dados.secoesDre[1]),
         h(LinhaTabela, {
           label: "(=) Receita Líquida", valores: dados.receitaLiquida, meses: meses, nivel: "total"
         }),
-        linhasDaSecao(SECOES_DRE[2]),
+        linhasDaSecao(dados.secoesDre[2]),
         h(LinhaTabela, {
           label: "(=) Lucro Bruto", valores: dados.lucroBruto, meses: meses, nivel: "total"
         }),
@@ -3739,7 +3694,7 @@
           label: "% margem bruta", valores: sobreReceitaLiquida(dados.lucroBruto),
           meses: meses, nivel: "pct", formato: "pct"
         }),
-        linhasDaSecao(SECOES_DRE[3]),
+        linhasDaSecao(dados.secoesDre[3]),
         h(LinhaTabela, {
           label: "(=) EBITDA", valores: dados.ebitda, meses: meses, nivel: "total"
         }),
@@ -3747,14 +3702,14 @@
           label: "% margem EBITDA", valores: sobreReceitaLiquida(dados.ebitda),
           meses: meses, nivel: "pct", formato: "pct"
         }),
-        linhasDaSecao(SECOES_DRE[4]),
-        linhasDaSecao(SECOES_DRE[5]),
-        linhasDaSecao(SECOES_DRE[6]),
-        linhasDaSecao(SECOES_DRE[7]),
+        linhasDaSecao(dados.secoesDre[4]),
+        linhasDaSecao(dados.secoesDre[5]),
+        linhasDaSecao(dados.secoesDre[6]),
+        linhasDaSecao(dados.secoesDre[7]),
         h(LinhaTabela, {
           label: "(=) Resultado Antes de Impostos", valores: dados.ebit, meses: meses, nivel: "total"
         }),
-        linhasDaSecao(SECOES_DRE[8]),
+        linhasDaSecao(dados.secoesDre[8]),
         h(LinhaTabela, {
           label: "(=) Lucro Líquido", valores: dados.lucroLiquido, meses: meses, nivel: "total"
         }),
@@ -3799,7 +3754,7 @@
           h(LinhaTabela, {
             label: "(=) Lucro Líquido do período", valores: dados.lucroLiquido, meses: meses, nivel: "secao"
           }),
-          SECOES_FLUXO.map(function (secao) { return linhasDaSecao(secao); }),
+          dados.secoesFluxo.map(function (secao) { return linhasDaSecao(secao); }),
           h(LinhaTabela, {
             label: "(=) Fluxo de Caixa Livre do mês", valores: dados.fcl,
             meses: meses, nivel: "total", casas: 2
