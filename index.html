@@ -422,64 +422,6 @@
   };
 
   /* ------------------------------------------------------------------ */
-  /* 6. LEITURA DO EXTRATO EM XLSX                                       */
-  /* ------------------------------------------------------------------ */
-
-  /* Primeiro campo presente entre os nomes possiveis. */
-  function primeiroCampo(linha, nomes) {
-    for (var i = 0; i < nomes.length; i++) {
-      if (linha[nomes[i]] !== undefined) return linha[nomes[i]];
-    }
-    return undefined;
-  }
-
-  /* Procura, nas 15 primeiras linhas, a que contem todos os cabecalhos pedidos. */
-  function acharLinhaDeCabecalho(planilha, cabecalhos) {
-    var grade = window.XLSX.utils.sheet_to_json(planilha, { header: 1, defval: null, blankrows: true });
-    for (var i = 0; i < Math.min(grade.length, 15); i++) {
-      var celulas = (grade[i] || []).map(function (c) {
-        return String(c === null ? "" : c).trim().toLowerCase();
-      });
-      var todosPresentes = cabecalhos.every(function (procurado) {
-        return celulas.some(function (celula) { return celula === procurado.toLowerCase(); });
-      });
-      if (todosPresentes) return i;
-    }
-    return null;
-  }
-
-  /* Le a aba que tiver Data e Saldo (R$) e devolve saldos por conta e mes. */
-  function lerExtrato(pasta) {
-    var nomeAba = null;
-    var linhaCabecalho = null;
-    for (var i = 0; i < pasta.SheetNames.length; i++) {
-      var nome = pasta.SheetNames[i];
-      var achou = acharLinhaDeCabecalho(pasta.Sheets[nome], ["Saldo (R$)", "Data"]);
-      if (achou !== null) { nomeAba = nome; linhaCabecalho = achou; break; }
-    }
-    if (nomeAba === null) return { saldos: {}, contas: [] };
-
-    var linhas = window.XLSX.utils.sheet_to_json(pasta.Sheets[nomeAba], { defval: null, range: linhaCabecalho });
-    var saldos = {};
-    var contas = new Set();
-    var contaCorrente = null;
-
-    linhas.forEach(function (linha) {
-      var data = paraData(primeiroCampo(linha, ["Data"]));
-      if (!data) return;
-      var conta = primeiroCampo(linha, ["Conta Corrente"]);
-      if (conta) contaCorrente = String(conta).trim();
-      if (!contaCorrente) return;
-      var saldo = primeiroCampo(linha, ["Saldo (R$)"]);
-      if (saldo == null || saldo === "") return;
-      contas.add(contaCorrente);
-      saldos[contaCorrente + "||" + chaveMes(data)] = paraNumero(saldo);
-    });
-
-    return { saldos: saldos, contas: Array.from(contas) };
-  }
-
-  /* ------------------------------------------------------------------ */
   /* 7. MOTOR DE CALCULO                                                 */
   /* Recebe as linhas normalizadas e o regime, devolve tudo o que a tela */
   /* precisa: DRE, fluxo, saldos por conta, dimensoes e achados.         */
@@ -3121,7 +3063,6 @@
     });
     var saldosExtrato = estExtrato[0], setSaldosExtrato = estExtrato[1];
 
-    var estArquivos = useState([]);            var arquivosExtrato = estArquivos[0], setArquivosExtrato = estArquivos[1];
     var estGaveta = useState(null);            var gaveta = estGaveta[0], setGaveta = estGaveta[1];
     var estAviso = useState("");               var aviso = estAviso[0], setAviso = estAviso[1];
 
@@ -3135,7 +3076,6 @@
     var estErroLogin = useState("");            var erroLogin = estErroLogin[0], setErroLogin = estErroLogin[1];
     var estEntrando = useState(false);          var entrando = estEntrando[0], setEntrando = estEntrando[1];
 
-    var refUpload = useRef(null);
     var campoData = regime === "caixa" ? "dPag" : "dEmi";
 
     /* Limpa o ?k= da barra de enderecos assim que a chave foi capturada,   */
@@ -3202,39 +3142,6 @@
     }
 
     useEffect(function () { if (chave) buscarBase(); }, [chave]);
-
-    /* Le um ou mais extratos xlsx e acumula os saldos por conta e mes. */
-    function carregarExtratos(listaArquivos) {
-      var arquivos = Array.prototype.slice.call(listaArquivos || []);
-      if (!arquivos.length) return;
-      setAviso("");
-
-      var novosSaldos = Object.assign({}, saldosExtrato);
-      var reconhecidos = [];
-      var ignorados = [];
-
-      var fila = arquivos.reduce(function (promessa, arquivo) {
-        return promessa.then(function () {
-          return arquivo.arrayBuffer().then(function (buffer) {
-            var pasta = window.XLSX.read(buffer, { cellDates: true });
-            var extrato = lerExtrato(pasta);
-            if (!extrato.contas.length) { ignorados.push(arquivo.name); return; }
-            Object.assign(novosSaldos, extrato.saldos);
-            reconhecidos.push({ nome: arquivo.name, contas: extrato.contas });
-          }).catch(function () { ignorados.push(arquivo.name); });
-        });
-      }, Promise.resolve());
-
-      fila.then(function () {
-        if (!reconhecidos.length) {
-          setAviso("Nenhum dos arquivos parece um extrato de conta corrente. Preciso das colunas Data, Conta Corrente e Saldo (R$).");
-          return;
-        }
-        setSaldosExtrato(novosSaldos);
-        setArquivosExtrato(arquivosExtrato.concat(reconhecidos));
-        if (ignorados.length) setAviso("Não reconheci como extrato: " + ignorados.join(", "));
-      });
-    }
 
     var dados = useMemo(function () {
       return linhas ? calcular(linhas, regime) : null;
@@ -3853,14 +3760,6 @@
 
     var meses = dados.meses;
 
-    /* Contas que ja tem algum saldo de extrato informado. */
-    var contasComExtrato = dados.contas.filter(function (conta) {
-      return meses.some(function (mes) {
-        var valor = saldosExtrato[conta + "||" + mes];
-        return valor !== undefined && valor !== "";
-      });
-    });
-
     /* Uma linha "tem valor" se qualquer mes for diferente de zero. */
     function temValor(valores) {
       return meses.some(function (mes) { return Math.abs(valores[mes] || 0) > 0.005; });
@@ -4072,21 +3971,6 @@
       }, "Exportar XLSX"),
 
       h("button", {
-        onClick: function () { if (refUpload.current) refUpload.current.click(); },
-        className: "px-3 py-1.5 rounded",
-        style: {
-          border: "1px solid " + (contasComExtrato.length ? COR.mint : COR.line),
-          color: contasComExtrato.length ? COR.mint : COR.dim,
-          fontSize: 11,
-          background: COR.surface
-        },
-        title: "Extrato de movimentação da conta corrente do Omie, um arquivo por conta. Pode subir vários de uma vez, e pode subir mais depois: os saldos se acumulam."
-          + (contasComExtrato.length ? " Já carregado: " + contasComExtrato.join(", ") : "")
-      }, contasComExtrato.length
-        ? "Extratos: " + contasComExtrato.length + " de " + dados.contas.length
-        : "Subir extrato"),
-
-      h("button", {
         onClick: buscarBase,
         disabled: carregando,
         className: "px-3 py-1.5 rounded",
@@ -4107,17 +3991,7 @@
         className: "px-2 py-1.5",
         style: { fontSize: 11, color: COR.faint },
         title: "Esquece a senha guardada neste navegador"
-      }, "Sair"),
-
-      h("input", {
-        ref: refUpload,
-        type: "file",
-        accept: ".xlsx,.xls,.csv",
-        multiple: true,
-        className: "hidden",
-        style: { display: "none" },
-        onChange: function (evento) { carregarExtratos(evento.target.files); }
-      })
+      }, "Sair")
     );
 
     /* ---------------------------------------------------------------- */
@@ -4524,12 +4398,9 @@
           style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass }
         }, "Saldo por extrato"),
         h("div", { className: "mb-3", style: { fontSize: 11, color: COR.faint } },
-          "Suba o extrato de cada conta no topo da tela, um arquivo por conta e quantos quiser de uma vez, que os saldos entram sozinhos mês a mês. Ou digite aqui o saldo de ",
+          "Digite aqui o saldo de ",
           ultimoMes ? rotuloMes(ultimoMes) : "-",
-          ". Campo em branco não é comparado.",
-          arquivosExtrato.length > 0 && h("span", { style: { color: COR.mint } },
-            " ", "Carregados: ",
-            arquivosExtrato.map(function (a) { return a.nome; }).join(", "), ".")
+          " de cada conta, pelo extrato do banco. Campo em branco não é comparado."
         ),
         h("div", { className: "space-y-1" },
           dados.contas.map(function (conta) {
