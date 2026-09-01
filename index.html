@@ -1727,322 +1727,6 @@
   /* Igual a escalaPercentual, mas sem prender o piso em 0% nem o teto em   */
   /* 100%: uma taxa de crescimento pode ser negativa, e a escala precisa    */
   /* acompanhar o dado, nao um limite artificial.                          */
-  function escalaLinhaLivre(valores) {
-    var validos = valores.filter(function (v) { return v !== null && isFinite(v); });
-    var minimo = validos.length ? Math.min.apply(null, validos) : 0;
-    var maximo = validos.length ? Math.max.apply(null, validos) : 0.02;
-    var AMPLITUDE_MINIMA = 0.02;
-    var centro = (minimo + maximo) / 2;
-    var metade = Math.max((maximo - minimo) / 2 + 0.005, AMPLITUDE_MINIMA / 2);
-    var piso = Math.floor((centro - metade) * 1000) / 1000;
-    var teto = Math.ceil((centro + metade) * 1000) / 1000;
-    if (teto <= piso) teto = piso + 0.02;
-    var passoCru = (teto - piso) / 4;
-    var passo = Math.max(0.005, Math.round(passoCru * 1000) / 1000);
-    return { piso: piso, teto: teto, passo: passo };
-  }
-
-  /* Paleta por ano-safra: cada ano de historico recebe um tom, ciclando se */
-  /* passar de quatro anos. Usada so no grafico de LTM, que por natureza    */
-  /* sempre abrange varios anos quando tem dado suficiente para existir.    */
-  var TONS_POR_ANO = ["#0A2A47", "#216FA8", "#74B4DC", "#B9C0CC"];
-
-  /* Soma de Receita Bruta terminando em "mes" (formato AAAA-MM), inclusive. */
-  /* Quando ha 12 meses de historico da empresa disponiveis, soma a janela   */
-  /* movel completa (completo:true). Antes disso, soma o que existe desde   */
-  /* o inicio do historico (completo:false) — por pedido explicito de Alex, */
-  /* que prefere ver o acumulado parcial a nao ver nada, sabendo que a      */
-  /* leitura de "ultimos 12 meses" so vale a partir do primeiro ponto       */
-  /* completo. O grafico marca visualmente a diferenca entre os dois.       */
-  function janelaLTM(dados, mesInicioHistorico, mesAlvo) {
-    var partesAlvo = mesAlvo.split("-");
-    var indiceAlvo = Number(partesAlvo[0]) * 12 + (Number(partesAlvo[1]) - 1);
-    var partesInicio = mesInicioHistorico.split("-");
-    var indiceInicio = Number(partesInicio[0]) * 12 + (Number(partesInicio[1]) - 1);
-    var mesesDisponiveis = Math.min(12, indiceAlvo - indiceInicio + 1);
-
-    var gruposReceita = SECOES_DRE[0].groups;
-    var soma = 0;
-    for (var i = 0; i < mesesDisponiveis; i++) {
-      var indiceMes = indiceAlvo - i;
-      var mes = Math.floor(indiceMes / 12) + "-" + String((indiceMes % 12) + 1).padStart(2, "0");
-      gruposReceita.forEach(function (grupo) {
-        soma += dados.grupoMes(grupo, mes);
-      });
-    }
-    return { soma: soma, completo: mesesDisponiveis >= 12 };
-  }
-
-  /* Colunas com a soma de Receita Bruta nos ultimos 12 meses (janela       */
-  /* movel), e uma linha com o crescimento do LTM contra o LTM do mes       */
-  /* anterior. Enquanto a empresa nao tem 12 meses de historico, a barra    */
-  /* mostra o acumulado parcial desde o inicio, mais clara e marcada com    */
-  /* asterisco: nao e uma leitura de "ultimos 12 meses" ainda, e o rodape   */
-  /* do grafico deixa isso explicito sempre que houver alguma barra assim.  */
-  function GraficoReceitaBrutaLTM(props) {
-    var dados = props.dados;
-    var todosMeses = props.meses;
-    var regime = props.regime;
-
-    var mesInicioHistorico = todosMeses.length ? todosMeses[0] : null;
-    var mesesValidos = todosMeses.slice();
-
-    var valoresBarra = {};
-    var completoBarra = {};
-    mesesValidos.forEach(function (mes) {
-      var janela = janelaLTM(dados, mesInicioHistorico, mes);
-      valoresBarra[mes] = janela.soma;
-      completoBarra[mes] = janela.completo;
-    });
-
-    var crescimento = {};
-    mesesValidos.forEach(function (mes, indice) {
-      if (indice === 0) { crescimento[mes] = null; return; }
-      var mesAnterior = mesesValidos[indice - 1];
-      var atual = valoresBarra[mes];
-      var anterior = valoresBarra[mesAnterior];
-      crescimento[mes] = anterior > 0 ? (atual - anterior) / anterior : null;
-    });
-
-    var maiorBarra = mesesValidos.reduce(function (maior, mes) {
-      return Math.max(maior, valoresBarra[mes]);
-    }, 0);
-
-    var temParcial = mesesValidos.some(function (mes) { return !completoBarra[mes]; });
-
-    var moldura = {
-      className: "rounded overflow-hidden mx-auto",
-      style: {
-        background: COR.surface,
-        border: "1px solid " + COR.line,
-        maxWidth: 1080,
-        width: "100%"
-      }
-    };
-
-    if (!mesesValidos.length || maiorBarra <= 0) {
-      return h("div", moldura,
-        h("div", {
-          className: "flex items-center justify-center",
-          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
-        }, "Sem receita bruta no período para montar o gráfico.")
-      );
-    }
-
-    /* Area util do desenho, no mesmo padrao dos outros slides. */
-    var margem = { topo: 148, direita: 92, baixo: 192, esquerda: 132 };
-    var RECUO_TITULO = 56;
-    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
-    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
-    var baseY = margem.topo + alturaPlot;
-
-    var yTopoFaixaLinha = margem.topo + 40;
-    var ALTURA_FAIXA_LINHA = 90;
-    var yBaseFaixaLinha = yTopoFaixaLinha + ALTURA_FAIXA_LINHA;
-    var GAP_LINHA_BARRAS = 36;
-    var topoParaBarras = yBaseFaixaLinha + GAP_LINHA_BARRAS;
-    var alturaDisponivelBarras = baseY - topoParaBarras;
-
-    var escala = escalaBonita(maiorBarra, 4);
-    var alturaDeBarra = function (valor) { return (valor / escala.topo) * alturaDisponivelBarras; };
-
-    var faixa = larguraPlot / mesesValidos.length;
-    var larguraColuna = Math.min(72, faixa * 0.62);
-
-    /* Grade horizontal do eixo de R$, so na faixa das barras. */
-    var grade = [];
-    for (var v = 0; v <= escala.topo + 0.0001; v += escala.passo) {
-      var y = baseY - alturaDeBarra(v);
-      grade.push(h("line", {
-        key: "g" + v,
-        x1: margem.esquerda, y1: y, x2: margem.esquerda + larguraPlot, y2: y,
-        stroke: v === 0 ? COR.line : COR.lineSoft,
-        strokeWidth: v === 0 ? 1.5 : 1
-      }));
-      grade.push(h("text", {
-        key: "r" + v,
-        x: margem.esquerda - 16, y: y + 5,
-        textAnchor: "end",
-        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
-      }, v === 0 ? "0" : formatarNumero(v, 0)));
-    }
-
-    /* Cor por ano-safra do mes final da janela LTM. */
-    var anoBase = Number(mesesValidos[0].split("-")[0]);
-    function corDoAno(mes) {
-      var ano = Number(mes.split("-")[0]);
-      return TONS_POR_ANO[(ano - anoBase) % TONS_POR_ANO.length];
-    }
-
-    /* Barras e seus rotulos. Mes abreviado sem espaco, para caber mais     */
-    /* colunas: ate 24 meses de LTM na mesma largura do slide.              */
-    var barras = [];
-    var centros = {};
-    var fonteRotuloMes = mesesValidos.length > 15 ? 12 : 15;
-    var fonteValorBarra = mesesValidos.length > 15 ? 13 : 16;
-    mesesValidos.forEach(function (mes, indiceMes) {
-      var centro = margem.esquerda + faixa * indiceMes + faixa / 2;
-      centros[mes] = centro;
-      var valor = valoresBarra[mes];
-      var altura = alturaDeBarra(valor);
-      var topoBarra = baseY - altura;
-      barras.push(h("rect", {
-        key: "b" + mes,
-        x: centro - larguraColuna / 2, y: topoBarra, width: larguraColuna, height: altura,
-        fill: corDoAno(mes),
-        fillOpacity: completoBarra[mes] ? 1 : 0.45
-      }));
-      barras.push(h("text", {
-        key: "t" + mes,
-        x: centro, y: topoBarra - 10,
-        textAnchor: "middle",
-        style: {
-          fontSize: fonteValorBarra,
-          fill: completoBarra[mes] ? COR.text : COR.faint,
-          fontWeight: 600, fontVariantNumeric: "tabular-nums"
-        }
-      }, formatarNumero(valor, 0) + (completoBarra[mes] ? "" : " *")));
-      barras.push(h("text", {
-        key: "m" + mes,
-        x: centro, y: baseY + 28,
-        textAnchor: "middle",
-        style: { fontSize: fonteRotuloMes, fill: COR.dim }
-      }, rotuloMes(mes)));
-    });
-
-    /* Linha de crescimento do LTM contra o LTM do mes anterior. */
-    var valoresLinha = mesesValidos.map(function (mes) { return crescimento[mes]; });
-    var escalaPct = escalaLinhaLivre(valoresLinha);
-    var yDoPercentual = function (p) {
-      var fracao = (p - escalaPct.piso) / (escalaPct.teto - escalaPct.piso);
-      return yBaseFaixaLinha - fracao * ALTURA_FAIXA_LINHA;
-    };
-
-    var segmentos = [];
-    var segmentoAtual = [];
-    mesesValidos.forEach(function (mes) {
-      var p = crescimento[mes];
-      if (p === null) {
-        if (segmentoAtual.length) segmentos.push(segmentoAtual);
-        segmentoAtual = [];
-        return;
-      }
-      segmentoAtual.push({ x: centros[mes], y: yDoPercentual(p) });
-    });
-    if (segmentoAtual.length) segmentos.push(segmentoAtual);
-
-    var elementosLinha = [];
-    segmentos.forEach(function (segmento, indiceSegmento) {
-      if (segmento.length > 1) {
-        elementosLinha.push(h("polyline", {
-          key: "seg" + indiceSegmento,
-          points: segmento.map(function (p) { return p.x + "," + p.y; }).join(" "),
-          fill: "none", stroke: COR.brass, strokeWidth: 2
-        }));
-      }
-    });
-    var fonteRotuloLinha = mesesValidos.length > 15 ? 11 : 13;
-    mesesValidos.forEach(function (mes) {
-      var p = crescimento[mes];
-      if (p === null) return;
-      var x = centros[mes];
-      var y = yDoPercentual(p);
-      elementosLinha.push(h("text", {
-        key: "pl" + mes,
-        x: x, y: y - 14,
-        textAnchor: "middle",
-        style: { fontSize: fonteRotuloLinha, fill: COR.brass, fontWeight: 600, fontVariantNumeric: "tabular-nums" }
-      }, formatarPercentual(p)));
-      elementosLinha.push(h("circle", {
-        key: "pm" + mes,
-        cx: x, cy: y, r: 4.5,
-        fill: COR.surface, stroke: COR.brass, strokeWidth: 2.25
-      }));
-    });
-
-    /* Legenda: um retangulo por ano-safra presente, mais a linha com       */
-    /* bolinha do crescimento.                                              */
-    var anosPresentes = [];
-    mesesValidos.forEach(function (mes) {
-      var ano = mes.split("-")[0];
-      if (anosPresentes.indexOf(ano) < 0) anosPresentes.push(ano);
-    });
-    var LEGENDA_FONTE = 14;
-    var itensLegenda = anosPresentes.map(function (ano) {
-      return { rotulo: ano, cor: corDoAno(ano + "-01"), largura: 18 + 10 + larguraAproximada(ano, LEGENDA_FONTE) + 22 };
-    });
-    itensLegenda.push({ especial: "linha", rotulo: "% Crescimento LTM", largura: 18 + 10 + larguraAproximada("% Crescimento LTM", LEGENDA_FONTE) + 6 });
-
-    var larguraTotalLegenda = itensLegenda.reduce(function (s, i) { return s + i.largura; }, 0);
-    var xLegenda0 = (SLIDE.largura - larguraTotalLegenda) / 2;
-    var yLegenda = baseY + 66;
-    var legenda = [];
-    var xCursor = xLegenda0;
-    itensLegenda.forEach(function (item) {
-      if (item.especial === "linha") {
-        legenda.push(h("line", {
-          key: "ll", x1: xCursor, y1: yLegenda - 5, x2: xCursor + 18, y2: yLegenda - 5,
-          stroke: COR.brass, strokeWidth: 2
-        }));
-        legenda.push(h("circle", {
-          key: "lc", cx: xCursor + 9, cy: yLegenda - 5, r: 4, fill: COR.surface, stroke: COR.brass, strokeWidth: 2
-        }));
-      } else {
-        legenda.push(h("rect", {
-          key: "lb" + item.rotulo, x: xCursor, y: yLegenda - 12, width: 18, height: 14, rx: 2, fill: item.cor
-        }));
-      }
-      legenda.push(h("text", {
-        key: "lt" + item.rotulo, x: xCursor + 28, y: yLegenda,
-        style: { fontSize: LEGENDA_FONTE, fill: COR.dim }
-      }, item.rotulo));
-      xCursor += item.largura;
-    });
-
-    var periodo = rotuloMes(mesesValidos[0]) + " a " + rotuloMes(mesesValidos[mesesValidos.length - 1]);
-
-    return h("div", moldura,
-      h("svg", {
-        viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura,
-        width: "100%",
-        preserveAspectRatio: "xMidYMid meet",
-        style: { display: "block", background: COR.surface }
-      },
-        h("text", {
-          x: RECUO_TITULO, y: 68,
-          style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
-        }, "RECEITA BRUTA ÚLTIMOS 12 MESES"),
-        h("text", {
-          x: RECUO_TITULO, y: 98,
-          style: { fontSize: 15, fill: COR.faint }
-        }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$"),
-
-        h("image", {
-          href: LOGO_QUORUM,
-          x: MARGEM_RODAPE,
-          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO,
-          width: TAMANHO_LOGO,
-          height: TAMANHO_LOGO
-        }),
-        h("text", {
-          x: SLIDE.largura - MARGEM_RODAPE,
-          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
-          textAnchor: "end",
-          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
-        }, String(props.numero || 1)),
-
-        temParcial && h("text", {
-          x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
-          textAnchor: "middle",
-          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" }
-        }, "* acumulado parcial, ainda sem 12 meses completos de histórico"),
-
-        grade, barras, elementosLinha, legenda
-      )
-    );
-  }
-
-
   function GraficoLucroBruto(props) {
     var dados = props.dados;
     var meses = props.meses;
@@ -3057,6 +2741,21 @@
     });
     var mostrarZeradas = estZeradas[0], setMostrarZeradas = estZeradas[1];
 
+    /* Selecao livre de meses a exibir. Nulo = mostra todos (padrao). O    */
+    /* filtro so recorta o que aparece na tela: saldo de conta, achados e  */
+    /* o LTM continuam calculados sobre a base inteira por baixo, so a     */
+    /* lista de colunas exibidas encolhe.                                  */
+    var estMesesSel = useState(function () {
+      try {
+        var salvo = armazenamento.getItem("quorum_meses_sel");
+        return salvo ? JSON.parse(salvo) : null;
+      } catch (e) { return null; }
+    });
+    var mesesSelecionados = estMesesSel[0], setMesesSelecionados = estMesesSel[1];
+
+    var estFiltroMesesAberto = useState(false);
+    var filtroMesesAberto = estFiltroMesesAberto[0], setFiltroMesesAberto = estFiltroMesesAberto[1];
+
     var estExtrato = useState(function () {
       try { return JSON.parse(armazenamento.getItem("quorum_extrato") || "{}"); }
       catch (e) { return {}; }
@@ -3094,6 +2793,10 @@
     useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
     useEffect(function () { armazenamento.setItem("quorum_detalhe", mostrarDetalhe ? "1" : "0"); }, [mostrarDetalhe]);
     useEffect(function () { armazenamento.setItem("quorum_zeradas", mostrarZeradas ? "1" : "0"); }, [mostrarZeradas]);
+    useEffect(function () {
+      if (mesesSelecionados === null) { armazenamento.removeItem("quorum_meses_sel"); return; }
+      armazenamento.setItem("quorum_meses_sel", JSON.stringify(mesesSelecionados));
+    }, [mesesSelecionados]);
     useEffect(function () { armazenamento.setItem("quorum_extrato", JSON.stringify(saldosExtrato)); }, [saldosExtrato]);
 
     /* Busca a base na Omie, via webhook. A senha vai por header, nunca   */
@@ -3154,7 +2857,6 @@
     function exportarXlsx() {
       if (!dados) return;
 
-      var meses = dados.meses;
       var qtdMeses = meses.length;
       var COL_PRIMEIRO_MES = 4;
       var COL_ACUMULADO = COL_PRIMEIRO_MES + qtdMeses;
@@ -3758,7 +3460,13 @@
       );
     }
 
-    var meses = dados.meses;
+    /* todosMeses e a base inteira, sem filtro: usado pelo LTM (que        */
+    /* precisa olhar pra tras alem do que esta selecionado na tela) e pelo */
+    /* proprio painel de selecao (que precisa listar tudo que existe).     */
+    var todosMeses = dados.meses;
+    var meses = mesesSelecionados
+      ? todosMeses.filter(function (mes) { return mesesSelecionados.indexOf(mes) >= 0; })
+      : todosMeses;
 
     /* Uma linha "tem valor" se qualquer mes for diferente de zero. */
     function temValor(valores) {
