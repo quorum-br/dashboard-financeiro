@@ -2778,12 +2778,6 @@
     var estFiltroMesesAberto = useState(false);
     var filtroMesesAberto = estFiltroMesesAberto[0], setFiltroMesesAberto = estFiltroMesesAberto[1];
 
-    var estExtrato = useState(function () {
-      try { return JSON.parse(armazenamento.getItem("quorum_extrato") || "{}"); }
-      catch (e) { return {}; }
-    });
-    var saldosExtrato = estExtrato[0], setSaldosExtrato = estExtrato[1];
-
     var estGaveta = useState(null);            var gaveta = estGaveta[0], setGaveta = estGaveta[1];
     var estAviso = useState("");               var aviso = estAviso[0], setAviso = estAviso[1];
 
@@ -2819,7 +2813,6 @@
       if (mesesSelecionados === null) { armazenamento.removeItem("quorum_meses_sel"); return; }
       armazenamento.setItem("quorum_meses_sel", JSON.stringify(mesesSelecionados));
     }, [mesesSelecionados]);
-    useEffect(function () { armazenamento.setItem("quorum_extrato", JSON.stringify(saldosExtrato)); }, [saldosExtrato]);
 
     /* Busca a base na Omie, via webhook. A senha vai por header, nunca   */
     /* mais pela URL. Uma recusa 401 derruba a sessao e volta pra tela de  */
@@ -2949,14 +2942,6 @@
           + "," + BASE + "!$B$2:$B$" + ultimaLinhaBase + ',"' + grupo + '"'
           + "," + BASE + "!$C$2:$C$" + ultimaLinhaBase + ',"' + categoria + '"'
           + "," + criterioMes(colunaMes) + ")";
-      };
-      var somaConta = function (conta, colunaMes) {
-        return "SUMIFS(" + FAIXA_VALOR
-          + "," + BASE + "!$D$2:$D$" + ultimaLinhaBase + ',"' + conta + '"'
-          + "," + criterioMes(colunaMes) + ")";
-      };
-      var somaTudoNoMes = function (colunaMes) {
-        return "SUMIFS(" + FAIXA_VALOR + "," + criterioMes(colunaMes) + ")";
       };
       var saldoAcumuladoConta = function (conta, colunaMes) {
         return "SUMIFS(" + FAIXA_VALOR
@@ -3233,173 +3218,9 @@
         }]
       });
 
-      /* ---------------- Aba 2: Conciliacao ---------------- */
-
-      var abaConciliacao = {
-        nome: "Conciliação",
-        cols: largurasColunas,
-        linhas: [],
-        freeze: { x: 3, y: 3 },
-        niveis: 1
-      };
-      var linhaConc = 1;
-
-      abaConciliacao.linhas.push({
-        r: linhaConc++,
-        celulas: [{ col: 3, v: "QUORUM | Conciliação de caixa", s: 13 }]
-      });
-
-      linhaConc = 3;
-      abaConciliacao.linhas.push({
-        r: 3,
-        celulas: [{ col: 3, v: "Conciliação", s: MAPA_ESTILOS.cabLabel[0] }]
-          .concat(meses.map(function (mes, i) {
-            return {
-              col: COL_PRIMEIRO_MES + i,
-              f: "'Quorum Novo'!" + col(COL_PRIMEIRO_MES + i) + "$3",
-              s: MAPA_ESTILOS.cabLabel[1]
-            };
-          }))
-          .concat([{ col: COL_ACUMULADO, v: "Acumulado", s: MAPA_ESTILOS.cabLabel[0] }])
-      });
-
-      linhaConc = 5;
-
-      /* Igual a escreverLinha, mas na aba de conciliacao. semSoma deixa o acumulado vazio. */
-      function escreverLinhaConc(nivel, rotulo, formulaPorColuna, semSoma, outline) {
-        var estilo = MAPA_ESTILOS[nivel] || MAPA_ESTILOS.item;
-        var celulas = [{ col: 3, v: rotulo, s: estilo[0] }];
-        for (var i = 0; i < qtdMeses; i++) {
-          celulas.push({
-            col: COL_PRIMEIRO_MES + i,
-            f: formulaPorColuna ? formulaPorColuna(col(COL_PRIMEIRO_MES + i)) : undefined,
-            s: estilo[1]
-          });
-        }
-        celulas.push({
-          col: COL_ACUMULADO,
-          f: formulaPorColuna && !semSoma
-            ? "SUM(" + col(COL_PRIMEIRO_MES) + linhaConc + ":" + col(COL_ACUMULADO - 1) + linhaConc + ")"
-            : undefined,
-          s: estilo[1]
-        });
-        abaConciliacao.linhas.push({ r: linhaConc, celulas: celulas, outline: outline || 0 });
-        return linhaConc++;
-      }
-
-      function linhaVaziaConc() {
-        abaConciliacao.linhas.push({ r: linhaConc, celulas: [], altura: 3 });
-        linhaConc++;
-      }
-
-      escreverLinhaConc("secao", "1. MOVIMENTO DO MÊS POR CONTA CORRENTE");
-      dados.contas.forEach(function (conta) {
-        escreverLinhaConc("item", "   " + conta, function (c) { return somaConta(conta, c); }, false, 1);
-      });
-
-      linhaVaziaConc();
-      escreverLinhaConc("secao", "2. SALDO ACUMULADO POR CONTA, CALCULADO PELA BASE");
-      var linhaSaldoCalculado = {};
-      dados.contas.forEach(function (conta) {
-        linhaSaldoCalculado[conta] = escreverLinhaConc("item", "   " + conta, function (c) {
-          return saldoAcumuladoConta(conta, c);
-        }, true, 1);
-        var linha = abaConciliacao.linhas[abaConciliacao.linhas.length - 1];
-        linha.celulas[linha.celulas.length - 1] = {
-          col: COL_ACUMULADO,
-          f: col(COL_ACUMULADO - 1) + linhaSaldoCalculado[conta],
-          s: MAPA_ESTILOS.item[1]
-        };
-      });
-
-      linhaVaziaConc();
-      escreverLinhaConc("secao", "3. SALDO POR EXTRATO, PREENCHER; EM BRANCO NÃO É COMPARADO");
-      var linhaSaldoExtrato = {};
-      dados.contas.forEach(function (conta) {
-        var numeroLinha = linhaConc;
-        var celulas = [{ col: 3, v: "   " + conta, s: MAPA_ESTILOS.input[0] }];
-        for (var i = 0; i < qtdMeses; i++) {
-          var informado = saldosExtrato[conta + "||" + meses[i]];
-          celulas.push({
-            col: COL_PRIMEIRO_MES + i,
-            v: informado === undefined || informado === "" ? "" : paraNumero(informado),
-            s: MAPA_ESTILOS.input[1]
-          });
-        }
-        celulas.push({
-          col: COL_ACUMULADO,
-          f: col(COL_ACUMULADO - 1) + numeroLinha,
-          s: MAPA_ESTILOS.input[1]
-        });
-        abaConciliacao.linhas.push({ r: numeroLinha, celulas: celulas, outline: 1 });
-        linhaSaldoExtrato[conta] = numeroLinha;
-        linhaConc++;
-      });
-
-      linhaVaziaConc();
-      escreverLinhaConc("secao", "4. DIFERENÇA, EXTRATO MENOS CALCULADO");
-      dados.contas.forEach(function (conta) {
-        escreverLinhaConc("item", "   " + conta, function (c) {
-          return "IF(" + c + linhaSaldoExtrato[conta] + "=0,0,ROUND("
-            + c + linhaSaldoExtrato[conta] + "-" + c + linhaSaldoCalculado[conta] + ",2))";
-        }, true, 1);
-      });
-
-      linhaVaziaConc();
-      escreverLinhaConc("secao", "5. INTEGRIDADE: TODA LINHA DA BASE ESTÁ NA ABA?");
-      var linhaTotalBase = escreverLinhaConc("item", "   Total de lançamentos da base no mês", function (c) {
-        return somaTudoNoMes(c);
-      }, false, 1);
-      var linhaFclNaConc = escreverLinhaConc("item", "   Fluxo de Caixa Livre da aba Quorum Novo", function (c) {
-        return "'Quorum Novo'!" + c + linhaFcl;
-      }, false, 1);
-      escreverLinhaConc("total", "   (=) Diferença, tem que ser zero", function (c) {
-        return "ROUND(" + c + linhaTotalBase + "-" + c + linhaFclNaConc + ",2)";
-      });
-
-      linhaVaziaConc();
-      escreverLinhaConc("secao", "6. CAIXA DISPONÍVEL DE FATO, POSIÇÃO DE CADA MÊS");
-      var contasCorrentes = dados.contas.filter(function (c) { return !/cart/i.test(c); });
-      var contasCartao = dados.contas.filter(function (c) {
-        return /cart/i.test(c) && !/garantia|cau/i.test(c);
-      });
-      var contasCaucao = dados.contas.filter(function (c) { return /garantia|cau/i.test(c); });
-
-      var somarSaldos = function (lista, c) {
-        return lista.length
-          ? lista.map(function (conta) { return c + linhaSaldoCalculado[conta]; }).join("+")
-          : "0";
-      };
-
-      var linhaContaCorrente = escreverLinhaConc("item", "   Conta corrente", function (c) {
-        return somarSaldos(contasCorrentes, c);
-      }, true, 1);
-      var linhaFaturaCartao = escreverLinhaConc("item", "   (-) Fatura de cartão em aberto", function (c) {
-        return somarSaldos(contasCartao, c);
-      }, true, 1);
-      var linhaCaixaLivreConc = escreverLinhaConc("total", "   (=) Caixa livre", function (c) {
-        return c + linhaContaCorrente + "+" + c + linhaFaturaCartao;
-      }, true);
-      var linhaCaucaoConc = escreverLinhaConc("item", "   (+) Caução em garantia, restituível", function (c) {
-        return somarSaldos(contasCaucao, c);
-      }, true, 1);
-      escreverLinhaConc("total", "   (=) Posição total", function (c) {
-        return c + linhaCaixaLivreConc + "+" + c + linhaCaucaoConc;
-      }, true);
-
-      linhaVaziaConc();
-      abaConciliacao.linhas.push({
-        r: linhaConc++,
-        celulas: [{
-          col: 3,
-          v: "Bloco 5 diferente de zero significa lançamento da base sem linha correspondente no fluxo, ou categoria fora do plano de contas.",
-          s: 13
-        }]
-      });
-
       var nomeArquivo = "QUORUM_Realizado_"
         + (campoData === "dPag" ? "caixa" : "competencia") + ".xlsx";
-      baixarXlsx([abaQuorum, abaConciliacao, abaBase], nomeArquivo);
+      baixarXlsx([abaQuorum, abaBase], nomeArquivo);
     }
 
     /* ---------------------------------------------------------------- */
@@ -3871,7 +3692,6 @@
       ["caixa", "Fluxo de caixa"],
       ["proj", "Por projeto"],
       ["cc", "Por centro de custo"],
-      ["conc", "Conciliação"],
       ["achados", "Achados (" + dados.achados.length + ")"],
       ["abertos", "Compromissos futuros (" + emAberto.length + ")"],
       ["apres", "Apresentação"]
@@ -4109,215 +3929,6 @@
     }
 
     /* ---------------------------------------------------------------- */
-    /* Aba: conciliacao                                                 */
-    /* ---------------------------------------------------------------- */
-
-    function abaConciliacao() {
-      var blocosPorConta = dados.contas.map(function (conta) {
-        var saldoInformado = {};
-        var diferenca = {};
-        var temExtrato = false;
-
-        meses.forEach(function (mes) {
-          var valor = saldosExtrato[conta + "||" + mes];
-          var informado = valor !== undefined && valor !== "";
-          if (informado) temExtrato = true;
-          saldoInformado[mes] = informado ? paraNumero(valor) : 0;
-          diferenca[mes] = informado
-            ? Math.round((saldoInformado[mes] - dados.saldoConta[conta][mes]) * 100) / 100
-            : 0;
-        });
-
-        var bateTodosOsMeses = temExtrato && meses.every(function (mes) {
-          return Math.abs(diferenca[mes]) < 0.005;
-        });
-
-        return h(React.Fragment, { key: "blk" + conta },
-          h(LinhaTabela, { label: conta, valores: {}, meses: meses, nivel: "secao", acumulado: 0 }),
-          h(LinhaTabela, {
-            label: "saldo calculado pela base", valores: dados.saldoConta[conta],
-            meses: meses, nivel: "grupo", casas: 2, acumulado: dados.saldoConta[conta][ultimoMes]
-          }),
-          h(LinhaTabela, {
-            label: temExtrato ? "saldo pelo extrato" : "saldo pelo extrato (não informado)",
-            valores: saldoInformado, meses: meses, nivel: "grupo", casas: 2,
-            acumulado: saldoInformado[ultimoMes]
-          }),
-          h("tr", {
-            style: {
-              background: bateTodosOsMeses ? COR.mintSoft : (temExtrato ? COR.coralSoft : "transparent")
-            }
-          },
-            h("td", {
-              className: "pl-6 py-1 whitespace-nowrap",
-              style: {
-                fontSize: 12,
-                fontWeight: 600,
-                color: temExtrato ? (bateTodosOsMeses ? COR.mint : COR.coral) : COR.faint
-              }
-            }, temExtrato && bateTodosOsMeses ? "diferença: bate ao centavo" : "diferença"),
-            meses.map(function (mes) {
-              return h("td", {
-                key: mes,
-                className: "px-3 py-1 text-right whitespace-nowrap",
-                style: {
-                  fontSize: 12,
-                  fontWeight: 600,
-                  fontVariantNumeric: "tabular-nums",
-                  color: temExtrato ? (Math.abs(diferenca[mes]) < 0.005 ? COR.mint : COR.coral) : COR.faint
-                }
-              }, formatarNumero(diferenca[mes], 2));
-            }),
-            h("td", { className: "px-3 py-1", style: { borderLeft: "1px solid " + COR.line } })
-          )
-        );
-      });
-
-      var cartaoExtrato = h("div", {
-        className: "rounded p-4",
-        style: { background: COR.surface, border: "1px solid " + COR.line }
-      },
-        h("div", {
-          className: "uppercase mb-1",
-          style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass }
-        }, "Saldo por extrato"),
-        h("div", { className: "mb-3", style: { fontSize: 11, color: COR.faint } },
-          "Digite aqui o saldo de ",
-          ultimoMes ? rotuloMes(ultimoMes) : "-",
-          " de cada conta, pelo extrato do banco. Campo em branco não é comparado."
-        ),
-        h("div", { className: "space-y-1" },
-          dados.contas.map(function (conta) {
-            var chave = conta + "||" + ultimoMes;
-            var valorInformado = saldosExtrato[chave];
-            var saldoCalculado = dados.saldoConta[conta][ultimoMes];
-            var informado = valorInformado !== undefined && valorInformado !== "";
-            var diferenca = informado
-              ? Math.round((paraNumero(valorInformado) - saldoCalculado) * 100) / 100
-              : null;
-            var bate = informado && Math.abs(diferenca) < 0.005;
-
-            return h("div", {
-              key: "ext" + conta,
-              className: "flex flex-wrap items-center gap-3 py-2",
-              style: { borderTop: "1px solid " + COR.lineSoft }
-            },
-              h("div", {
-                className: "flex-1",
-                style: { fontSize: 12, color: COR.dim, minWidth: 200 }
-              }, conta),
-              h("div", {
-                className: "w-32 text-right",
-                style: { fontSize: 12, color: COR.faint, fontVariantNumeric: "tabular-nums" }
-              }, formatarNumero(saldoCalculado, 2)),
-              h("input", {
-                value: valorInformado === undefined ? "" : valorInformado,
-                onChange: function (evento) {
-                  var atualizado = Object.assign({}, saldosExtrato);
-                  atualizado[chave] = evento.target.value;
-                  setSaldosExtrato(atualizado);
-                },
-                placeholder: "saldo do extrato",
-                className: "w-40 px-2 py-1 text-right rounded",
-                style: {
-                  fontSize: 12,
-                  background: "#FFFFFF",
-                  border: "1px solid " + COR.line,
-                  color: COR.text,
-                  outline: "none"
-                }
-              }),
-              h("div", {
-                className: "w-44 text-right",
-                style: {
-                  fontSize: 12,
-                  color: informado ? (bate ? COR.mint : COR.coral) : COR.faint,
-                  fontWeight: informado ? 600 : 400
-                }
-              }, informado
-                ? (bate ? "bate ao centavo" : "diferença de " + formatarNumero(diferenca, 2))
-                : "sem extrato")
-            );
-          })
-        )
-      );
-
-      var cartaoCaixa = posicao && h("div", {
-        className: "rounded p-4",
-        style: { background: COR.surface, border: "1px solid " + COR.line }
-      },
-        h("div", {
-          className: "uppercase mb-3",
-          style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass }
-        }, "Caixa disponível de fato"),
-        [["Conta corrente", posicao.corrente],
-         ["(-) Fatura de cartão em aberto", posicao.cartao]
-        ].map(function (par) {
-          return h("div", {
-            key: par[0],
-            className: "flex justify-between py-1",
-            style: { fontSize: 12, color: COR.dim }
-          },
-            h("span", null, par[0]),
-            h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(par[1], 2))
-          );
-        }),
-        h("div", {
-          className: "flex justify-between py-2 mt-1",
-          style: {
-            fontSize: 13,
-            borderTop: "1px solid " + COR.line,
-            color: posicao.livre < 0 ? COR.coral : COR.mint,
-            fontWeight: 700
-          }
-        },
-          h("span", null, "(=) Caixa livre"),
-          h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(posicao.livre, 2))
-        ),
-        h("div", {
-          className: "flex justify-between py-1 mt-2",
-          style: { fontSize: 12, color: COR.dim }
-        },
-          h("span", null, "(+) Caução em garantia do cartão, restituível"),
-          h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(posicao.garantia, 2))
-        ),
-        h("div", {
-          className: "flex justify-between py-2",
-          style: {
-            fontSize: 13,
-            borderTop: "1px solid " + COR.line,
-            color: COR.text,
-            fontWeight: 700
-          }
-        },
-          h("span", null, "(=) Posição total"),
-          h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(posicao.total, 2))
-        ),
-        h("div", {
-          className: "mt-3",
-          style: { fontSize: 11, color: COR.faint, lineHeight: 1.5 }
-        }, "A caução não entra no caixa livre porque o dinheiro já saiu da conta quando foi depositado na garantia: o saldo da conta corrente acima já está líquido dela. Ela volta se o cartão for encerrado, por isso soma na posição total.")
-      );
-
-      return h("div", { className: "space-y-5" },
-        h(Tabela, null,
-          h(LinhaTabela, {
-            label: "Movimento do mês por conta", valores: {}, meses: meses, nivel: "secao", acumulado: 0
-          }),
-          dados.contas.map(function (conta) {
-            return h(LinhaTabela, {
-              key: "mov" + conta, label: conta, valores: dados.movConta[conta],
-              meses: meses, nivel: "item", casas: 2
-            });
-          }),
-          blocosPorConta
-        ),
-        cartaoExtrato,
-        cartaoCaixa
-      );
-    }
-
-    /* ---------------------------------------------------------------- */
     /* Aba: achados                                                     */
     /* ---------------------------------------------------------------- */
 
@@ -4468,7 +4079,6 @@
               aba === "dre" && abaDRE(),
               aba === "caixa" && abaFluxoDeCaixa(),
               (aba === "proj" || aba === "cc") && abaDimensao(),
-              aba === "conc" && abaConciliacao(),
               aba === "achados" && abaAchados(),
               aba === "abertos" && abaCompromissos(),
               aba === "apres" && abaApresentacao()
