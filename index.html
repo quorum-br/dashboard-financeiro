@@ -2582,6 +2582,43 @@
 
   var URL_API = window.__QUORUM_API__ || "";
 
+  /* Versao do contrato que este painel sabe ler, e os campos sem os quais */
+  /* nao ha calculo confiavel. As duas travas existem pela mesma razao: um */
+  /* numero errado com cara de numero certo e pior que nenhum numero. Se o */
+  /* workflow do n8n e o painel divergirem — rascunho publicado sem o     */
+  /* outro, campo removido, renomeado — o painel para e explica o que      */
+  /* falta, em vez de calcular em cima de um buraco.                       */
+  var CONTRATO_ESPERADO = 2;
+  var CAMPOS_OBRIGATORIOS = ["contrato", "categorias", "linhas"];
+
+  /* Confere o payload antes de qualquer calculo. Devolve null se estiver  */
+  /* tudo certo, ou uma mensagem pronta pra tela se faltar algo.           */
+  function validarContrato(dados) {
+    if (!dados || typeof dados !== "object") {
+      return "A base voltou vazia ou em formato inesperado.";
+    }
+    var faltando = CAMPOS_OBRIGATORIOS.filter(function (campo) {
+      return !(campo in dados);
+    });
+    if (faltando.length) {
+      return "A base voltou sem o(s) campo(s) " + faltando.join(", ") + ". "
+        + "O workflow do n8n provavelmente está com o rascunho e a produção "
+        + "divergentes — publique o workflow (versão de contrato "
+        + CONTRATO_ESPERADO + ") antes de usar este painel.";
+    }
+    if (Number(dados.contrato) !== CONTRATO_ESPERADO) {
+      return "Este painel espera o contrato " + CONTRATO_ESPERADO
+        + " e a base veio na versão " + dados.contrato + ". "
+        + "Publique o workflow do n8n (ou o painel, se o n8n já estiver na "
+        + "versão certa) antes de confiar nestes números.";
+    }
+    if (!Array.isArray(dados.categorias) || !dados.categorias.length) {
+      return "A base veio sem catálogo de categorias. Sem ele o painel não "
+        + "sabe classificar nenhum lançamento — confira o workflow no n8n.";
+    }
+    return null;
+  }
+
   /* Descobre o nome da contraparte e de onde ele veio. */
   function resolverContraparte(linha) {
     var cadastrada = (linha.contraparte || "").trim();
@@ -2789,6 +2826,14 @@
           return r.json();
         })
         .then(function (dados) {
+          var problema = validarContrato(dados);
+          if (problema) {
+            setAviso(problema);
+            setLinhas(null);
+            setEmAberto(null);
+            setResposta(null);
+            return;
+          }
           /* O catalogo tem que ser aplicado antes de normalizar e calcular: */
           /* e ele que diz quais categorias existem, como se chamam, quais   */
           /* estao inativas e em que secao cada grupo entra.                 */
