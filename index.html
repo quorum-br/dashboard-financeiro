@@ -2813,7 +2813,7 @@
     /* Busca a base na Omie, via webhook. A senha vai por header, nunca   */
     /* mais pela URL. Uma recusa 401 derruba a sessao e volta pra tela de  */
     /* login, em vez de cair no aviso vermelho generico de erro de rede.   */
-    function buscarBase() {
+    function buscarBase(forcar) {
       if (!URL_API) {
         setAviso("A URL da base não foi configurada nesta página. Fale com o Alex.");
         setCarregando(false);
@@ -2823,7 +2823,11 @@
       setCarregando(true);
       setEntrando(true);
       setAviso("");
-      return fetch(URL_API, { cache: "no-store", headers: { "x-quorum-key": chave } })
+      var cabecalhos = { "x-quorum-key": chave };
+      /* "Atualizar agora" sempre pula o cache do n8n; carregamento normal */
+      /* de pagina usa o cache quando ele existe e esta dentro do TTL.     */
+      if (forcar) cabecalhos["x-forcar-atualizacao"] = "1";
+      return fetch(URL_API, { cache: "no-store", headers: cabecalhos })
         .then(function (r) {
           if (r.status === 401) {
             var recusado = new Error("Senha incorreta.");
@@ -3584,7 +3588,7 @@
       }, "Exportar XLSX"),
 
       h("button", {
-        onClick: buscarBase,
+        onClick: function () { buscarBase(true); },
         disabled: carregando,
         className: "px-3 py-1.5 rounded",
         style: {
