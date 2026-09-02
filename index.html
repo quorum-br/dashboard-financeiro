@@ -770,12 +770,20 @@
         : formatarNumero(props.valores[mes], casas));
     });
 
+    /* O acumulado de um percentual nunca e a soma dos percentuais mensais  */
+    /* (isso nao tem sentido matematico), mas o quociente dos totais do     */
+    /* periodo: soma do numerador dividida pela soma do denominador. Quem   */
+    /* chama LinhaTabela com formato "pct" precisa calcular esse quociente  */
+    /* e passar em props.acumulado; sem isso, a celula fica em branco, como */
+    /* sempre foi.                                                          */
     var celulaAcumulado = h("td", {
       className: "px-3 py-1 text-right whitespace-nowrap",
       style: Object.assign({}, estiloNumero, { borderLeft: "1px solid " + COR.line }),
       onClick: clicavel && props.formato !== "pct" ? function () { props.aoAbrir(null); } : undefined,
       title: clicavel && props.formato !== "pct" ? "Abrir os lançamentos do período inteiro" : undefined
-    }, props.formato === "pct" ? "" : formatarNumero(totalAcumulado, casas));
+    }, props.formato === "pct"
+      ? (props.acumulado !== undefined ? formatarPercentual(props.acumulado) : "")
+      : formatarNumero(totalAcumulado, casas));
 
     return h("tr", {
       onMouseEnter: function () { setHover(true); },
@@ -3853,7 +3861,6 @@
     function abaDimensao() {
       var agrupado = aba === "proj" ? dados.porProjeto : dados.porCentro;
       var dimensao = aba === "proj" ? "projeto" : "centro";
-      var rotuloVazio = aba === "proj" ? "Sem projeto" : "Sem centro de custo";
 
       var abrirDimensao = function (valorDimensao, titulo) {
         return function (mes) {
@@ -3880,24 +3887,55 @@
         }, "Nenhum lançamento de resultado no período.");
       }
 
+      /* Margem acumulada de um item: soma do resultado do periodo dividida */
+      /* pela soma da receita do periodo, nao a media dos percentuais       */
+      /* mensais.                                                          */
+      function margemAcumulada(recPorMes, resPorMes) {
+        var recAcum = meses.reduce(function (s, mes) { return s + (recPorMes[mes] || 0); }, 0);
+        var resAcum = meses.reduce(function (s, mes) { return s + (resPorMes[mes] || 0); }, 0);
+        return recAcum ? resAcum / recAcum : 0;
+      }
+
+      /* "Geral" soma todos os itens da dimensao, do mesmo jeito que a linha */
+      /* final "(=) Resultado somado" ja faz, so que aberta em Receita,      */
+      /* Custos e despesas e % margem, igual a qualquer outro item, e        */
+      /* mostrada primeiro por ser a visao mais ampla. Clicar nela abre      */
+      /* todos os lancamentos de resultado do periodo, sem filtro de         */
+      /* projeto/centro: o mecanismo da gaveta ja ignora uma dimensao que    */
+      /* nao foi informada, entao basta nao passar valorDimensao nenhum.     */
+      var recGeral = somarTudo("rec");
+      var saiGeral = somarTudo("sai");
+      var resGeral = somarTudo("res");
+      var margemGeral = {};
+      meses.forEach(function (mes) {
+        margemGeral[mes] = recGeral[mes] ? resGeral[mes] / recGeral[mes] : 0;
+      });
+      var abrirGeral = function (titulo) {
+        return function (mes) {
+          setGaveta({ titulo: titulo, mes: mes, campo: campoData, somenteResultado: true, gruposResultado: GRUPOS_DE_RESULTADO });
+        };
+      };
+
       return h("div", { className: "space-y-4" },
-        h("div", {
-          className: "rounded px-4 py-3",
-          style: {
-            background: COR.surface,
-            border: "1px solid " + COR.line,
-            fontSize: 11,
-            color: COR.dim,
-            lineHeight: 1.6
-          }
-        },
-          "Só entram linhas de resultado: receita, custo e despesa. Movimentação de sócio, transferência entre contas e investimento ficam de fora, senão a margem do ",
-          aba === "proj" ? "projeto" : "centro de custo",
-          " misturaria dinheiro que não é dele. O que estiver em ",
-          h("strong", null, rotuloVazio),
-          " é lançamento sem essa informação preenchida no Omie."
-        ),
         h(Tabela, null,
+          h(React.Fragment, { key: "dim-geral" },
+            h(LinhaTabela, {
+              label: "Geral", valores: resGeral, meses: meses, nivel: "secao",
+              aoAbrir: abrirGeral("Geral")
+            }),
+            h(LinhaTabela, {
+              label: "Receita", valores: recGeral, meses: meses, nivel: "grupo",
+              aoAbrir: abrirGeral("Geral - receita")
+            }),
+            h(LinhaTabela, {
+              label: "Custos e despesas", valores: saiGeral, meses: meses, nivel: "grupo",
+              aoAbrir: abrirGeral("Geral - custos e despesas")
+            }),
+            h(LinhaTabela, {
+              label: "% margem", valores: margemGeral, meses: meses, nivel: "pct", formato: "pct",
+              acumulado: margemAcumulada(recGeral, resGeral)
+            })
+          ),
           agrupado.lista.map(function (item) {
             var margem = {};
             meses.forEach(function (mes) {
@@ -3917,7 +3955,8 @@
                 aoAbrir: abrirDimensao(item, item + " - custos e despesas")
               }),
               h(LinhaTabela, {
-                label: "% margem", valores: margem, meses: meses, nivel: "pct", formato: "pct"
+                label: "% margem", valores: margem, meses: meses, nivel: "pct", formato: "pct",
+                acumulado: margemAcumulada(agrupado.rec[item], agrupado.res[item])
               })
             );
           }),
