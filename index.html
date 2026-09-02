@@ -2641,11 +2641,22 @@
     return { nome: linha.conta || "Sem contraparte", origem: "natureza" };
   }
 
-  /* Converte uma linha crua da API no formato que o motor de calculo usa. */
+  /* Converte uma linha crua da API no formato que o motor de calculo usa.  */
+  /* O id precisa ser estavel entre cargas -- e usado como key do React na  */
+  /* tabela da gaveta (GavetaLancamentos). Um indice de array (posicao      */
+  /* depois da ordenacao por data) muda quando um lancamento novo entra no  */
+  /* meio da ordem cronologica, o que faz o React reconciliar a linha       */
+  /* errada silenciosamente. Titulo (nCodTitulo) e a primeira escolha; na   */
+  /* falta dele (movimento de caixa puro: tarifa, cashback, transferencia), */
+  /* o id_movimento (nCodMovCC) e igualmente estavel, vem direto da Omie e  */
+  /* nao depende de posicao. So cai no indice se nenhum dos dois existir,   */
+  /* o que na pratica nao deveria acontecer -- todo lancamento tem pelo     */
+  /* menos um movimento de conta corrente por tras. */
   function normalizarLinha(linha, indice) {
     var contraparte = resolverContraparte(linha);
+    var idEstavel = linha.id || (linha.id_movimento ? "M" + linha.id_movimento : "L" + indice);
     return {
-      id: linha.id || "L" + indice,
+      id: idEstavel,
       idTitulo: linha.id || "",
       idMovimento: linha.id_movimento || "",
       grupo: linha.grupo,
