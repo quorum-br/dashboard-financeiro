@@ -4277,6 +4277,10 @@
     return limpo === "a definir" || limpo.indexOf("a definir.") === 0 || limpo.indexOf("a definir,") === 0 || limpo.indexOf("a definir ") === 0;
   }
 
+  function ehProposta(texto) {
+    return String(texto || "").trim().toLowerCase().indexOf("proposta de teste") === 0;
+  }
+
   /* ------------------------------------------------------------------ */
   /* 11-B. TELA MASTER: BUSINESS PLAN (casca da Fase 1)                  */
   /* ------------------------------------------------------------------ */
@@ -4335,6 +4339,10 @@
       return soma + (ehAberto(valores[item.numero]) ? 1 : 0);
     }, 0);
 
+    var totalProposta = PREMISSAS_DEFAULT.reduce(function (soma, item) {
+      return soma + (ehProposta(valores[item.numero]) ? 1 : 0);
+    }, 0);
+
     var ABAS_BP = [
       ["bp", "BP"],
       ["premissas", "Premissas (" + totalAberto + " em aberto)"]
@@ -4379,6 +4387,7 @@
     function linhaPremissa(item) {
       var valorAtual = valores[item.numero];
       var aberto = ehAberto(valorAtual);
+      var proposta = !aberto && ehProposta(valorAtual);
       var editado = valorAtual !== item.sugestao;
 
       return h("div", {
@@ -4401,6 +4410,16 @@
                 padding: "2px 6px"
               }
             }, "Aberto"),
+            proposta && h("span", {
+              className: "uppercase",
+              style: {
+                fontSize: 9, letterSpacing: "0.08em", fontWeight: 700,
+                color: COR.dim, background: COR.surfaceAlt,
+                border: "1px solid " + COR.line, borderRadius: 4,
+                padding: "2px 6px"
+              },
+              title: "Chute meu pra testar o motor, ainda não é resposta sua"
+            }, "Proposta"),
             editado && h("button", {
               onClick: function () { restaurarValor(item.numero, item.sugestao); },
               style: { fontSize: 10, color: COR.faint, textDecoration: "underline" },
@@ -4416,7 +4435,7 @@
           style: {
             fontSize: 12,
             color: COR.text,
-            background: aberto ? COR.brassSoft : COR.surface,
+            background: aberto ? COR.brassSoft : (proposta ? COR.surfaceAlt : COR.surface),
             border: "1px solid " + (aberto ? COR.brass : COR.line),
             resize: "vertical"
           }
@@ -4432,7 +4451,11 @@
             "51 premissas · ",
             totalAberto > 0
               ? h("span", { style: { color: COR.brass, fontWeight: 600 } }, totalAberto + " em aberto")
-              : h("span", { style: { color: COR.mint, fontWeight: 600 } }, "todas respondidas"),
+              : h("span", { style: { color: COR.mint, fontWeight: 600 } }, "nenhuma em aberto"),
+            totalProposta > 0 && h(Fragment, null,
+              " · ",
+              h("span", { style: { color: COR.dim, fontWeight: 600 } }, totalProposta + " proposta(s) de teste")
+            ),
             " · alimenta o motor de projeção na Fase 3, ainda não lido por nenhum cálculo"
           ),
           h("button", {
