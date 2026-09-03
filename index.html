@@ -4182,7 +4182,7 @@
                   )
             )
           )
-        : h(PainelBP, null)
+        : h(PainelBP, { posicao: posicao })
     );
   }
 
@@ -4700,14 +4700,414 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* 11-C. MOTOR DE PROJECAO                                             */
+  /* Le as 51 premissas tipadas e devolve o DRE projetado mes a mes, no  */
+  /* mesmo formato de secoes que a aba Financeiro ja usa. Nenhuma regra  */
+  /* de negocio mora aqui de forma implicita: tudo o que o motor decide  */
+  /* vem de uma premissa, e onde a premissa esta vazia o motor devolve   */
+  /* zero e registra a lacuna, em vez de arbitrar um numero.             */
+  /* ------------------------------------------------------------------ */
+
+  /* Tabela do Anexo V do Simples Nacional, LC 123/2006 na redacao da    */
+  /* LC 155/2016. Aliquota efetiva = (RBT12 x nominal - deduzir) / RBT12 */
+  /* conforme art. 18, par. 1-A. VERIFICADO em fonte publica, mas e      */
+  /* aproximacao gerencial: a apuracao oficial e do Vigo, nao daqui.     */
+  var FAIXAS_ANEXO_V = [
+    { teto: 180000,   nominal: 15.50, deduzir: 0 },
+    { teto: 360000,   nominal: 18.00, deduzir: 4500 },
+    { teto: 720000,   nominal: 19.50, deduzir: 9900 },
+    { teto: 1800000,  nominal: 20.50, deduzir: 17100 },
+    { teto: 3600000,  nominal: 23.00, deduzir: 62100 },
+    { teto: 4800000,  nominal: 30.50, deduzir: 540000 }
+  ];
+
+  /* Anexo III, para o cenario alternativo da premissa 46. So entra em   */
+  /* jogo se Alex ligar aquela premissa; enquanto ela estiver vazia,     */
+  /* esta tabela nao e consultada.                                       */
+  var FAIXAS_ANEXO_III = [
+    { teto: 180000,   nominal: 6.00,  deduzir: 0 },
+    { teto: 360000,   nominal: 11.20, deduzir: 9360 },
+    { teto: 720000,   nominal: 13.50, deduzir: 17640 },
+    { teto: 1800000,  nominal: 16.00, deduzir: 35640 },
+    { teto: 3600000,  nominal: 21.00, deduzir: 125640 },
+    { teto: 4800000,  nominal: 33.00, deduzir: 648000 }
+  ];
+
+  /* Aliquota efetiva do Simples sobre a receita de um mes, dado o RBT12 */
+  /* acumulado ate o mes anterior. Empresa nova, com menos de 12 meses   */
+  /* de historico, usa o acumulado que existe: a proporcionalizacao      */
+  /* formal do inicio de atividade e refinamento do Vigo, nao muda a     */
+  /* ordem de grandeza da projecao.                                      */
+  function aliquotaEfetiva(rbt12, faixas) {
+    if (!(rbt12 > 0)) return faixas[0].nominal / 100;
+    var faixa = faixas[faixas.length - 1];
+    for (var i = 0; i < faixas.length; i++) {
+      if (rbt12 <= faixas[i].teto) { faixa = faixas[i]; break; }
+    }
+    var efetiva = (rbt12 * (faixa.nominal / 100) - faixa.deduzir) / rbt12;
+    return Math.max(0, efetiva);
+  }
+
+  /* Leitores de premissa. Cada um sabe extrair um pedaco de um item     */
+  /* tipado sem quebrar quando o campo esta vazio: devolve o padrao e o  */
+  /* motor segue, porque premissa em aberto nao pode derrubar a tela.    */
+  function campoDe(item, nome, padrao) {
+    if (!item || !item.campos) return padrao;
+    var achado = null;
+    item.campos.forEach(function (c) { if (c && c.nome === nome) achado = c; });
+    if (!achado || achado.valor === null || achado.valor === undefined || achado.valor === "") return padrao;
+    return achado.valor;
+  }
+
+  function campoExtraDe(item, nome, padrao) {
+    if (!item || !item.camposExtra) return padrao;
+    var achado = null;
+    item.camposExtra.forEach(function (c) { if (c && c.nome === nome) achado = c; });
+    if (!achado || achado.valor === null || achado.valor === undefined) return padrao;
+    return achado.valor;
+  }
+
+  /* Valor de uma curva no mes pedido: zero antes do mes de inicio, e    */
+  /* valor base reajustado a cada N meses depois disso. Degrau, sem      */
+  /* interpolacao, que e como a premissa foi definida.                   */
+  function valorDaCurva(item, mes) {
+    if (!item || item.valorBase === null || item.valorBase === undefined) return 0;
+    var inicio = (item.mesInicio === null || item.mesInicio === undefined) ? 0 : item.mesInicio;
+    if (mes < inicio) return 0;
+    var valor = item.valorBase;
+    if (item.reajuste && item.reajuste.valor && item.reajuste.frequenciaMeses > 0) {
+      var ciclos = Math.floor((mes - inicio) / item.reajuste.frequenciaMeses);
+      valor = valor * Math.pow(1 + item.reajuste.valor / 100, ciclos);
+    }
+    return valor;
+  }
+
+  /* Soma o campo pedido de todos os eventos que caem no mes. Evento sem */
+  /* mes definido (mes null) nao entra em mes nenhum, de proposito: e o  */
+  /* caso do honorario avulso da Agilize, que ainda nao tem data.        */
+  function valorDosEventos(item, mes, campo) {
+    if (!item || !item.eventos) return 0;
+    var soma = 0;
+    item.eventos.forEach(function (ev) {
+      if (ev && ev.mes === mes && ev.campos && typeof ev.campos[campo] === "number") {
+        soma += ev.campos[campo];
+      }
+    });
+    return soma;
+  }
+
+  function temEventoNoMes(item, mes) {
+    if (!item || !item.eventos) return false;
+    var achou = false;
+    item.eventos.forEach(function (ev) { if (ev && ev.mes === mes) achou = true; });
+    return achou;
+  }
+
+  /* Primeiro mes em que a premissa tem evento, ou null se nao tem. */
+  function primeiroMesDeEvento(item) {
+    if (!item || !item.eventos || !item.eventos.length) return null;
+    var menor = null;
+    item.eventos.forEach(function (ev) {
+      if (ev && typeof ev.mes === "number" && (menor === null || ev.mes < menor)) menor = ev.mes;
+    });
+    return menor;
+  }
+
+  /* Rotulo "AAAA-MM" do mes N do horizonte, com mes 0 = set/2026.       */
+  function chaveMesHorizonte(indice) {
+    var total = 8 + indice;              /* set/26 e o mes 8 de 2026 */
+    var ano = 2026 + Math.floor(total / 12);
+    var mes = ((total % 12) + 12) % 12;
+    return ano + "-" + String(mes + 1).padStart(2, "0");
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Projecao de um cenario. redutorReceita e 1 no base e, no            */
+  /* conservador, a fracao da premissa 3. O redutor incide so sobre as   */
+  /* linhas de receita: custo fixo nao encolhe porque a receita caiu, e  */
+  /* essa assimetria e justamente o que o cenario conservador testa.     */
+  /* ------------------------------------------------------------------ */
+  function projetarCenario(P, posicaoInicial, redutorReceita, faixasSimples) {
+    var horizonte = campoDe(P[1], "meses", 36);
+    var meses = [];
+    for (var i = 0; i < horizonte; i++) meses.push(chaveMesHorizonte(i));
+
+    /* Acumuladores por mes, um mapa por linha do DRE. */
+    var L = {
+      recEncontros: {}, recPatrocinio: {}, recSpot: {}, recInsights: {},
+      recReview: {}, recAdvisory: {}, recHouse: {}, recQuorumDay: {},
+      receita: {}, impostos: {}, receitaLiquida: {},
+      custoEncontros: {}, custoAdvisory: {}, custoQuorumDay: {},
+      custoComissao: {}, custoPlataforma: {}, custoCAC: {}, custo: {},
+      lucroBruto: {},
+      despFixas: {}, despFerramentas: {}, despMidia: {}, despContabil: {},
+      despJuridico: {}, despHouse: {}, despPessoal: {}, despesas: {},
+      ebitdaAntesPL: {}, proLabore: {}, ebitda: {},
+      juros: {}, finDesp: {}, lucroLiquido: {},
+      capex: {}, aporte: {}, distribuicao: {},
+      fluxoMes: {}, caixa: {},
+      assinantes: {}, assinantesReview: {}, rbt12: {}, aliquota: {}
+    };
+
+    /* Estado que atravessa os meses. */
+    var baseAssinantes = 0;
+    var baseReview = 0;
+    var caixaCorrente = posicaoInicial ? posicaoInicial.livre : 0;
+    var lucroAcumuladoNaoDistribuido = 0;
+    var historicoReceita = [];
+
+    /* Premissas lidas uma vez so, fora do loop. */
+    var mutuoValor = valorDosEventos(P[4], primeiroMesDeEvento(P[4]), "valor");
+    var mesMutuo = primeiroMesDeEvento(P[4]);
+    var encontrosPorMes = campoDe(P[7], "por_mes", 0);
+    var mesInicioEncontros = campoDe(P[7], "mes_inicio", 0);
+    var custoPorEncontro = campoDe(P[10], "valor", 0);
+    var comissaoAdvisors = campoDe(P[17], "percentual", 0) / 100;
+    var probRenovacao = campoDe(P[15], "percentual", 100) / 100;
+    var prazoCota = campoDe(P[14], "prazo_meses", 12);
+    var precoInsights = campoDe(P[19], "preco", 0);
+    var churn = campoDe(P[21], "churn_percentual", 0) / 100;
+    var cac = campoDe(P[22], "cac", 0);
+    var plataformaFixa = campoDe(P[23], "fixo_mensal", 0);
+    var takeRate = campoDe(P[23], "take_rate_hotmart_percentual", 0) / 100;
+    var precoReview = (P[26] && typeof P[26].precoUnitario === "number") ? P[26].precoUnitario : 0;
+    var ticketAdvisory = (P[29] && typeof P[29].valorBase === "number") ? P[29].valorBase : 0;
+    var projetosPorMes = campoExtraDe(P[29], "projetos_por_mes", 0);
+    var splitAdvisor = campoDe(P[30], "percentual_advisor", 0) / 100;
+    var qdCotas = campoDe(P[32], "receita_cotas", 0);
+    var qdIngressos = campoDe(P[32], "receita_ingressos", 0);
+    var qdCusto = campoDe(P[32], "custo_direto", 0);
+    var houseAluguel = campoDe(P[34], "valor", 0);
+    var mesHouse = primeiroMesDeEvento(P[33]);
+    var houseGeraReceita = campoDe(P[36], "gera_receita_propria", false);
+    var houseReceitaMensal = campoDe(P[36], "valor_mensal", 0);
+    var houseMesReceita = campoDe(P[36], "mes_inicio", 0);
+    var plPercentual = (P[37] && typeof P[37].percentual === "number") ? P[37].percentual / 100 : 0;
+    var plTeto = (P[37] && typeof P[37].tetoPorSocio === "number") ? P[37].tetoPorSocio : 0;
+    var plSocios = (P[37] && typeof P[37].numSocios === "number") ? P[37].numSocios : 0;
+    var plMesInicio = (P[37] && typeof P[37].mesInicio === "number") ? P[37].mesInicio : 0;
+    var despBase = campoDe(P[40], "valor_base", 0);
+    var ferramentas = campoDe(P[41], "valor", 0);
+    var midia = campoDe(P[42], "valor", 0);
+    var juridicoValor = campoDe(P[44], "valor_mensal", 0);
+    var juridicoInicio = campoDe(P[44], "mes_inicio", 0);
+    var distPercentual = campoDe(P[49], "percentual", 0) / 100;
+    var distPeriodo = campoDe(P[49], "periodicidade_meses", 0);
+    var caixaMinimo = campoDe(P[50], "valor", 0);
+
+    /* Juros do mutuo: 100% CDI simples, accrual desde o desembolso       */
+    /* conforme premissa 5. Uso 10,5% a.a. como proxy do CDI, que e uma   */
+    /* premissa minha e nao de Alex: fica declarada na tela como tal.     */
+    var CDI_PROXY_ANUAL = 0.105;
+    var jurosMensaisMutuo = mutuoValor * (Math.pow(1 + CDI_PROXY_ANUAL, 1 / 12) - 1);
+
+    meses.forEach(function (chave, m) {
+      /* ---------- RECEITAS ---------- */
+
+      /* Encontros: fee da curva 6, vezes a quantidade da premissa 7. */
+      var qtdEncontros = (m >= mesInicioEncontros) ? encontrosPorMes : 0;
+      L.recEncontros[chave] = valorDaCurva(P[6], m) * qtdEncontros;
+
+      /* Cotas Master: a 1 vem da curva 12; a 2 e a 3 sao eventos de      */
+      /* entrada na premissa 13 e valem recorrentemente a partir dali.    */
+      /* A probabilidade de renovacao da premissa 15 entra a cada ciclo   */
+      /* de contrato completado, nao mes a mes.                           */
+      var patrocinio = valorDaCurva(P[12], m);
+      if (P[13] && P[13].eventos) {
+        P[13].eventos.forEach(function (ev) {
+          if (!ev || typeof ev.mes !== "number") return;
+          if (m < ev.mes) return;
+          var valor = (ev.campos && typeof ev.campos.valor === "number") ? ev.campos.valor : 0;
+          var ciclos = (prazoCota > 0) ? Math.floor((m - ev.mes) / prazoCota) : 0;
+          patrocinio += valor * Math.pow(probRenovacao, ciclos);
+        });
+      }
+      /* A Cota 1 tambem renova: aplico a mesma probabilidade por ciclo. */
+      if (P[12] && typeof P[12].mesInicio === "number" && m >= P[12].mesInicio && prazoCota > 0) {
+        var ciclos1 = Math.floor((m - P[12].mesInicio) / prazoCota);
+        patrocinio = patrocinio - valorDaCurva(P[12], m)
+                   + valorDaCurva(P[12], m) * Math.pow(probRenovacao, ciclos1);
+      }
+      L.recPatrocinio[chave] = patrocinio;
+
+      /* Spot de happy hour: evento discreto, hoje vazio de proposito. */
+      L.recSpot[chave] = valorDosEventos(P[16], m, "valor");
+
+      /* QR Insights: base de assinantes com entrada pela curva 20 e     */
+      /* saida pelo churn da premissa 21.                                 */
+      var novosAssinantes = valorDaCurva(P[20], m);
+      baseAssinantes = baseAssinantes * (1 - churn) + novosAssinantes;
+      L.assinantes[chave] = baseAssinantes;
+      L.recInsights[chave] = baseAssinantes * precoInsights;
+
+      /* QR Review: mesma mecanica, com preco unitario proprio. */
+      var novosReview = valorDaCurva(P[26], m);
+      baseReview = baseReview + novosReview;
+      L.assinantesReview[chave] = baseReview;
+      L.recReview[chave] = baseReview * precoReview;
+
+      /* QR Advisory: ticket vezes projetos por mes, a partir do mes de   */
+      /* inicio da curva 29.                                              */
+      var advisoryAtivo = (P[29] && typeof P[29].mesInicio === "number" && m >= P[29].mesInicio);
+      L.recAdvisory[chave] = advisoryAtivo ? ticketAdvisory * projetosPorMes : 0;
+
+      /* Quorum House: receita propria de locacao, se ligada. */
+      L.recHouse[chave] = (houseGeraReceita && m >= houseMesReceita) ? houseReceitaMensal : 0;
+
+      /* Quorum Day: cotas mais ingressos nos meses de edicao. */
+      L.recQuorumDay[chave] = temEventoNoMes(P[31], m) ? (qdCotas + qdIngressos) : 0;
+
+      var receitaBruta = (L.recEncontros[chave] + L.recPatrocinio[chave] + L.recSpot[chave]
+        + L.recInsights[chave] + L.recReview[chave] + L.recAdvisory[chave]
+        + L.recHouse[chave] + L.recQuorumDay[chave]) * redutorReceita;
+
+      /* Reaplica o redutor linha a linha, para a tela mostrar as partes  */
+      /* coerentes com o total no cenario conservador.                    */
+      ["recEncontros", "recPatrocinio", "recSpot", "recInsights",
+       "recReview", "recAdvisory", "recHouse", "recQuorumDay"].forEach(function (k) {
+        L[k][chave] = L[k][chave] * redutorReceita;
+      });
+      L.receita[chave] = receitaBruta;
+
+      /* ---------- IMPOSTOS ---------- */
+
+      /* RBT12: soma dos 12 meses anteriores de receita ja projetada.     */
+      /* No comeco do horizonte, a base e menor que 12 meses, entao a     */
+      /* aliquota sai artificialmente baixa. E limitacao conhecida:       */
+      /* o historico real anterior a set/26 nao entra aqui.               */
+      var rbt12 = 0;
+      var inicioJanela = Math.max(0, historicoReceita.length - 12);
+      for (var j = inicioJanela; j < historicoReceita.length; j++) rbt12 += historicoReceita[j];
+      L.rbt12[chave] = rbt12;
+      var aliq = aliquotaEfetiva(rbt12, faixasSimples);
+      L.aliquota[chave] = aliq;
+      L.impostos[chave] = -receitaBruta * aliq;
+      historicoReceita.push(receitaBruta);
+
+      L.receitaLiquida[chave] = L.receita[chave] + L.impostos[chave];
+
+      /* ---------- CUSTOS DIRETOS ---------- */
+
+      L.custoEncontros[chave] = -custoPorEncontro * qtdEncontros;
+      L.custoAdvisory[chave] = -L.recAdvisory[chave] * splitAdvisor;
+      L.custoQuorumDay[chave] = temEventoNoMes(P[31], m) ? -qdCusto : 0;
+      /* Comissao dos advisors incide sobre patrocinio originado. */
+      L.custoComissao[chave] = -(L.recPatrocinio[chave] + L.recSpot[chave]) * comissaoAdvisors;
+      /* Plataforma: fixo mensal mais take rate sobre a receita de        */
+      /* assinatura, que e onde a Hotmart cobra.                          */
+      L.custoPlataforma[chave] = -(plataformaFixa + L.recInsights[chave] * takeRate);
+      L.custoCAC[chave] = -novosAssinantes * cac;
+
+      L.custo[chave] = L.custoEncontros[chave] + L.custoAdvisory[chave]
+        + L.custoQuorumDay[chave] + L.custoComissao[chave]
+        + L.custoPlataforma[chave] + L.custoCAC[chave];
+
+      L.lucroBruto[chave] = L.receitaLiquida[chave] + L.custo[chave];
+
+      /* ---------- DESPESAS FIXAS ---------- */
+
+      /* A base da premissa 40 ja inclui ferramentas e midia no realizado */
+      /* de agosto, entao somar as tres cheias contaria duas vezes. Uso a */
+      /* base como piso e somo so o excedente de cada uma.                */
+      L.despFerramentas[chave] = -ferramentas;
+      L.despMidia[chave] = -midia;
+      L.despFixas[chave] = -Math.max(0, despBase - ferramentas - midia);
+      L.despContabil[chave] = -450 - valorDosEventos(P[43], m, "valor_min");
+      L.despJuridico[chave] = (m >= juridicoInicio) ? -juridicoValor : 0;
+      L.despHouse[chave] = (mesHouse !== null && m >= mesHouse) ? -houseAluguel : 0;
+
+      /* Contratacoes da premissa 38: hoje vazia de proposito. */
+      var folha = 0;
+      if (P[38] && P[38].eventos) {
+        P[38].eventos.forEach(function (ev) {
+          if (ev && typeof ev.mes === "number" && m >= ev.mes
+              && ev.campos && typeof ev.campos.salario === "number") {
+            folha += ev.campos.salario;
+          }
+        });
+      }
+      L.despPessoal[chave] = -folha;
+
+      var despesasAntesPL = L.despFixas[chave] + L.despFerramentas[chave]
+        + L.despMidia[chave] + L.despContabil[chave] + L.despJuridico[chave]
+        + L.despHouse[chave] + L.despPessoal[chave];
+
+      /* ---------- PRO-LABORE CONDICIONAL (premissa 37) ---------- */
+      /* Calculado sobre o resultado ANTES do proprio pro-labore, o que   */
+      /* evita a circularidade: 50% do que sobra, com teto por socio.     */
+
+      L.ebitdaAntesPL[chave] = L.lucroBruto[chave] + despesasAntesPL;
+      var pl = 0;
+      if (m >= plMesInicio && L.ebitdaAntesPL[chave] > 0) {
+        pl = L.ebitdaAntesPL[chave] * plPercentual;
+        var teto = plTeto * plSocios;
+        if (teto > 0 && pl > teto) pl = teto;
+      }
+      L.proLabore[chave] = -pl;
+      L.despesas[chave] = despesasAntesPL + L.proLabore[chave];
+      L.ebitda[chave] = L.lucroBruto[chave] + L.despesas[chave];
+
+      /* ---------- RESULTADO FINANCEIRO ---------- */
+
+      L.juros[chave] = (mesMutuo !== null && m >= mesMutuo) ? -jurosMensaisMutuo : 0;
+      L.finDesp[chave] = L.juros[chave];
+      L.lucroLiquido[chave] = L.ebitda[chave] + L.finDesp[chave];
+
+      /* ---------- FLUXO DE CAIXA ---------- */
+
+      L.aporte[chave] = (m === mesMutuo) ? mutuoValor : 0;
+      L.capex[chave] = -valorDosEventos(P[35], m, "valor") - valorDosEventos(P[27], m, "valor");
+
+      /* Distribuicao de lucros: percentual do acumulado nao distribuido, */
+      /* na periodicidade da premissa 49, e so se o acumulado for         */
+      /* positivo. Sai do caixa, nao do resultado.                        */
+      lucroAcumuladoNaoDistribuido += L.lucroLiquido[chave];
+      var distribuiu = 0;
+      if (distPeriodo > 0 && m > 0 && (m + 1) % distPeriodo === 0
+          && lucroAcumuladoNaoDistribuido > 0) {
+        distribuiu = lucroAcumuladoNaoDistribuido * distPercentual;
+        lucroAcumuladoNaoDistribuido -= distribuiu;
+      }
+      L.distribuicao[chave] = -distribuiu;
+
+      L.fluxoMes[chave] = L.lucroLiquido[chave] + L.aporte[chave]
+        + L.capex[chave] + L.distribuicao[chave];
+      caixaCorrente += L.fluxoMes[chave];
+      L.caixa[chave] = caixaCorrente;
+    });
+
+    return { meses: meses, L: L, caixaMinimo: caixaMinimo };
+  }
+
+  /* Roda os dois cenarios e devolve os dois lado a lado. */
+  function projetar(valores, posicaoInicial) {
+    var redutor = campoDe(valores[3], "percentual", 100) / 100;
+    var anexo = campoDe(valores[45], "anexo_padrao", "V");
+    var faixas = (String(anexo).toUpperCase() === "III") ? FAIXAS_ANEXO_III : FAIXAS_ANEXO_V;
+    return {
+      base: projetarCenario(valores, posicaoInicial, 1, faixas),
+      conservador: projetarCenario(valores, posicaoInicial, redutor, faixas),
+      redutor: redutor,
+      anexo: anexo
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
   /* 11-B. TELA MASTER: BUSINESS PLAN (casca da Fase 1)                  */
   /* ------------------------------------------------------------------ */
   /* Sem logica de calculo ainda. So a navegacao entre abas e o lugar     */
   /* onde a Fase 2 (Premissas) e a Fase 3 (motor de projecao) entram.     */
 
-  function PainelBP() {
+  function PainelBP(props) {
     var estAbaBP = useState("bp");
     var abaBP = estAbaBP[0], setAbaBP = estAbaBP[1];
+
+    /* Cenario e granularidade da aba BP. Nao persistem entre sessoes de   */
+    /* proposito: sao lentes de leitura, nao configuracao do plano.        */
+    var estCenario = useState("base");
+    var cenario = estCenario[0], setCenario = estCenario[1];
+    var estGranularidade = useState("ano");
+    var granularidade = estGranularidade[0], setGranularidade = estGranularidade[1];
 
     /* Valores correntes das premissas: comeca a partir do default tipado   */
     /* de cada uma (clone, pra nao mutar PREMISSAS_DEFAULT), com qualquer   */
@@ -4861,6 +5261,268 @@
       );
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Aba: BP projetado                                                   */
+    /* ------------------------------------------------------------------ */
+
+    function abaBPProjetada() {
+      var proj = projetar(valores, props.posicao);
+      var cenarioAtivo = cenario === "conservador" ? proj.conservador : proj.base;
+      var mesesProj = cenarioAtivo.meses;
+      var L = cenarioAtivo.L;
+
+      /* Horizonte inteiro nao cabe na largura da tela sem virar sopa de   */
+      /* numeros, entao a visao padrao e anual: soma 12 meses por coluna.  */
+      /* Mensal continua disponivel pra quem quiser auditar mes a mes.     */
+      var colunas, rotuloColuna, valorNaColuna;
+      if (granularidade === "ano") {
+        var anos = [];
+        for (var a = 0; a * 12 < mesesProj.length; a++) anos.push(a);
+        colunas = anos;
+        rotuloColuna = function (a) { return "Ano " + (a + 1); };
+        valorNaColuna = function (linha, a, ehSaldo) {
+          var soma = 0;
+          var ultimo = 0;
+          for (var k = a * 12; k < Math.min((a + 1) * 12, mesesProj.length); k++) {
+            soma += linha[mesesProj[k]] || 0;
+            ultimo = linha[mesesProj[k]] || 0;
+          }
+          return ehSaldo ? ultimo : soma;
+        };
+      } else {
+        colunas = mesesProj.map(function (m, i) { return i; });
+        rotuloColuna = function (i) { return rotuloMes(mesesProj[i]); };
+        valorNaColuna = function (linha, i) { return linha[mesesProj[i]] || 0; };
+      }
+
+      /* Uma linha da tabela de projecao. ehSaldo marca as linhas de       */
+      /* posicao (caixa, base de assinantes), que na visao anual mostram   */
+      /* o valor do ultimo mes do ano, nao a soma dos doze.                */
+      function linhaProj(rotulo, linha, nivel, ehSaldo, formato) {
+        var estilo = ESTILO_LINHA[nivel || "item"];
+        var total = 0;
+        if (ehSaldo) {
+          total = linha[mesesProj[mesesProj.length - 1]] || 0;
+        } else {
+          mesesProj.forEach(function (mes) { total += linha[mes] || 0; });
+        }
+        return h("tr", { key: rotulo, style: { background: estilo.bg } },
+          h("td", {
+            className: estilo.pad + " py-1 whitespace-nowrap",
+            style: { color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs }
+          }, rotulo),
+          colunas.map(function (c) {
+            var v = valorNaColuna(linha, c, ehSaldo);
+            return h("td", {
+              key: c,
+              className: "px-3 py-1 text-right whitespace-nowrap",
+              style: {
+                color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
+                fontVariantNumeric: "tabular-nums"
+              }
+            }, formato === "pct" ? formatarPercentual(v)
+               : formato === "qtd" ? formatarNumero(v, 0)
+               : formatarNumero(v, 0));
+          }),
+          h("td", {
+            className: "px-3 py-1 text-right whitespace-nowrap",
+            style: {
+              color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
+              fontVariantNumeric: "tabular-nums", borderLeft: "1px solid " + COR.line
+            }
+          }, formato === "pct" ? "" : formatarNumero(total, 0))
+        );
+      }
+
+      /* Percentual de uma linha sobre a receita liquida projetada. */
+      function pctSobreRL(linha) {
+        var r = {};
+        mesesProj.forEach(function (mes) {
+          r[mes] = L.receitaLiquida[mes] ? linha[mes] / L.receitaLiquida[mes] : 0;
+        });
+        return r;
+      }
+
+      /* Alerta de caixa: primeiro mes em que o saldo projetado cai        */
+      /* abaixo do minimo da premissa 50.                                  */
+      var mesAlerta = null;
+      var mesNegativo = null;
+      mesesProj.forEach(function (mes) {
+        if (mesAlerta === null && L.caixa[mes] < cenarioAtivo.caixaMinimo) mesAlerta = mes;
+        if (mesNegativo === null && L.caixa[mes] < 0) mesNegativo = mes;
+      });
+
+      var receitaTotal = 0, ebitdaTotal = 0;
+      mesesProj.forEach(function (mes) {
+        receitaTotal += L.receita[mes];
+        ebitdaTotal += L.ebitda[mes];
+      });
+      var caixaFinal = L.caixa[mesesProj[mesesProj.length - 1]];
+
+      var larguraMinima = 380 + (colunas.length + 1) * (granularidade === "ano" ? 120 : 90);
+
+      return h("div", null,
+        /* Controles do cenario e da granularidade. */
+        h("div", { className: "flex flex-wrap items-center gap-3 mb-4" },
+          h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+            [["base", "Cenário base"], ["conservador", "Conservador (" + formatarPercentual(proj.redutor) + " da receita)"]].map(function (par) {
+              return h("button", {
+                key: par[0],
+                onClick: function () { setCenario(par[0]); },
+                className: "px-3 py-1.5",
+                style: {
+                  fontSize: 11,
+                  background: cenario === par[0] ? COR.brass : "transparent",
+                  color: cenario === par[0] ? "#FFFFFF" : COR.dim,
+                  fontWeight: cenario === par[0] ? 600 : 400
+                }
+              }, par[1]);
+            })
+          ),
+          h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+            [["ano", "Por ano"], ["mes", "Mês a mês"]].map(function (par) {
+              return h("button", {
+                key: par[0],
+                onClick: function () { setGranularidade(par[0]); },
+                className: "px-3 py-1.5",
+                style: {
+                  fontSize: 11,
+                  background: granularidade === par[0] ? COR.brass : "transparent",
+                  color: granularidade === par[0] ? "#FFFFFF" : COR.dim,
+                  fontWeight: granularidade === par[0] ? 600 : 400
+                }
+              }, par[1]);
+            })
+          ),
+          h("div", { style: { fontSize: 11, color: COR.faint } },
+            mesesProj.length + " meses · Anexo " + proj.anexo + " · mês zero = set/26")
+        ),
+
+        /* Cartoes de topo da projecao. */
+        h("div", {
+          className: "grid gap-3 mb-4",
+          style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
+        },
+          h(CartaoIndicador, {
+            rotulo: "Receita projetada",
+            valor: receitaTotal,
+            sub: "soma do horizonte",
+            ajuda: "Receita bruta somada nos " + mesesProj.length + " meses, no cenário " + (cenario === "base" ? "base" : "conservador") + ". Vem inteiramente das premissas, não do realizado."
+          }),
+          h(CartaoIndicador, {
+            rotulo: "EBITDA projetado",
+            valor: ebitdaTotal,
+            tom: ebitdaTotal < 0 ? "neg" : "pos",
+            sub: "soma do horizonte",
+            ajuda: "Resultado operacional acumulado, já descontado o pró-labore condicional da premissa 37."
+          }),
+          h(CartaoIndicador, {
+            rotulo: "Caixa no fim",
+            valor: caixaFinal,
+            casas: 0,
+            tom: caixaFinal < 0 ? "neg" : "pos",
+            sub: "posição no último mês",
+            ajuda: "Parte do caixa livre de hoje, soma o mútuo, o resultado de cada mês, o investimento e a distribuição de lucros."
+          }),
+          h(CartaoIndicador, {
+            rotulo: "Alerta de caixa",
+            valor: cenarioAtivo.caixaMinimo,
+            casas: 0,
+            tom: mesAlerta ? "neg" : "pos",
+            sub: mesAlerta ? "furado em " + rotuloMes(mesAlerta) : "nunca furado no horizonte",
+            ajuda: "Piso da premissa 50. " + (mesNegativo ? "O caixa fica NEGATIVO em " + rotuloMes(mesNegativo) + "." : "O caixa não fica negativo em nenhum mês.")
+          })
+        ),
+
+        /* Faixa de ressalva: o que este numero e e o que ele nao e. */
+        h("div", {
+          className: "rounded px-4 py-3 mb-4",
+          style: { background: COR.brassSoft, border: "1px solid " + COR.brass, fontSize: 11, color: COR.dim, lineHeight: 1.6 }
+        },
+          h("strong", { style: { color: COR.brass } }, "Projeção, não apuração. "),
+          "O imposto usa a tabela progressiva do Anexo V (alíquota efetiva pela fórmula do art. 18, §1º-A da LC 123), o que é aproximação gerencial e não substitui a apuração do Vigo. O RBT12 dos primeiros meses só enxerga o histórico dentro deste horizonte, então a alíquota inicial sai mais baixa que a real. Os juros do mútuo usam CDI de 10,5% a.a. como proxy, premissa minha e não sua. E 11 premissas ainda são propostas de teste, não confirmadas."
+        ),
+
+        /* Tabela do DRE projetado. */
+        h("div", {
+          className: "overflow-x-auto rounded",
+          style: { border: "1px solid " + COR.line, background: COR.surface }
+        },
+          h("table", {
+            style: { borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: larguraMinima }
+          },
+            h("thead", null,
+              h("tr", { style: { background: COR.ink } },
+                h("th", { className: "pl-3 py-2 text-left uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, width: "26%" } }, "Linha"),
+                colunas.map(function (c) {
+                  return h("th", {
+                    key: c,
+                    className: "px-3 py-2 text-right uppercase whitespace-nowrap",
+                    style: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim }
+                  }, rotuloColuna(c));
+                }),
+                h("th", {
+                  className: "px-3 py-2 text-right uppercase whitespace-nowrap",
+                  style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass, borderLeft: "1px solid " + COR.line }
+                }, "Total")
+              )
+            ),
+            h("tbody", null,
+              linhaProj("Receita Bruta", L.receita, "secao"),
+              linhaProj("Encontros Exclusivos", L.recEncontros, "grupo"),
+              linhaProj("Patrocínio recorrente", L.recPatrocinio, "grupo"),
+              linhaProj("Patrocínio spot", L.recSpot, "grupo"),
+              linhaProj("QR Insights", L.recInsights, "grupo"),
+              linhaProj("QR Review", L.recReview, "grupo"),
+              linhaProj("QR Advisory", L.recAdvisory, "grupo"),
+              linhaProj("Quorum House", L.recHouse, "grupo"),
+              linhaProj("Quorum Day", L.recQuorumDay, "grupo"),
+
+              linhaProj("Impostos sobre a receita", L.impostos, "secao"),
+              linhaProj("% alíquota efetiva do Simples", L.aliquota, "pct", false, "pct"),
+              linhaProj("(=) Receita Líquida", L.receitaLiquida, "total"),
+
+              linhaProj("Custos Diretos", L.custo, "secao"),
+              linhaProj("Custo dos Encontros", L.custoEncontros, "grupo"),
+              linhaProj("Repasse ao advisor", L.custoAdvisory, "grupo"),
+              linhaProj("Custo do Quorum Day", L.custoQuorumDay, "grupo"),
+              linhaProj("Comissão sobre patrocínio", L.custoComissao, "grupo"),
+              linhaProj("Plataforma e take rate", L.custoPlataforma, "grupo"),
+              linhaProj("CAC de assinantes", L.custoCAC, "grupo"),
+
+              linhaProj("(=) Lucro Bruto", L.lucroBruto, "total"),
+              linhaProj("% margem bruta", pctSobreRL(L.lucroBruto), "pct", false, "pct"),
+
+              linhaProj("Despesas Fixas", L.despesas, "secao"),
+              linhaProj("Despesas administrativas", L.despFixas, "grupo"),
+              linhaProj("Ferramentas e software", L.despFerramentas, "grupo"),
+              linhaProj("Mídia e impulsionamento", L.despMidia, "grupo"),
+              linhaProj("Contabilidade", L.despContabil, "grupo"),
+              linhaProj("Jurídico", L.despJuridico, "grupo"),
+              linhaProj("Quorum House (aluguel)", L.despHouse, "grupo"),
+              linhaProj("Folha de contratações", L.despPessoal, "grupo"),
+              linhaProj("Pró-labore (condicional)", L.proLabore, "grupo"),
+
+              linhaProj("(=) EBITDA", L.ebitda, "total"),
+              linhaProj("% margem EBITDA", pctSobreRL(L.ebitda), "pct", false, "pct"),
+
+              linhaProj("Despesas Financeiras", L.finDesp, "secao"),
+              linhaProj("(=) Lucro Líquido", L.lucroLiquido, "total"),
+
+              linhaProj("Fluxo de Caixa", L.fluxoMes, "secao"),
+              linhaProj("Aporte (mútuo)", L.aporte, "grupo"),
+              linhaProj("Investimento (capex)", L.capex, "grupo"),
+              linhaProj("Distribuição de lucros", L.distribuicao, "grupo"),
+              linhaProj("(=) Caixa acumulado", L.caixa, "total", true),
+
+              linhaProj("Base de assinantes Insights", L.assinantes, "item", true, "qtd"),
+              linhaProj("Base de assinantes Review", L.assinantesReview, "item", true, "qtd")
+            )
+          )
+        )
+      );
+    }
+
     function abaPremissas() {
       var grupos = agruparPremissas();
       return h("div", null,
@@ -4900,10 +5562,7 @@
     return h(Fragment, null,
       barraAbasBP,
       h("div", { className: "px-6 pb-16 pt-3" },
-        abaBP === "bp" && emConstrucao(
-          "Aba BP",
-          "DRE por competência combinado com as projeções. Chega na Fase 3, depois de as premissas estarem lançadas e o motor de projeção ligado."
-        ),
+        abaBP === "bp" && abaBPProjetada(),
         abaBP === "premissas" && abaPremissas()
       )
     );
