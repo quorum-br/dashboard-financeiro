@@ -2753,6 +2753,17 @@
     var estCarregando = useState(true);        var carregando = estCarregando[0], setCarregando = estCarregando[1];
     var estAtualizado = useState(null);        var atualizadoEm = estAtualizado[0], setAtualizadoEm = estAtualizado[1];
 
+    /* Tela master: Financeiro (dashboard atual) ou Business Plan. Fica     */
+    /* fora do sistema de abas de cada tela, e persiste no navegador para   */
+    /* nao voltar sempre para Financeiro num reload.                        */
+    var estTelaMaster = useState(function () {
+      return armazenamento.getItem("quorum_tela_master") || "financeiro";
+    });
+    var telaMaster = estTelaMaster[0], setTelaMaster = estTelaMaster[1];
+    useEffect(function () {
+      armazenamento.setItem("quorum_tela_master", telaMaster);
+    }, [telaMaster]);
+
     var estRegime = useState(function () {
       return armazenamento.getItem("quorum_regime") || "caixa";
     });
@@ -3465,10 +3476,32 @@
           className: "uppercase",
           style: { fontSize: 9, letterSpacing: "0.3em", color: COR.brass }
         }, "QUORUM"),
-        h("div", { className: "text-sm", style: { fontWeight: 600 } }, "Dashboard Financeiro QUORUM")
+        h("div", { className: "text-sm", style: { fontWeight: 600 } },
+          telaMaster === "bp" ? "Business Plan QUORUM" : "Dashboard Financeiro QUORUM")
       ),
 
-      h("div", { className: "ml-2", style: { fontSize: 11, color: COR.faint } },
+      /* Tela master: alterna entre o dashboard do realizado e o BP. */
+      h("div", { className: "flex rounded overflow-hidden ml-2", style: { border: "1px solid " + COR.line } },
+        [["financeiro", "Financeiro"], ["bp", "Business Plan"]].map(function (par) {
+          var valor = par[0], rotulo = par[1];
+          return h("button", {
+            key: valor,
+            onClick: function () { setTelaMaster(valor); },
+            className: "px-3 py-1.5",
+            title: valor === "financeiro"
+              ? "Realizado: DRE, fluxo de caixa e conciliação a partir da Omie"
+              : "Projeção: premissas e motor de projeção",
+            style: {
+              fontSize: 11,
+              background: telaMaster === valor ? COR.brass : "transparent",
+              color: telaMaster === valor ? "#FFFFFF" : COR.dim,
+              fontWeight: telaMaster === valor ? 600 : 400
+            }
+          }, rotulo);
+        })
+      ),
+
+      telaMaster === "financeiro" && h("div", { className: "ml-2", style: { fontSize: 11, color: COR.faint } },
         dados.usadas.length,
         " lançamentos realizados · ",
         meses.length ? rotuloMes(meses[0]) + " a " + rotuloMes(ultimoMes) : "sem período",
@@ -3481,6 +3514,146 @@
 
       h("div", { className: "flex-1" }),
 
+      /* Visão sintética/analítica, exportar e atualizar são acoes do      */
+      /* Financeiro. Os toggles de regime, meses e zeradas desceram para a  */
+      /* barraFiltros, logo acima das abas.                                 */
+      telaMaster === "financeiro" && h(Fragment, null,
+        h("button", {
+          onClick: function () { setMostrarDetalhe(!mostrarDetalhe); },
+          className: "px-3 py-1.5 rounded",
+          style: estiloBotao(!mostrarDetalhe),
+          title: mostrarDetalhe
+            ? "Hoje mostrando grupo e categoria. Clique para ver só os totais de cada seção"
+            : "Hoje mostrando só os totais. Clique para abrir grupo e categoria"
+        }, mostrarDetalhe ? "Visão sintética" : "Visão analítica"),
+
+        h("button", {
+          onClick: function () { exportarXlsx(); },
+          className: "px-3 py-1.5 rounded",
+          style: {
+            background: COR.surface,
+            border: "1px solid " + COR.brass,
+            color: COR.brass,
+            fontSize: 11
+          },
+          title: "Gera o XLSX com as três abas, todas as fórmulas e a formatação do template"
+        }, "Exportar XLSX"),
+
+        h("button", {
+          onClick: function () { buscarBase(true); },
+          disabled: carregando,
+          className: "px-3 py-1.5 rounded",
+          style: {
+            border: "1px solid " + (carregando ? COR.line : COR.mint),
+            color: carregando ? COR.faint : COR.mint,
+            fontSize: 11,
+            background: COR.surface
+          },
+          title: "Busca a base de novo na Omie agora, sem esperar a próxima abertura"
+        }, carregando ? "Atualizando..." : "Atualizar agora")
+      ),
+
+      h("button", {
+        onClick: function () {
+          armazenamento.removeItem("quorum_chave");
+          setChave(null);
+        },
+        className: "px-2 py-1.5",
+        style: { fontSize: 11, color: COR.faint },
+        title: "Esquece a senha guardada neste navegador"
+      }, "Sair")
+    );
+
+    /* ---------------------------------------------------------------- */
+    /* Faixa de integridade e cartoes                                   */
+    /* ---------------------------------------------------------------- */
+
+    var faixaIntegridade = h("div", { className: "px-6 pt-4" },
+      h("div", {
+        className: "rounded px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2",
+        style: {
+          background: erros.length ? COR.coralSoft : COR.mintSoft,
+          border: "1px solid " + (erros.length ? COR.coral : COR.mint)
+        }
+      },
+        h("div", {
+          className: "uppercase",
+          style: {
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            color: erros.length ? COR.coral : COR.mint,
+            fontWeight: 700
+          }
+        }, erros.length ? "A base não fecha" : "Base íntegra"),
+        h("div", { style: { fontSize: 11, color: COR.dim } },
+          erros.length
+            ? erros.length + " erro(s) a resolver antes de usar estes números"
+            : "Toda linha da base tem destino no fluxo, diferença zero em todos os meses"),
+        alertas.length > 0 && h("button", {
+          onClick: function () { setAba("achados"); },
+          style: { fontSize: 11, color: COR.brass, textDecoration: "underline" }
+        }, alertas.length, " alerta(s) para revisar")
+      )
+    );
+
+    var receitaBrutaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.S.receita[mes]; }, 0);
+    var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.ebitda[mes]; }, 0);
+
+    var cartoes = h("div", {
+      className: "px-6 pt-4 grid gap-3",
+      style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
+    },
+      h(CartaoIndicador, {
+        rotulo: "Receita bruta",
+        valor: receitaBrutaPeriodo,
+        sub: "no período carregado",
+        ajuda: "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
+      }),
+      h(CartaoIndicador, {
+        rotulo: "EBITDA",
+        valor: ebitdaPeriodo,
+        tom: ebitdaPeriodo < 0 ? "neg" : "pos",
+        sub: "acumulado",
+        ajuda: "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
+      }),
+      h(CartaoIndicador, {
+        rotulo: "Lucro líquido",
+        valor: ultimoMes ? dados.acumulado[ultimoMes] : 0,
+        tom: ultimoMes && dados.acumulado[ultimoMes] < 0 ? "neg" : "pos",
+        sub: "acumulado no período",
+        ajuda: "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
+      }),
+      posicao && h(Fragment, null,
+        h(CartaoIndicador, {
+          rotulo: "Conta corrente",
+          valor: posicao.corrente,
+          casas: 2,
+          sub: "saldo em " + rotuloMes(ultimoMes),
+          ajuda: "Saldo somado das contas correntes (" + (posicao.nomes.corrente.join(", ") || "nenhuma")
+            + ") no fim de " + rotuloMes(ultimoMes)
+            + ". É o dinheiro que está na conta hoje, sem descontar nada que já está comprometido."
+        }),
+        h(CartaoIndicador, {
+          rotulo: "Caixa livre",
+          valor: posicao.livre,
+          casas: 2,
+          tom: posicao.livre < 0 ? "neg" : "pos",
+          sub: "o que sobra depois do já comprometido",
+          ajuda: "Conta corrente de " + formatarNumero(posicao.corrente, 2)
+            + " menos a fatura de cartão em aberto de " + formatarNumero(Math.abs(posicao.cartao), 2)
+            + ". A caução de " + formatarNumero(posicao.garantia, 2)
+            + " não entra aqui: o dinheiro já saiu da conta quando foi depositado na garantia, então o saldo acima já está líquido dela. Somando a caução, que é restituível, a posição total é "
+            + formatarNumero(posicao.total, 2) + "."
+        })
+      )
+    );
+
+    /* ---------------------------------------------------------------- */
+    /* Barra de filtros: regime, meses e zeradas, logo acima das abas.   */
+    /* Estava no topo da tela; desceu para ficar junto do que ela filtra. */
+    /* ---------------------------------------------------------------- */
+
+    var barraFiltros = h("div", { className: "px-6 pt-4 flex flex-wrap items-center gap-3" },
       /* Regime de caixa ou de competencia. */
       h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
         [["caixa", "Caixa"], ["competencia", "Competência"]].map(function (par) {
@@ -3574,134 +3747,6 @@
               fontWeight: mostrarZeradas === valor ? 600 : 400
             }
           }, rotulo);
-        })
-      ),
-
-      h("button", {
-        onClick: function () { setMostrarDetalhe(!mostrarDetalhe); },
-        className: "px-3 py-1.5 rounded",
-        style: estiloBotao(!mostrarDetalhe),
-        title: mostrarDetalhe
-          ? "Hoje mostrando grupo e categoria. Clique para ver só os totais de cada seção"
-          : "Hoje mostrando só os totais. Clique para abrir grupo e categoria"
-      }, mostrarDetalhe ? "Visão sintética" : "Visão analítica"),
-
-      h("button", {
-        onClick: function () { exportarXlsx(); },
-        className: "px-3 py-1.5 rounded",
-        style: {
-          background: COR.surface,
-          border: "1px solid " + COR.brass,
-          color: COR.brass,
-          fontSize: 11
-        },
-        title: "Gera o XLSX com as três abas, todas as fórmulas e a formatação do template"
-      }, "Exportar XLSX"),
-
-      h("button", {
-        onClick: function () { buscarBase(true); },
-        disabled: carregando,
-        className: "px-3 py-1.5 rounded",
-        style: {
-          border: "1px solid " + (carregando ? COR.line : COR.mint),
-          color: carregando ? COR.faint : COR.mint,
-          fontSize: 11,
-          background: COR.surface
-        },
-        title: "Busca a base de novo na Omie agora, sem esperar a próxima abertura"
-      }, carregando ? "Atualizando..." : "Atualizar agora"),
-
-      h("button", {
-        onClick: function () {
-          armazenamento.removeItem("quorum_chave");
-          setChave(null);
-        },
-        className: "px-2 py-1.5",
-        style: { fontSize: 11, color: COR.faint },
-        title: "Esquece a senha guardada neste navegador"
-      }, "Sair")
-    );
-
-    /* ---------------------------------------------------------------- */
-    /* Faixa de integridade e cartoes                                   */
-    /* ---------------------------------------------------------------- */
-
-    var faixaIntegridade = h("div", { className: "px-6 pt-4" },
-      h("div", {
-        className: "rounded px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2",
-        style: {
-          background: erros.length ? COR.coralSoft : COR.mintSoft,
-          border: "1px solid " + (erros.length ? COR.coral : COR.mint)
-        }
-      },
-        h("div", {
-          className: "uppercase",
-          style: {
-            fontSize: 10,
-            letterSpacing: "0.12em",
-            color: erros.length ? COR.coral : COR.mint,
-            fontWeight: 700
-          }
-        }, erros.length ? "A base não fecha" : "Base íntegra"),
-        h("div", { style: { fontSize: 11, color: COR.dim } },
-          erros.length
-            ? erros.length + " erro(s) a resolver antes de usar estes números"
-            : "Toda linha da base tem destino no fluxo, diferença zero em todos os meses"),
-        alertas.length > 0 && h("button", {
-          onClick: function () { setAba("achados"); },
-          style: { fontSize: 11, color: COR.brass, textDecoration: "underline" }
-        }, alertas.length, " alerta(s) para revisar")
-      )
-    );
-
-    var receitaBrutaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.S.receita[mes]; }, 0);
-    var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.ebitda[mes]; }, 0);
-
-    var cartoes = h("div", {
-      className: "px-6 pt-4 grid gap-3",
-      style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
-    },
-      h(CartaoIndicador, {
-        rotulo: "Receita bruta",
-        valor: receitaBrutaPeriodo,
-        sub: "no período carregado",
-        ajuda: "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
-      }),
-      h(CartaoIndicador, {
-        rotulo: "EBITDA",
-        valor: ebitdaPeriodo,
-        tom: ebitdaPeriodo < 0 ? "neg" : "pos",
-        sub: "acumulado",
-        ajuda: "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
-      }),
-      h(CartaoIndicador, {
-        rotulo: "Lucro líquido",
-        valor: ultimoMes ? dados.acumulado[ultimoMes] : 0,
-        tom: ultimoMes && dados.acumulado[ultimoMes] < 0 ? "neg" : "pos",
-        sub: "acumulado no período",
-        ajuda: "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
-      }),
-      posicao && h(Fragment, null,
-        h(CartaoIndicador, {
-          rotulo: "Conta corrente",
-          valor: posicao.corrente,
-          casas: 2,
-          sub: "saldo em " + rotuloMes(ultimoMes),
-          ajuda: "Saldo somado das contas correntes (" + (posicao.nomes.corrente.join(", ") || "nenhuma")
-            + ") no fim de " + rotuloMes(ultimoMes)
-            + ". É o dinheiro que está na conta hoje, sem descontar nada que já está comprometido."
-        }),
-        h(CartaoIndicador, {
-          rotulo: "Caixa livre",
-          valor: posicao.livre,
-          casas: 2,
-          tom: posicao.livre < 0 ? "neg" : "pos",
-          sub: "o que sobra depois do já comprometido",
-          ajuda: "Conta corrente de " + formatarNumero(posicao.corrente, 2)
-            + " menos a fatura de cartão em aberto de " + formatarNumero(Math.abs(posicao.cartao), 2)
-            + ". A caução de " + formatarNumero(posicao.garantia, 2)
-            + " não entra aqui: o dinheiro já saiu da conta quando foi depositado na garantia, então o saldo acima já está líquido dela. Somando a caução, que é restituível, a posição total é "
-            + formatarNumero(posicao.total, 2) + "."
         })
       )
     );
@@ -4116,27 +4161,94 @@
         aoFechar: function () { setGaveta(null); }
       }),
       barraSuperior,
-      aviso && h("div", {
-        className: "mx-6 mt-3 p-3 rounded",
-        style: { background: COR.coralSoft, color: COR.coral, fontSize: 12 }
-      }, aviso),
-      faixaIntegridade,
-      cartoes,
-      barraAbas,
-      h("div", { className: "px-6 pb-16 pt-3" },
-        !meses.length
-          ? h("div", {
-              className: "flex items-center justify-center text-center py-16",
-              style: { fontSize: 12, color: COR.faint }
-            }, "Nenhum mês selecionado. Abra \"Meses\" no topo e marque pelo menos um.")
-          : h(React.Fragment, null,
-              aba === "dre" && abaDRE(),
-              aba === "caixa" && abaFluxoDeCaixa(),
-              (aba === "proj" || aba === "cc") && abaDimensao(),
-              aba === "achados" && abaAchados(),
-              aba === "abertos" && abaCompromissos(),
-              aba === "apres" && abaApresentacao()
+      telaMaster === "financeiro"
+        ? h(Fragment, null,
+            aviso && h("div", {
+              className: "mx-6 mt-3 p-3 rounded",
+              style: { background: COR.coralSoft, color: COR.coral, fontSize: 12 }
+            }, aviso),
+            faixaIntegridade,
+            cartoes,
+            barraFiltros,
+            barraAbas,
+            h("div", { className: "px-6 pb-16 pt-3" },
+              !meses.length
+                ? h("div", {
+                    className: "flex items-center justify-center text-center py-16",
+                    style: { fontSize: 12, color: COR.faint }
+                  }, "Nenhum mês selecionado. Abra \"Meses\" no topo e marque pelo menos um.")
+                : h(React.Fragment, null,
+                    aba === "dre" && abaDRE(),
+                    aba === "caixa" && abaFluxoDeCaixa(),
+                    (aba === "proj" || aba === "cc") && abaDimensao(),
+                    aba === "achados" && abaAchados(),
+                    aba === "abertos" && abaCompromissos(),
+                    aba === "apres" && abaApresentacao()
+                  )
             )
+          )
+        : h(PainelBP, null)
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 11-B. TELA MASTER: BUSINESS PLAN (casca da Fase 1)                  */
+  /* ------------------------------------------------------------------ */
+  /* Sem logica de calculo ainda. So a navegacao entre abas e o lugar     */
+  /* onde a Fase 2 (Premissas) e a Fase 3 (motor de projecao) entram.     */
+
+  function PainelBP() {
+    var estAbaBP = useState("bp");
+    var abaBP = estAbaBP[0], setAbaBP = estAbaBP[1];
+
+    var ABAS_BP = [
+      ["bp", "BP"],
+      ["premissas", "Premissas"]
+    ];
+
+    var barraAbasBP = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
+      ABAS_BP.map(function (par) {
+        var valorAba = par[0], rotulo = par[1];
+        return h("button", {
+          key: valorAba,
+          onClick: function () { setAbaBP(valorAba); },
+          className: "px-3 py-2 rounded-t",
+          style: {
+            fontSize: 11,
+            background: abaBP === valorAba ? COR.surface : "transparent",
+            color: abaBP === valorAba ? COR.text : COR.faint,
+            fontWeight: abaBP === valorAba ? 600 : 400,
+            borderBottom: abaBP === valorAba ? "2px solid " + COR.brass : "2px solid transparent"
+          }
+        }, rotulo);
+      })
+    );
+
+    function emConstrucao(titulo, descricao) {
+      return h("div", {
+        className: "flex items-center justify-center text-center py-20"
+      },
+        h("div", { style: { maxWidth: 440 } },
+          h("div", {
+            className: "uppercase mb-2",
+            style: { fontSize: 10, letterSpacing: "0.2em", color: COR.brass, fontWeight: 700 }
+          }, titulo),
+          h("div", { style: { fontSize: 12, color: COR.faint, lineHeight: 1.6 } }, descricao)
+        )
+      );
+    }
+
+    return h(Fragment, null,
+      barraAbasBP,
+      h("div", { className: "px-6 pb-16 pt-3" },
+        abaBP === "bp" && emConstrucao(
+          "Aba BP",
+          "DRE por competência combinado com as projeções. Chega na Fase 3, depois de as premissas estarem lançadas e o motor de projeção ligado."
+        ),
+        abaBP === "premissas" && emConstrucao(
+          "Aba Premissas",
+          "Todos os campos que alimentam o motor de projeção, com as sugestões como valor padrão onde o Till ainda não respondeu. Chega na Fase 2."
+        )
       )
     );
   }
