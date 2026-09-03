@@ -834,7 +834,7 @@
           fontWeight: 600,
           fontVariantNumeric: "tabular-nums"
         }
-      }, formatarNumero(props.valor, props.casas === undefined ? 0 : props.casas)),
+      }, formatarNumero(props.valor, props.casas === undefined ? 0 : props.casas) + (props.sufixo || "")),
       props.sub && h("div", {
         className: "mt-1 leading-snug",
         style: { fontSize: 11, color: COR.faint }
@@ -4378,14 +4378,53 @@
   ];
 
   /* Agrupa mantendo a ordem de primeira aparicao no array acima. */
+  /* Camada de vertical sobre os blocos. Os blocos continuam existindo    */
+  /* porque e neles que a granularidade de revisao mora; a vertical e o   */
+  /* nivel de cima, que agrupa o que compartilha a mesma logica de        */
+  /* negocio. Comunidade junta tudo que monetiza a comunidade curada:     */
+  /* Encontros, cotas, o Quorum Day e a House.                            */
+  var VERTICAIS = [
+    { id: "comunidade", rotulo: "Comunidade",
+      blocos: ["Encontros Exclusivos", "Patrocínio Recorrente - Cotas Master", "Quorum Day", "Quorum House"] },
+    { id: "insights", rotulo: "QR Insights",
+      blocos: ["QR Insights - Assinatura"] },
+    { id: "review", rotulo: "QR Review",
+      blocos: ["QR Review"] },
+    { id: "advisory", rotulo: "QR Advisory",
+      blocos: ["QR Advisory"] },
+    { id: "transversal", rotulo: "Transversal",
+      blocos: ["Horizonte e Estrutura", "Pessoas", "Despesas Fixas", "Tributário", "Caixa e Política"] }
+  ];
+
+  /* Bloco -> vertical, montado uma vez a partir do mapa acima. */
+  var VERTICAL_DO_BLOCO = (function () {
+    var mapa = {};
+    VERTICAIS.forEach(function (v) {
+      v.blocos.forEach(function (b) { mapa[b] = v.id; });
+    });
+    return mapa;
+  })();
+
+  function verticalDaPremissa(item) {
+    return VERTICAL_DO_BLOCO[item.bloco] || "transversal";
+  }
+
+  /* Agrupa em dois niveis: vertical -> bloco -> premissas. A ordem de     */
+  /* VERTICAIS manda, e dentro dela a ordem dos blocos como declarada.     */
   function agruparPremissas() {
-    var ordem = [];
     var porBloco = {};
     PREMISSAS_DEFAULT.forEach(function (item) {
-      if (!porBloco[item.bloco]) { porBloco[item.bloco] = []; ordem.push(item.bloco); }
+      if (!porBloco[item.bloco]) porBloco[item.bloco] = [];
       porBloco[item.bloco].push(item);
     });
-    return ordem.map(function (bloco) { return { bloco: bloco, itens: porBloco[bloco] }; });
+    return VERTICAIS.map(function (v) {
+      var blocos = v.blocos
+        .filter(function (b) { return porBloco[b] && porBloco[b].length; })
+        .map(function (b) { return { bloco: b, itens: porBloco[b] }; });
+      var total = 0;
+      blocos.forEach(function (g) { total += g.itens.length; });
+      return { vertical: v.id, rotulo: v.rotulo, blocos: blocos, total: total };
+    }).filter(function (g) { return g.blocos.length; });
   }
 
   var PREMISSAS_VERSAO = 2; /* muda toda vez que o formato do dado mudar de   */
@@ -5079,6 +5118,51 @@
     return { meses: meses, L: L, caixaMinimo: caixaMinimo };
   }
 
+  /* Composicao de cada vertical: que linhas de receita e que linhas de   */
+  /* custo direto pertencem a ela. So entra aqui o que e atribuivel sem   */
+  /* rateio -- imposto, despesa fixa, pro-labore e financeiro ficam de    */
+  /* fora de proposito, porque sao da empresa e nao da vertical, e        */
+  /* ratear isso produziria margem liquida ficticia.                      */
+  var COMPOSICAO_VERTICAL = {
+    comunidade: {
+      rotulo: "Comunidade",
+      receitas: [
+        ["recEncontros", "Encontros Exclusivos"],
+        ["recPatrocinio", "Patrocínio recorrente"],
+        ["recSpot", "Patrocínio spot"],
+        ["recQuorumDay", "Quorum Day"],
+        ["recHouse", "Quorum House"]
+      ],
+      custos: [
+        ["custoEncontros", "Custo dos Encontros"],
+        ["custoQuorumDay", "Custo do Quorum Day"],
+        ["custoComissao", "Comissão sobre patrocínio"]
+      ],
+      nota: "Reúne tudo que monetiza a comunidade curada: fee dos Encontros, cotas Master, spot de happy hour, Quorum Day e locação da House. O aluguel da House não entra aqui porque é despesa fixa da empresa, não custo direto de uma venda."
+    },
+    insights: {
+      rotulo: "QR Insights",
+      receitas: [["recInsights", "Assinatura QR Insights"]],
+      custos: [
+        ["custoPlataforma", "Plataforma e take rate"],
+        ["custoCAC", "CAC de assinantes"]
+      ],
+      nota: "Assinatura recorrente. O custo de plataforma tem parte fixa mensal e parte variável por take rate, e o CAC incide só sobre o assinante novo do mês, não sobre a base."
+    },
+    review: {
+      rotulo: "QR Review",
+      receitas: [["recReview", "Assinatura QR Review"]],
+      custos: [],
+      nota: "Não tem custo direto por unidade vendida na modelagem atual: o desenvolvimento da plataforma entra como investimento pontual no consolidado, não como custo da venda."
+    },
+    advisory: {
+      rotulo: "QR Advisory",
+      receitas: [["recAdvisory", "Matching de advisory"]],
+      custos: [["custoAdvisory", "Repasse ao advisor"]],
+      nota: "Margem é estruturalmente o complemento do split com o advisor que executa o projeto. Volume baixo, margem previsível."
+    }
+  };
+
   /* Roda os dois cenarios e devolve os dois lado a lado. */
   function projetar(valores, posicaoInicial) {
     var redutor = campoDe(valores[3], "percentual", 100) / 100;
@@ -5184,7 +5268,11 @@
     });
 
     var ABAS_BP = [
-      ["bp", "BP"],
+      ["bp", "Consolidado"],
+      ["comunidade", "Comunidade"],
+      ["insights", "QR Insights"],
+      ["review", "QR Review"],
+      ["advisory", "QR Advisory"],
       ["premissas", "Premissas (" + totalAberto + " em aberto)"]
     ];
 
@@ -5262,7 +5350,181 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Aba: BP projetado                                                   */
+    /* Helpers compartilhados entre o Consolidado e as abas de vertical     */
+    /* ------------------------------------------------------------------ */
+
+    /* Larguras fixas em pixel, nao em porcentagem. Porcentagem numa        */
+    /* tabela com minWidth grande faz a coluna de rotulo esticar junto e    */
+    /* abrir um vao enorme ate a primeira coluna de numero; com pixel, a    */
+    /* coluna de rotulo tem o tamanho do texto e os numeros colam nela.     */
+    var LARG_ROTULO = 232;
+    var LARG_COL_MES = 78;
+    var LARG_COL_ANO = 104;
+    var LARG_TOTAL = 92;
+
+    /* Monta a grade de colunas conforme a granularidade escolhida. Na      */
+    /* visao anual, cada coluna soma 12 meses; nas linhas de saldo, mostra  */
+    /* o valor do ultimo mes do ano em vez da soma.                         */
+    function gradeColunas(mesesProj) {
+      if (granularidade === "ano") {
+        var anos = [];
+        for (var a = 0; a * 12 < mesesProj.length; a++) anos.push(a);
+        return {
+          meses: mesesProj,
+          colunas: anos,
+          largura: LARG_COL_ANO,
+          rotulo: function (a) {
+            var ini = mesesProj[a * 12];
+            var fim = mesesProj[Math.min((a + 1) * 12, mesesProj.length) - 1];
+            return "Ano " + (a + 1) + " · " + ini.slice(2, 4) + "/" + fim.slice(2, 4);
+          },
+          valor: function (linha, a, ehSaldo) {
+            var soma = 0, ultimo = 0;
+            for (var k = a * 12; k < Math.min((a + 1) * 12, mesesProj.length); k++) {
+              soma += linha[mesesProj[k]] || 0;
+              ultimo = linha[mesesProj[k]] || 0;
+            }
+            return ehSaldo ? ultimo : soma;
+          },
+          /* Media, e nao soma, para linhas de percentual. */
+          media: function (linha, a) {
+            var soma = 0, n = 0;
+            for (var k = a * 12; k < Math.min((a + 1) * 12, mesesProj.length); k++) {
+              soma += linha[mesesProj[k]] || 0; n++;
+            }
+            return n ? soma / n : 0;
+          }
+        };
+      }
+      return {
+        meses: mesesProj,
+        colunas: mesesProj.map(function (m, i) { return i; }),
+        largura: LARG_COL_MES,
+        rotulo: function (i) { return rotuloMes(mesesProj[i]); },
+        valor: function (linha, i) { return linha[mesesProj[i]] || 0; },
+        media: function (linha, i) { return linha[mesesProj[i]] || 0; }
+      };
+    }
+
+    /* Tabela de projecao generica. Recebe a grade e uma lista de linhas    */
+    /* no formato [rotulo, mapaDeValores, nivel, ehSaldo, formato].         */
+    function tabelaProjecao(g, linhas) {
+      var larguraTotal = LARG_ROTULO + g.colunas.length * g.largura + LARG_TOTAL;
+
+      function celula(conteudo, estilo, extra) {
+        var st = {
+          color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
+          fontVariantNumeric: "tabular-nums"
+        };
+        if (extra) Object.keys(extra).forEach(function (k) { st[k] = extra[k]; });
+        return h("td", { className: "px-2 py-1 text-right whitespace-nowrap", style: st }, conteudo);
+      }
+
+      return h("div", { className: "overflow-x-auto rounded", style: { border: "1px solid " + COR.line, background: COR.surface } },
+        h("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: larguraTotal } },
+          h("colgroup", null,
+            h("col", { style: { width: LARG_ROTULO } }),
+            g.colunas.map(function (c) { return h("col", { key: c, style: { width: g.largura } }); }),
+            h("col", { style: { width: LARG_TOTAL } })
+          ),
+          h("thead", null,
+            h("tr", { style: { background: COR.ink } },
+              h("th", {
+                className: "pl-3 py-2 text-left uppercase",
+                style: { fontSize: 10, letterSpacing: "0.1em", color: COR.dim }
+              }, "Linha"),
+              g.colunas.map(function (c) {
+                return h("th", {
+                  key: c, className: "px-2 py-2 text-right uppercase whitespace-nowrap",
+                  style: { fontSize: 9.5, letterSpacing: "0.06em", color: COR.dim }
+                }, g.rotulo(c));
+              }),
+              h("th", {
+                className: "px-2 py-2 text-right uppercase whitespace-nowrap",
+                style: { fontSize: 9.5, letterSpacing: "0.06em", color: COR.brass, borderLeft: "1px solid " + COR.line }
+              }, "Total")
+            )
+          ),
+          h("tbody", null,
+            linhas.map(function (def) {
+              var rotulo = def[0], linha = def[1], nivel = def[2], ehSaldo = def[3], formato = def[4];
+              var estilo = ESTILO_LINHA[nivel || "item"];
+              var ehPct = formato === "pct";
+
+              /* Total da direita: soma no fluxo, ultimo valor no saldo,     */
+              /* media ponderada nao faz sentido em percentual, entao fica   */
+              /* em branco.                                                  */
+              var total = 0;
+              if (ehPct) {
+                total = null;
+              } else if (ehSaldo) {
+                total = linha[g.meses[g.meses.length - 1]] || 0;
+              } else {
+                g.meses.forEach(function (mes) { total += linha[mes] || 0; });
+              }
+
+              return h("tr", { key: rotulo, style: { background: estilo.bg } },
+                h("td", {
+                  className: estilo.pad + " py-1 pr-2",
+                  style: {
+                    color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                  },
+                  title: rotulo
+                }, rotulo),
+                g.colunas.map(function (c) {
+                  var v = ehPct ? g.media(linha, c) : g.valor(linha, c, ehSaldo);
+                  return h(Fragment, { key: c },
+                    celula(
+                      ehPct ? formatarPercentual(v)
+                        : formato === "qtd" ? formatarNumero(v, 0)
+                        : formatarNumero(v, 0),
+                      estilo
+                    )
+                  );
+                }),
+                celula(total === null ? "" : formatarNumero(total, 0), estilo,
+                  { borderLeft: "1px solid " + COR.line })
+              );
+            })
+          )
+        )
+      );
+    }
+
+    /* Barra de controles de cenario e granularidade, comum a todas as      */
+    /* abas de projecao.                                                    */
+    function controlesProjecao(proj, mesesProj) {
+      function grupo(valorAtual, setter, opcoes) {
+        return h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+          opcoes.map(function (par) {
+            return h("button", {
+              key: par[0],
+              onClick: function () { setter(par[0]); },
+              className: "px-3 py-1.5",
+              style: {
+                fontSize: 11,
+                background: valorAtual === par[0] ? COR.brass : "transparent",
+                color: valorAtual === par[0] ? "#FFFFFF" : COR.dim,
+                fontWeight: valorAtual === par[0] ? 600 : 400
+              }
+            }, par[1]);
+          })
+        );
+      }
+      return h("div", { className: "flex flex-wrap items-center gap-3 mb-4" },
+        grupo(cenario, setCenario, [
+          ["base", "Cenário base"],
+          ["conservador", "Conservador (" + formatarPercentual(proj.redutor) + " da receita)"]
+        ]),
+        grupo(granularidade, setGranularidade, [["ano", "Por ano"], ["mes", "Mês a mês"]]),
+        h("div", { style: { fontSize: 11, color: COR.faint } },
+          mesesProj.length + " meses · Anexo " + proj.anexo + " · mês zero = set/26")
+      );
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Aba: Consolidado                                                     */
     /* ------------------------------------------------------------------ */
 
     function abaBPProjetada() {
@@ -5270,71 +5532,8 @@
       var cenarioAtivo = cenario === "conservador" ? proj.conservador : proj.base;
       var mesesProj = cenarioAtivo.meses;
       var L = cenarioAtivo.L;
+      var g = gradeColunas(mesesProj);
 
-      /* Horizonte inteiro nao cabe na largura da tela sem virar sopa de   */
-      /* numeros, entao a visao padrao e anual: soma 12 meses por coluna.  */
-      /* Mensal continua disponivel pra quem quiser auditar mes a mes.     */
-      var colunas, rotuloColuna, valorNaColuna;
-      if (granularidade === "ano") {
-        var anos = [];
-        for (var a = 0; a * 12 < mesesProj.length; a++) anos.push(a);
-        colunas = anos;
-        rotuloColuna = function (a) { return "Ano " + (a + 1); };
-        valorNaColuna = function (linha, a, ehSaldo) {
-          var soma = 0;
-          var ultimo = 0;
-          for (var k = a * 12; k < Math.min((a + 1) * 12, mesesProj.length); k++) {
-            soma += linha[mesesProj[k]] || 0;
-            ultimo = linha[mesesProj[k]] || 0;
-          }
-          return ehSaldo ? ultimo : soma;
-        };
-      } else {
-        colunas = mesesProj.map(function (m, i) { return i; });
-        rotuloColuna = function (i) { return rotuloMes(mesesProj[i]); };
-        valorNaColuna = function (linha, i) { return linha[mesesProj[i]] || 0; };
-      }
-
-      /* Uma linha da tabela de projecao. ehSaldo marca as linhas de       */
-      /* posicao (caixa, base de assinantes), que na visao anual mostram   */
-      /* o valor do ultimo mes do ano, nao a soma dos doze.                */
-      function linhaProj(rotulo, linha, nivel, ehSaldo, formato) {
-        var estilo = ESTILO_LINHA[nivel || "item"];
-        var total = 0;
-        if (ehSaldo) {
-          total = linha[mesesProj[mesesProj.length - 1]] || 0;
-        } else {
-          mesesProj.forEach(function (mes) { total += linha[mes] || 0; });
-        }
-        return h("tr", { key: rotulo, style: { background: estilo.bg } },
-          h("td", {
-            className: estilo.pad + " py-1 whitespace-nowrap",
-            style: { color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs }
-          }, rotulo),
-          colunas.map(function (c) {
-            var v = valorNaColuna(linha, c, ehSaldo);
-            return h("td", {
-              key: c,
-              className: "px-3 py-1 text-right whitespace-nowrap",
-              style: {
-                color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
-                fontVariantNumeric: "tabular-nums"
-              }
-            }, formato === "pct" ? formatarPercentual(v)
-               : formato === "qtd" ? formatarNumero(v, 0)
-               : formatarNumero(v, 0));
-          }),
-          h("td", {
-            className: "px-3 py-1 text-right whitespace-nowrap",
-            style: {
-              color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
-              fontVariantNumeric: "tabular-nums", borderLeft: "1px solid " + COR.line
-            }
-          }, formato === "pct" ? "" : formatarNumero(total, 0))
-        );
-      }
-
-      /* Percentual de uma linha sobre a receita liquida projetada. */
       function pctSobreRL(linha) {
         var r = {};
         mesesProj.forEach(function (mes) {
@@ -5343,10 +5542,7 @@
         return r;
       }
 
-      /* Alerta de caixa: primeiro mes em que o saldo projetado cai        */
-      /* abaixo do minimo da premissa 50.                                  */
-      var mesAlerta = null;
-      var mesNegativo = null;
+      var mesAlerta = null, mesNegativo = null;
       mesesProj.forEach(function (mes) {
         if (mesAlerta === null && L.caixa[mes] < cenarioAtivo.caixaMinimo) mesAlerta = mes;
         if (mesNegativo === null && L.caixa[mes] < 0) mesNegativo = mes;
@@ -5359,82 +5555,35 @@
       });
       var caixaFinal = L.caixa[mesesProj[mesesProj.length - 1]];
 
-      var larguraMinima = 380 + (colunas.length + 1) * (granularidade === "ano" ? 120 : 90);
-
       return h("div", null,
-        /* Controles do cenario e da granularidade. */
-        h("div", { className: "flex flex-wrap items-center gap-3 mb-4" },
-          h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
-            [["base", "Cenário base"], ["conservador", "Conservador (" + formatarPercentual(proj.redutor) + " da receita)"]].map(function (par) {
-              return h("button", {
-                key: par[0],
-                onClick: function () { setCenario(par[0]); },
-                className: "px-3 py-1.5",
-                style: {
-                  fontSize: 11,
-                  background: cenario === par[0] ? COR.brass : "transparent",
-                  color: cenario === par[0] ? "#FFFFFF" : COR.dim,
-                  fontWeight: cenario === par[0] ? 600 : 400
-                }
-              }, par[1]);
-            })
-          ),
-          h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
-            [["ano", "Por ano"], ["mes", "Mês a mês"]].map(function (par) {
-              return h("button", {
-                key: par[0],
-                onClick: function () { setGranularidade(par[0]); },
-                className: "px-3 py-1.5",
-                style: {
-                  fontSize: 11,
-                  background: granularidade === par[0] ? COR.brass : "transparent",
-                  color: granularidade === par[0] ? "#FFFFFF" : COR.dim,
-                  fontWeight: granularidade === par[0] ? 600 : 400
-                }
-              }, par[1]);
-            })
-          ),
-          h("div", { style: { fontSize: 11, color: COR.faint } },
-            mesesProj.length + " meses · Anexo " + proj.anexo + " · mês zero = set/26")
-        ),
+        controlesProjecao(proj, mesesProj),
 
-        /* Cartoes de topo da projecao. */
         h("div", {
           className: "grid gap-3 mb-4",
           style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
         },
           h(CartaoIndicador, {
-            rotulo: "Receita projetada",
-            valor: receitaTotal,
-            sub: "soma do horizonte",
+            rotulo: "Receita projetada", valor: receitaTotal, sub: "soma do horizonte",
             ajuda: "Receita bruta somada nos " + mesesProj.length + " meses, no cenário " + (cenario === "base" ? "base" : "conservador") + ". Vem inteiramente das premissas, não do realizado."
           }),
           h(CartaoIndicador, {
-            rotulo: "EBITDA projetado",
-            valor: ebitdaTotal,
-            tom: ebitdaTotal < 0 ? "neg" : "pos",
-            sub: "soma do horizonte",
+            rotulo: "EBITDA projetado", valor: ebitdaTotal,
+            tom: ebitdaTotal < 0 ? "neg" : "pos", sub: "soma do horizonte",
             ajuda: "Resultado operacional acumulado, já descontado o pró-labore condicional da premissa 37."
           }),
           h(CartaoIndicador, {
-            rotulo: "Caixa no fim",
-            valor: caixaFinal,
-            casas: 0,
-            tom: caixaFinal < 0 ? "neg" : "pos",
-            sub: "posição no último mês",
+            rotulo: "Caixa no fim", valor: caixaFinal, casas: 0,
+            tom: caixaFinal < 0 ? "neg" : "pos", sub: "posição no último mês",
             ajuda: "Parte do caixa livre de hoje, soma o mútuo, o resultado de cada mês, o investimento e a distribuição de lucros."
           }),
           h(CartaoIndicador, {
-            rotulo: "Alerta de caixa",
-            valor: cenarioAtivo.caixaMinimo,
-            casas: 0,
+            rotulo: "Alerta de caixa", valor: cenarioAtivo.caixaMinimo, casas: 0,
             tom: mesAlerta ? "neg" : "pos",
             sub: mesAlerta ? "furado em " + rotuloMes(mesAlerta) : "nunca furado no horizonte",
             ajuda: "Piso da premissa 50. " + (mesNegativo ? "O caixa fica NEGATIVO em " + rotuloMes(mesNegativo) + "." : "O caixa não fica negativo em nenhum mês.")
           })
         ),
 
-        /* Faixa de ressalva: o que este numero e e o que ele nao e. */
         h("div", {
           className: "rounded px-4 py-3 mb-4",
           style: { background: COR.brassSoft, border: "1px solid " + COR.brass, fontSize: 11, color: COR.dim, lineHeight: 1.6 }
@@ -5443,83 +5592,174 @@
           "O imposto usa a tabela progressiva do Anexo V (alíquota efetiva pela fórmula do art. 18, §1º-A da LC 123), o que é aproximação gerencial e não substitui a apuração do Vigo. O RBT12 dos primeiros meses só enxerga o histórico dentro deste horizonte, então a alíquota inicial sai mais baixa que a real. Os juros do mútuo usam CDI de 10,5% a.a. como proxy, premissa minha e não sua. E 11 premissas ainda são propostas de teste, não confirmadas."
         ),
 
-        /* Tabela do DRE projetado. */
+        tabelaProjecao(g, [
+          ["Receita Bruta", L.receita, "secao", false, null],
+          ["Encontros Exclusivos", L.recEncontros, "grupo", false, null],
+          ["Patrocínio recorrente", L.recPatrocinio, "grupo", false, null],
+          ["Patrocínio spot", L.recSpot, "grupo", false, null],
+          ["QR Insights", L.recInsights, "grupo", false, null],
+          ["QR Review", L.recReview, "grupo", false, null],
+          ["QR Advisory", L.recAdvisory, "grupo", false, null],
+          ["Quorum House", L.recHouse, "grupo", false, null],
+          ["Quorum Day", L.recQuorumDay, "grupo", false, null],
+
+          ["Impostos sobre a receita", L.impostos, "secao", false, null],
+          ["% alíquota efetiva do Simples", L.aliquota, "pct", false, "pct"],
+          ["(=) Receita Líquida", L.receitaLiquida, "total", false, null],
+
+          ["Custos Diretos", L.custo, "secao", false, null],
+          ["Custo dos Encontros", L.custoEncontros, "grupo", false, null],
+          ["Repasse ao advisor", L.custoAdvisory, "grupo", false, null],
+          ["Custo do Quorum Day", L.custoQuorumDay, "grupo", false, null],
+          ["Comissão sobre patrocínio", L.custoComissao, "grupo", false, null],
+          ["Plataforma e take rate", L.custoPlataforma, "grupo", false, null],
+          ["CAC de assinantes", L.custoCAC, "grupo", false, null],
+
+          ["(=) Lucro Bruto", L.lucroBruto, "total", false, null],
+          ["% margem bruta", pctSobreRL(L.lucroBruto), "pct", false, "pct"],
+
+          ["Despesas Fixas", L.despesas, "secao", false, null],
+          ["Despesas administrativas", L.despFixas, "grupo", false, null],
+          ["Ferramentas e software", L.despFerramentas, "grupo", false, null],
+          ["Mídia e impulsionamento", L.despMidia, "grupo", false, null],
+          ["Contabilidade", L.despContabil, "grupo", false, null],
+          ["Jurídico", L.despJuridico, "grupo", false, null],
+          ["Quorum House (aluguel)", L.despHouse, "grupo", false, null],
+          ["Folha de contratações", L.despPessoal, "grupo", false, null],
+          ["Pró-labore (condicional)", L.proLabore, "grupo", false, null],
+
+          ["(=) EBITDA", L.ebitda, "total", false, null],
+          ["% margem EBITDA", pctSobreRL(L.ebitda), "pct", false, "pct"],
+
+          ["Despesas Financeiras", L.finDesp, "secao", false, null],
+          ["(=) Lucro Líquido", L.lucroLiquido, "total", false, null],
+
+          ["Fluxo de Caixa", L.fluxoMes, "secao", false, null],
+          ["Aporte (mútuo)", L.aporte, "grupo", false, null],
+          ["Investimento (capex)", L.capex, "grupo", false, null],
+          ["Distribuição de lucros", L.distribuicao, "grupo", false, null],
+          ["(=) Caixa acumulado", L.caixa, "total", true, null],
+
+          ["Base de assinantes Insights", L.assinantes, "item", true, "qtd"],
+          ["Base de assinantes Review", L.assinantesReview, "item", true, "qtd"]
+        ])
+      );
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Aba de vertical: margem de contribuicao                             */
+    /* Para de proposito antes do imposto e da despesa fixa. O imposto do  */
+    /* Simples e apurado sobre a receita consolidada, entao rateio por     */
+    /* vertical produziria numero que induz decisao errada: a vertical     */
+    /* pequena pareceria barata e a grande cara, quando na verdade e o     */
+    /* total que define a faixa da tabela para todas elas.                 */
+    /* ------------------------------------------------------------------ */
+
+    function abaVertical(idVertical) {
+      var comp = COMPOSICAO_VERTICAL[idVertical];
+      var proj = projetar(valores, props.posicao);
+      var cenarioAtivo = cenario === "conservador" ? proj.conservador : proj.base;
+      var mesesProj = cenarioAtivo.meses;
+      var L = cenarioAtivo.L;
+      var g = gradeColunas(mesesProj);
+
+      /* Soma das linhas de receita e de custo da vertical, mes a mes. */
+      function somarLinhas(pares) {
+        var r = {};
+        mesesProj.forEach(function (mes) {
+          var s = 0;
+          pares.forEach(function (par) { s += (L[par[0]][mes] || 0); });
+          r[mes] = s;
+        });
+        return r;
+      }
+
+      var receitaVert = somarLinhas(comp.receitas);
+      var custoVert = somarLinhas(comp.custos);
+      var margem = {};
+      var pctMargem = {};
+      mesesProj.forEach(function (mes) {
+        margem[mes] = receitaVert[mes] + custoVert[mes];
+        pctMargem[mes] = receitaVert[mes] ? margem[mes] / receitaVert[mes] : 0;
+      });
+
+      /* Participacao da vertical na receita consolidada do horizonte. */
+      var totalReceitaVert = 0, totalCustoVert = 0, totalMargem = 0, totalReceitaEmpresa = 0;
+      mesesProj.forEach(function (mes) {
+        totalReceitaVert += receitaVert[mes];
+        totalCustoVert += custoVert[mes];
+        totalMargem += margem[mes];
+        totalReceitaEmpresa += L.receita[mes];
+      });
+      var participacao = totalReceitaEmpresa ? totalReceitaVert / totalReceitaEmpresa : 0;
+      var margemPct = totalReceitaVert ? totalMargem / totalReceitaVert : 0;
+
+      /* Mes em que a vertical passa a ter receita. */
+      var primeiroMesComReceita = null;
+      mesesProj.forEach(function (mes) {
+        if (primeiroMesComReceita === null && receitaVert[mes] > 0) primeiroMesComReceita = mes;
+      });
+
+      return h("div", null,
+        controlesProjecao(proj, mesesProj),
+
         h("div", {
-          className: "overflow-x-auto rounded",
-          style: { border: "1px solid " + COR.line, background: COR.surface }
+          className: "grid gap-3 mb-4",
+          style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
         },
-          h("table", {
-            style: { borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: larguraMinima }
-          },
-            h("thead", null,
-              h("tr", { style: { background: COR.ink } },
-                h("th", { className: "pl-3 py-2 text-left uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, width: "26%" } }, "Linha"),
-                colunas.map(function (c) {
-                  return h("th", {
-                    key: c,
-                    className: "px-3 py-2 text-right uppercase whitespace-nowrap",
-                    style: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim }
-                  }, rotuloColuna(c));
-                }),
-                h("th", {
-                  className: "px-3 py-2 text-right uppercase whitespace-nowrap",
-                  style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass, borderLeft: "1px solid " + COR.line }
-                }, "Total")
+          h(CartaoIndicador, {
+            rotulo: "Receita da vertical",
+            valor: totalReceitaVert,
+            sub: "soma do horizonte",
+            ajuda: "Receita bruta desta vertical somada nos " + mesesProj.length + " meses do cenário " + (cenario === "base" ? "base" : "conservador") + "."
+          }),
+          h(CartaoIndicador, {
+            rotulo: "Custo direto",
+            valor: totalCustoVert,
+            tom: "neg",
+            sub: "soma do horizonte",
+            ajuda: "Só o que é atribuível a esta vertical sem rateio. Despesa fixa, imposto e pró-labore ficam no Consolidado."
+          }),
+          h(CartaoIndicador, {
+            rotulo: "Margem de contribuição",
+            valor: totalMargem,
+            tom: totalMargem < 0 ? "neg" : "pos",
+            sub: formatarPercentual(margemPct) + " da receita da vertical",
+            ajuda: "Quanto esta vertical contribui para pagar a estrutura da empresa. Não é lucro: o imposto e as despesas fixas ainda não foram descontados aqui."
+          }),
+          h(CartaoIndicador, {
+            rotulo: "Participação na receita",
+            valor: participacao * 100,
+            casas: 1,
+            sufixo: "%",
+            sub: primeiroMesComReceita ? "primeira receita em " + rotuloMes(primeiroMesComReceita) : "sem receita no horizonte",
+            ajuda: "Peso desta vertical na receita bruta consolidada do horizonte inteiro."
+          })
+        ),
+
+        h("div", {
+          className: "rounded px-4 py-3 mb-4",
+          style: { background: COR.ink, border: "1px solid " + COR.line, fontSize: 11, color: COR.dim, lineHeight: 1.6 }
+        },
+          h("strong", { style: { color: COR.brass } }, "Para na margem de contribuição. "),
+          comp.nota,
+          " O imposto do Simples é apurado sobre a receita consolidada da empresa, então ratear por vertical daria número errado: é o total que define a faixa da tabela para todas as verticais ao mesmo tempo."
+        ),
+
+        tabelaProjecao(g, [
+          ["Receita da vertical", receitaVert, "secao", false, null]
+        ].concat(comp.receitas.map(function (par) {
+          return [par[1], L[par[0]], "grupo", false, null];
+        })).concat(
+          comp.custos.length
+            ? [["Custos Diretos", custoVert, "secao", false, null]].concat(
+                comp.custos.map(function (par) { return [par[1], L[par[0]], "grupo", false, null]; })
               )
-            ),
-            h("tbody", null,
-              linhaProj("Receita Bruta", L.receita, "secao"),
-              linhaProj("Encontros Exclusivos", L.recEncontros, "grupo"),
-              linhaProj("Patrocínio recorrente", L.recPatrocinio, "grupo"),
-              linhaProj("Patrocínio spot", L.recSpot, "grupo"),
-              linhaProj("QR Insights", L.recInsights, "grupo"),
-              linhaProj("QR Review", L.recReview, "grupo"),
-              linhaProj("QR Advisory", L.recAdvisory, "grupo"),
-              linhaProj("Quorum House", L.recHouse, "grupo"),
-              linhaProj("Quorum Day", L.recQuorumDay, "grupo"),
-
-              linhaProj("Impostos sobre a receita", L.impostos, "secao"),
-              linhaProj("% alíquota efetiva do Simples", L.aliquota, "pct", false, "pct"),
-              linhaProj("(=) Receita Líquida", L.receitaLiquida, "total"),
-
-              linhaProj("Custos Diretos", L.custo, "secao"),
-              linhaProj("Custo dos Encontros", L.custoEncontros, "grupo"),
-              linhaProj("Repasse ao advisor", L.custoAdvisory, "grupo"),
-              linhaProj("Custo do Quorum Day", L.custoQuorumDay, "grupo"),
-              linhaProj("Comissão sobre patrocínio", L.custoComissao, "grupo"),
-              linhaProj("Plataforma e take rate", L.custoPlataforma, "grupo"),
-              linhaProj("CAC de assinantes", L.custoCAC, "grupo"),
-
-              linhaProj("(=) Lucro Bruto", L.lucroBruto, "total"),
-              linhaProj("% margem bruta", pctSobreRL(L.lucroBruto), "pct", false, "pct"),
-
-              linhaProj("Despesas Fixas", L.despesas, "secao"),
-              linhaProj("Despesas administrativas", L.despFixas, "grupo"),
-              linhaProj("Ferramentas e software", L.despFerramentas, "grupo"),
-              linhaProj("Mídia e impulsionamento", L.despMidia, "grupo"),
-              linhaProj("Contabilidade", L.despContabil, "grupo"),
-              linhaProj("Jurídico", L.despJuridico, "grupo"),
-              linhaProj("Quorum House (aluguel)", L.despHouse, "grupo"),
-              linhaProj("Folha de contratações", L.despPessoal, "grupo"),
-              linhaProj("Pró-labore (condicional)", L.proLabore, "grupo"),
-
-              linhaProj("(=) EBITDA", L.ebitda, "total"),
-              linhaProj("% margem EBITDA", pctSobreRL(L.ebitda), "pct", false, "pct"),
-
-              linhaProj("Despesas Financeiras", L.finDesp, "secao"),
-              linhaProj("(=) Lucro Líquido", L.lucroLiquido, "total"),
-
-              linhaProj("Fluxo de Caixa", L.fluxoMes, "secao"),
-              linhaProj("Aporte (mútuo)", L.aporte, "grupo"),
-              linhaProj("Investimento (capex)", L.capex, "grupo"),
-              linhaProj("Distribuição de lucros", L.distribuicao, "grupo"),
-              linhaProj("(=) Caixa acumulado", L.caixa, "total", true),
-
-              linhaProj("Base de assinantes Insights", L.assinantes, "item", true, "qtd"),
-              linhaProj("Base de assinantes Review", L.assinantesReview, "item", true, "qtd")
-            )
-          )
-        )
+            : [["Custos Diretos (nenhum atribuível)", custoVert, "secao", false, null]]
+        ).concat([
+          ["(=) Margem de Contribuição", margem, "total", false, null],
+          ["% margem de contribuição", pctMargem, "pct", false, "pct"]
+        ]))
       );
     }
 
@@ -5548,12 +5788,42 @@
           }, "Restaurar todas as sugestões")
         ),
         grupos.map(function (grupo) {
-          return h("div", { key: grupo.bloco, className: "mb-6" },
+          /* Contagem de pendencia por vertical, pra Alex saber onde ainda  */
+          /* falta decidir sem precisar abrir tudo.                         */
+          var abertosNaVertical = 0, propostasNaVertical = 0;
+          grupo.blocos.forEach(function (b) {
+            b.itens.forEach(function (item) {
+              var est = estadoPremissa(item, valores[item.numero]);
+              if (est === "aberto") abertosNaVertical++;
+              if (est === "proposta") propostasNaVertical++;
+            });
+          });
+          return h("div", { key: grupo.vertical, className: "mb-8" },
             h("div", {
-              className: "uppercase mb-1",
-              style: { fontSize: 10, letterSpacing: "0.15em", color: COR.brass, fontWeight: 700 }
-            }, grupo.bloco),
-            grupo.itens.map(linhaPremissa)
+              className: "flex items-baseline gap-3 mb-3 pb-2",
+              style: { borderBottom: "2px solid " + COR.brass }
+            },
+              h("div", {
+                className: "uppercase",
+                style: { fontSize: 13, letterSpacing: "0.14em", color: COR.brass, fontWeight: 700 }
+              }, grupo.rotulo),
+              h("div", { style: { fontSize: 11, color: COR.faint } },
+                grupo.total + " premissas",
+                abertosNaVertical > 0 && h("span", { style: { color: COR.brass, fontWeight: 600 } },
+                  " · " + abertosNaVertical + " em aberto"),
+                propostasNaVertical > 0 && h("span", { style: { color: COR.dim } },
+                  " · " + propostasNaVertical + " proposta(s)")
+              )
+            ),
+            grupo.blocos.map(function (sub) {
+              return h("div", { key: sub.bloco, className: "mb-5" },
+                h("div", {
+                  className: "uppercase mb-1",
+                  style: { fontSize: 10, letterSpacing: "0.15em", color: COR.dim, fontWeight: 600 }
+                }, sub.bloco),
+                sub.itens.map(linhaPremissa)
+              );
+            })
           );
         })
       );
@@ -5563,6 +5833,10 @@
       barraAbasBP,
       h("div", { className: "px-6 pb-16 pt-3" },
         abaBP === "bp" && abaBPProjetada(),
+        abaBP === "comunidade" && abaVertical("comunidade"),
+        abaBP === "insights" && abaVertical("insights"),
+        abaBP === "review" && abaVertical("review"),
+        abaBP === "advisory" && abaVertical("advisory"),
         abaBP === "premissas" && abaPremissas()
       )
     );
