@@ -2753,16 +2753,11 @@
     var estCarregando = useState(true);        var carregando = estCarregando[0], setCarregando = estCarregando[1];
     var estAtualizado = useState(null);        var atualizadoEm = estAtualizado[0], setAtualizadoEm = estAtualizado[1];
 
-    /* Tela master: Financeiro (dashboard atual) ou Business Plan. Fica     */
-    /* fora do sistema de abas de cada tela, e persiste no navegador para   */
-    /* nao voltar sempre para Financeiro num reload.                        */
-    var estTelaMaster = useState(function () {
-      return armazenamento.getItem("quorum_tela_master") || "financeiro";
-    });
+    /* Tela master: Financeiro (dashboard atual) ou Business Plan. Nao      */
+    /* persiste entre sessoes de proposito: todo reload volta pra           */
+    /* Financeiro, e a troca de tela so vale enquanto a aba estiver aberta.  */
+    var estTelaMaster = useState("financeiro");
     var telaMaster = estTelaMaster[0], setTelaMaster = estTelaMaster[1];
-    useEffect(function () {
-      armazenamento.setItem("quorum_tela_master", telaMaster);
-    }, [telaMaster]);
 
     var estRegime = useState(function () {
       return armazenamento.getItem("quorum_regime") || "caixa";
@@ -4203,7 +4198,7 @@
 
   var PREMISSAS_DEFAULT = [
     { numero: 1, bloco: "Horizonte e Estrutura", pergunta: "Qual o horizonte da projeção, em meses, a partir de set/26?", sugestao: "36 meses" },
-    { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero, inclusive caixa de 7.784,86, fatura de cartão de 3.043,16 e caução de 5.000?", sugestao: "Sim" },
+    { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero? De onde vem o caixa, a fatura de cartão e a caução desse mês zero?", sugestao: "Sim, mas nunca como número fixo aqui: caixa, fatura de cartão e caução do mês zero vêm sempre ao vivo do Dashboard Financeiro (cartão Caixa Livre da tela Financeiro), lidos no momento em que a projeção roda. Implicação para a Fase 3: o motor lê esses três valores do mesmo `posicao` que já alimenta a tela Financeiro, não de um valor digitado na premissa." },
     { numero: 3, bloco: "Horizonte e Estrutura", pergunta: "Qual redutor aplicar no cenário conservador sobre a receita do cenário base?", sugestao: "60% do base" },
     { numero: 4, bloco: "Horizonte e Estrutura", pergunta: "O mútuo conversível de 60.000 entra como entrada de caixa? Em que mês?", sugestao: "Sim, mês a definir" },
     { numero: 5, bloco: "Horizonte e Estrutura", pergunta: "Os juros do mútuo entram como despesa financeira desde o desembolso ou só após a carência de 6 meses?", sugestao: "Accrual desde o desembolso, pago no vencimento" },
@@ -4215,8 +4210,8 @@
     { numero: 10, bloco: "Encontros Exclusivos", pergunta: "Qual o custo QUORUM por Encontro fora o jantar (síntese autoral, brindes, deslocamento)?", sugestao: "2.500" },
     { numero: 11, bloco: "Encontros Exclusivos", pergunta: "Qual o reajuste anual do fee, e a partir de quando?", sugestao: "5% a 10% a.a. a cada 12 meses" },
 
-    { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?", sugestao: "a definir" },
-    { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?", sugestao: "a definir" },
+    { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?", sugestao: "40.000/mês desde a Cota 1 vigente, evoluindo para 70.000/mês a partir do mês 17 do contrato. [Achado em chat de 22/07/2026 sobre configuração da Omie, não confirmado de novo nesta revisão — validar antes de travar.]" },
+    { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?", sugestao: "Cota 2: 50.000/mês a partir do mês 6. Cota 3: 50.000/mês a partir do mês 9. [Mesma origem e mesma ressalva da premissa 12.]" },
     { numero: 14, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o prazo do contrato de cota?", sugestao: "12 meses com renovação automática. Temos que prever cancelamentos." },
     { numero: 15, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual a probabilidade de renovação a usar no cenário base?", sugestao: "80%" },
     { numero: 16, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Quantos patrocínios spot de happy hour por ano e qual o ticket médio?", sugestao: "4/ano a 25.000" },
@@ -4258,7 +4253,7 @@
 
     { numero: 45, bloco: "Tributário", pergunta: "Confirma Anexo V como padrão, com faixa progressiva do Simples sobre a receita bruta dos últimos 12 meses?", sugestao: "Sim" },
     { numero: 46, bloco: "Tributário", pergunta: "Se o Anexo III for confirmado pela Agilize, a partir de que mês aplico no cenário alternativo?", sugestao: "a definir" },
-    { numero: 47, bloco: "Tributário", pergunta: "Algum contrato prevê retenção de ISS na fonte pelo cliente?", sugestao: "a definir" },
+    { numero: 47, bloco: "Tributário", pergunta: "Algum contrato prevê retenção de ISS na fonte pelo cliente?", sugestao: "a definir. Regra já levantada (chat de 30/07/2026, ainda não fechada com o Vigo): federais (IRRF/PIS/COFINS/CSLL) o cliente não retém, Simples é dispensado pela IN RFB 1.234/2012. ISS é municipal e pode ser retenção obrigatória dependendo do tomador; se retiver, tem que usar o percentual efetivo do Simples (art. 21 §4º LC 123), não os 5% nominais da nota. Falta confirmar com o Vigo se algum contrato atual sob o código 02496 cai nessa obrigação." },
     { numero: 48, bloco: "Tributário", pergunta: "Entro com a CBS a partir de jan/27 como linha explícita, mais linha informativa do gap de crédito do cliente?", sugestao: "Sim" },
     { numero: 49, bloco: "Tributário", pergunta: "A distribuição de lucros entra na projeção? A partir de que resultado acumulado e em que percentual?", sugestao: "a definir" },
 
@@ -4278,7 +4273,8 @@
   }
 
   function ehAberto(texto) {
-    return String(texto || "").trim().toLowerCase() === "a definir";
+    var limpo = String(texto || "").trim().toLowerCase();
+    return limpo === "a definir" || limpo.indexOf("a definir.") === 0 || limpo.indexOf("a definir,") === 0 || limpo.indexOf("a definir ") === 0;
   }
 
   /* ------------------------------------------------------------------ */
