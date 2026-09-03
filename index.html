@@ -3514,19 +3514,9 @@
 
       h("div", { className: "flex-1" }),
 
-      /* Visão sintética/analítica, exportar e atualizar são acoes do      */
-      /* Financeiro. Os toggles de regime, meses e zeradas desceram para a  */
-      /* barraFiltros, logo acima das abas.                                 */
+      /* Exportar e atualizar são acoes do Financeiro. Visão sintética foi   */
+      /* junto com os outros toggles pra barraFiltros, acima das abas.       */
       telaMaster === "financeiro" && h(Fragment, null,
-        h("button", {
-          onClick: function () { setMostrarDetalhe(!mostrarDetalhe); },
-          className: "px-3 py-1.5 rounded",
-          style: estiloBotao(!mostrarDetalhe),
-          title: mostrarDetalhe
-            ? "Hoje mostrando grupo e categoria. Clique para ver só os totais de cada seção"
-            : "Hoje mostrando só os totais. Clique para abrir grupo e categoria"
-        }, mostrarDetalhe ? "Visão sintética" : "Visão analítica"),
-
         h("button", {
           onClick: function () { exportarXlsx(); },
           className: "px-3 py-1.5 rounded",
@@ -3748,7 +3738,17 @@
             }
           }, rotulo);
         })
-      )
+      ),
+
+      /* Visão sintética (so totais) ou analitica (grupo e categoria). */
+      h("button", {
+        onClick: function () { setMostrarDetalhe(!mostrarDetalhe); },
+        className: "px-3 py-1.5 rounded",
+        style: estiloBotao(!mostrarDetalhe),
+        title: mostrarDetalhe
+          ? "Hoje mostrando grupo e categoria. Clique para ver só os totais de cada seção"
+          : "Hoje mostrando só os totais. Clique para abrir grupo e categoria"
+      }, mostrarDetalhe ? "Visão sintética" : "Visão analítica")
     );
 
     /* ---------------------------------------------------------------- */
