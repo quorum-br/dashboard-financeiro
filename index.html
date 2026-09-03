@@ -4197,68 +4197,184 @@
   /* ------------------------------------------------------------------ */
 
   var PREMISSAS_DEFAULT = [
-    { numero: 1, bloco: "Horizonte e Estrutura", pergunta: "Qual o horizonte da projeção, em meses, a partir de set/26?", sugestao: "36 meses" },
-    { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero? De onde vem o caixa, a fatura de cartão e a caução desse mês zero?", sugestao: "Sim, mas nunca como número fixo aqui: caixa, fatura de cartão e caução do mês zero vêm sempre ao vivo do Dashboard Financeiro (cartão Caixa Livre da tela Financeiro), lidos no momento em que a projeção roda. Implicação para a Fase 3: o motor lê esses três valores do mesmo `posicao` que já alimenta a tela Financeiro, não de um valor digitado na premissa." },
-    { numero: 3, bloco: "Horizonte e Estrutura", pergunta: "Qual redutor aplicar no cenário conservador sobre a receita do cenário base?", sugestao: "60% do base" },
-    { numero: 4, bloco: "Horizonte e Estrutura", pergunta: "O mútuo conversível de 60.000 entra como entrada de caixa? Em que mês?", sugestao: "Sim, mês a definir" },
-    { numero: 5, bloco: "Horizonte e Estrutura", pergunta: "Os juros do mútuo entram como despesa financeira desde o desembolso ou só após a carência de 6 meses?", sugestao: "Accrual desde o desembolso, pago no vencimento" },
+    { numero: 1, bloco: "Horizonte e Estrutura", pergunta: "Qual o horizonte da projeção, em meses, a partir de set/26?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "meses", tipo: "numero", valor: 36 }] },
+    { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero? De onde vem o caixa, a fatura de cartão e a caução desse mês zero?",
+      tipo: "fonte", origem: "confirmado",
+    origemDados: "financeiro.posicao", campos: ["corrente", "cartao", "garantia"] },
+    { numero: 3, bloco: "Horizonte e Estrutura", pergunta: "Qual redutor aplicar no cenário conservador sobre a receita do cenário base?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "percentual", tipo: "percentual", valor: 60.00 }] },
+    { numero: 4, bloco: "Horizonte e Estrutura", pergunta: "O mútuo conversível de 60.000 entra como entrada de caixa? Em que mês?",
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: 0, campos: { valor: 60000 } }] },
+    { numero: 5, bloco: "Horizonte e Estrutura", pergunta: "Os juros do mútuo entram como despesa financeira desde o desembolso ou só após a carência de 6 meses?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "regime", tipo: "texto", valor: "Accrual desde o desembolso, pago no vencimento" }] },
 
-    { numero: 6, bloco: "Encontros Exclusivos", pergunta: "Qual o fee QUORUM por Encontro, em regime?", sugestao: "27.000" },
-    { numero: 7, bloco: "Encontros Exclusivos", pergunta: "Quantos Encontros por mês no cenário base, e a partir de que mês?", sugestao: "1/mês a partir de out/26" },
-    { numero: 8, bloco: "Encontros Exclusivos", pergunta: "O jantar pago pelo cliente direto à casa fica fora da projeção, sem entrar como receita nem como custo?", sugestao: "Sim. Na projeção contaremos apenas com o que é fee da QUORUM, sem contar o que é pago pelo cliente direto para a casa." },
-    { numero: 9, bloco: "Encontros Exclusivos", pergunta: "Se algum Encontro for faturado com o jantar dentro, qual o custo médio por presente e o piso da casa?", sugestao: "390 por presente foi o custo do assador. Verificar Tier 1 e tier 2 com o Till" },
-    { numero: 10, bloco: "Encontros Exclusivos", pergunta: "Qual o custo QUORUM por Encontro fora o jantar (síntese autoral, brindes, deslocamento)?", sugestao: "2.500" },
-    { numero: 11, bloco: "Encontros Exclusivos", pergunta: "Qual o reajuste anual do fee, e a partir de quando?", sugestao: "5% a 10% a.a. a cada 12 meses" },
+    { numero: 6, bloco: "Encontros Exclusivos", pergunta: "Qual o fee QUORUM por Encontro, em regime?",
+      tipo: "curva", origem: "confirmado",
+    valorBase: 27000, mesInicio: null,
+    reajuste: { tipo: "percentual", valor: 5.00, frequenciaMeses: 12 } },
+    { numero: 7, bloco: "Encontros Exclusivos", pergunta: "Quantos Encontros por mês no cenário base, e a partir de que mês?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "por_mes", tipo: "numero", valor: 1 }, { nome: "mes_inicio", tipo: "numero", valor: 1 }] },
+    { numero: 8, bloco: "Encontros Exclusivos", pergunta: "O jantar pago pelo cliente direto à casa fica fora da projeção, sem entrar como receita nem como custo?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "fora_da_projecao", tipo: "booleano", valor: true }] },
+    { numero: 9, bloco: "Encontros Exclusivos", pergunta: "Se algum Encontro for faturado com o jantar dentro, qual o custo médio por presente e o piso da casa?",
+      tipo: "escalar", origem: "achado",
+    campos: [{ nome: "custo_por_presente", tipo: "numero", valor: 390 }],
+    observacao: "Piso da casa ainda sem valor. Verificar Tier 1 e Tier 2 com o Till. So entra em jogo se a premissa 8 for religada." },
+    { numero: 10, bloco: "Encontros Exclusivos", pergunta: "Qual o custo QUORUM por Encontro fora o jantar (síntese autoral, brindes, deslocamento)?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "valor", tipo: "numero", valor: 2500 }] },
+    { numero: 11, bloco: "Encontros Exclusivos", pergunta: "Qual o reajuste anual do fee, e a partir de quando?",
+      tipo: "referencia", origem: "confirmado", ref: 6, campo: "reajuste" },
 
-    { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?", sugestao: "50000" },
-    { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?", sugestao: "40000, entrando uma cota em dezembro de 2026 e outra em março de 2027" },
-    { numero: 14, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o prazo do contrato de cota?", sugestao: "12 meses com renovação automática. Temos que prever cancelamentos." },
-    { numero: 15, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual a probabilidade de renovação a usar no cenário base?", sugestao: "80%" },
-    { numero: 16, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Quantos patrocínios spot de happy hour por ano e qual o ticket médio?", sugestao: "4/ano a 25.000" },
-    { numero: 17, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Há comissão de sócios advisors sobre patrocínio originado? A que percentual?", sugestao: "15% sobre negócio originado" },
+    { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?",
+      tipo: "curva", origem: "confirmado",
+    valorBase: 50000, mesInicio: 1, reajuste: null },
+    { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?",
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: 3, campos: { valor: 40000, cota: "2" } }, { mes: 6, campos: { valor: 40000, cota: "3" } }] },
+    { numero: 14, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o prazo do contrato de cota?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "prazo_meses", tipo: "numero", valor: 12 }, { nome: "renovacao_automatica", tipo: "booleano", valor: true }] },
+    { numero: 15, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual a probabilidade de renovação a usar no cenário base?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "percentual", tipo: "percentual", valor: 80.00 }] },
+    { numero: 16, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Quantos patrocínios spot de happy hour por ano e qual o ticket médio?",
+      tipo: "evento", origem: "vazio", eventos: [],
+    templateCampos: [{ nome: "valor", tipo: "numero", padrao: 25000 }],
+    observacao: "Aguardando Alex escolher os meses do ano em que ha patrocinio spot (4 por ano, 25.000 cada)." },
+    { numero: 17, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Há comissão de sócios advisors sobre patrocínio originado? A que percentual?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "percentual", tipo: "percentual", valor: 15.00 }] },
 
-    { numero: 18, bloco: "QR Insights - Assinatura", pergunta: "Em que mês a assinatura paga é lançada?", sugestao: "PROPOSTA DE TESTE — corrigir: out/26, mesmo mês em que o BP antigo já mostra as primeiras assinaturas rodando (3.590 de receita), sem confirmação de que isso é fato." },
-    { numero: 19, bloco: "QR Insights - Assinatura", pergunta: "Qual o preço mensal por assinante?", sugestao: "35,90" },
-    { numero: 20, bloco: "QR Insights - Assinatura", pergunta: "Quantos assinantes novos por mês, e a que taxa de crescimento?", sugestao: "30/mês, +10% a.m." },
-    { numero: 21, bloco: "QR Insights - Assinatura", pergunta: "Qual o churn mensal esperado?", sugestao: "5%" },
-    { numero: 22, bloco: "QR Insights - Assinatura", pergunta: "Qual o CAC por assinante?", sugestao: "20,00" },
-    { numero: 23, bloco: "QR Insights - Assinatura", pergunta: "Qual o custo mensal de plataforma e IA para servir a base? Fixo ou por assinante?", sugestao: "PROPOSTA DE TESTE — corrigir: 300/mês fixo de plataforma (LMS) mais take rate de 9,9% da Hotmart sobre a receita da linha. Chute, sem base real: a linha correspondente está zerada na aba Quorum Novo." },
+    { numero: 18, bloco: "QR Insights - Assinatura", pergunta: "Em que mês a assinatura paga é lançada?",
+      tipo: "referencia", origem: "confirmado", ref: 20, campo: "mesInicio" },
+    { numero: 19, bloco: "QR Insights - Assinatura", pergunta: "Qual o preço mensal por assinante?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "preco", tipo: "numero", valor: 35.90 }] },
+    { numero: 20, bloco: "QR Insights - Assinatura", pergunta: "Quantos assinantes novos por mês, e a que taxa de crescimento?",
+      tipo: "curva", origem: "proposta",
+    valorBase: 30, mesInicio: 1,
+    reajuste: { tipo: "percentual", valor: 10.00, frequenciaMeses: 1 } },
+    { numero: 21, bloco: "QR Insights - Assinatura", pergunta: "Qual o churn mensal esperado?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "churn_percentual", tipo: "percentual", valor: 5.00 }] },
+    { numero: 22, bloco: "QR Insights - Assinatura", pergunta: "Qual o CAC por assinante?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "cac", tipo: "numero", valor: 20.00 }] },
+    { numero: 23, bloco: "QR Insights - Assinatura", pergunta: "Qual o custo mensal de plataforma e IA para servir a base? Fixo ou por assinante?",
+      tipo: "escalar", origem: "proposta",
+    campos: [{ nome: "fixo_mensal", tipo: "numero", valor: 300 }, { nome: "take_rate_hotmart_percentual", tipo: "percentual", valor: 9.90 }] },
 
-    { numero: 24, bloco: "QR Review", pergunta: "Em que mês o QR Review é lançado?", sugestao: "PROPOSTA DE TESTE — corrigir: jan/27, mesmo mês em que o BP antigo mostra a primeira receita de QR Review (4.970)." },
-    { numero: 25, bloco: "QR Review", pergunta: "Qual o modelo de cobrança: assinatura de vendor, licença por comprador ou relatório avulso?", sugestao: "PROPOSTA DE TESTE — corrigir: assinatura por comprador (buyer), é o modelo já desenhado no BP antigo." },
-    { numero: 26, bloco: "QR Review", pergunta: "Qual o preço por unidade do driver escolhido e o volume esperado nos primeiros 12 meses?", sugestao: "PROPOSTA DE TESTE — corrigir: 49,70/mês por comprador, começando com 100 assinantes no primeiro mês e crescendo no mesmo ritmo da premissa 20 (+10% a.m.), mesma curva do BP antigo." },
-    { numero: 27, bloco: "QR Review", pergunta: "O custo de construção da plataforma é investimento pontual ou custo mensal de desenvolvimento? Qual valor?", sugestao: "PROPOSTA DE TESTE — corrigir: custo de desenvolvimento de 1.500/mês nos 3 meses antes do lançamento, depois reaproveita a mesma infraestrutura do QR Insights, sem custo adicional." },
+    { numero: 24, bloco: "QR Review", pergunta: "Em que mês o QR Review é lançado?",
+      tipo: "referencia", origem: "proposta", ref: 26, campo: "mesInicio" },
+    { numero: 25, bloco: "QR Review", pergunta: "Qual o modelo de cobrança: assinatura de vendor, licença por comprador ou relatório avulso?",
+      tipo: "escalar", origem: "proposta",
+    campos: [{ nome: "modelo", tipo: "texto", valor: "Assinatura por comprador (buyer)" }] },
+    { numero: 26, bloco: "QR Review", pergunta: "Qual o preço por unidade do driver escolhido e o volume esperado nos primeiros 12 meses?",
+      tipo: "curva", origem: "proposta",
+    valorBase: 100, mesInicio: 4,
+    reajuste: { tipo: "percentual", valor: 10.00, frequenciaMeses: 1 },
+    precoUnitario: 49.70 },
+    { numero: 27, bloco: "QR Review", pergunta: "O custo de construção da plataforma é investimento pontual ou custo mensal de desenvolvimento? Qual valor?",
+      tipo: "evento", origem: "proposta",
+    eventos: [{ mes: 1, campos: { valor: 1500 } }, { mes: 2, campos: { valor: 1500 } }, { mes: 3, campos: { valor: 1500 } }] },
 
-    { numero: 28, bloco: "QR Advisory", pergunta: "Em que mês o Advisory começa?", sugestao: "Março/2027, segundo a aba Quorum Novo: Receita de Advisory mostra 7.200/mês a partir de mar-27. [Achado em planilha em 03/09/2026, é dado da aba de realizado, não confirmado se já é fato ou projeção arrastada — validar.]" },
-    { numero: 29, bloco: "QR Advisory", pergunta: "Qual o ticket médio por projeto e quantos projetos por mês?", sugestao: "PROPOSTA DE TESTE — corrigir: 1 projeto por mês a 7.200 de ticket, batendo com a receita real de 7.200/mês achada na planilha (premissa 28)." },
-    { numero: 30, bloco: "QR Advisory", pergunta: "Quanto do ticket vai para o advisor que executa?", sugestao: "PROPOSTA DE TESTE — corrigir: 70% pro advisor, 30% fica de take rate da QUORUM, padrão comum de plataforma de matching." },
+    { numero: 28, bloco: "QR Advisory", pergunta: "Em que mês o Advisory começa?",
+      tipo: "referencia", origem: "proposta", ref: 29, campo: "mesInicio" },
+    { numero: 29, bloco: "QR Advisory", pergunta: "Qual o ticket médio por projeto e quantos projetos por mês?",
+      tipo: "curva", origem: "confirmado",
+    valorBase: 7200, mesInicio: 6, reajuste: null,
+    camposExtra: [{ nome: "projetos_por_mes", tipo: "numero", valor: 1 }] },
+    { numero: 30, bloco: "QR Advisory", pergunta: "Quanto do ticket vai para o advisor que executa?",
+      tipo: "escalar", origem: "proposta",
+    campos: [{ nome: "percentual_advisor", tipo: "percentual", valor: 70.00 }] },
 
-    { numero: 31, bloco: "Quorum Day", pergunta: "O Quorum Day entra no horizonte? Em que meses?", sugestao: "Pelo menos uma edição em mai/2027: na aba Quorum Novo, Receita de Eventos Abertos salta pra 941.000 nesse mês, batendo com 800.000 de cotas + 141.000 de ingressos do BP antigo. [Achado em planilha, não vi as edições seguintes nem confirmação de que é fato e não projeção arrastada.]" },
-    { numero: 32, bloco: "Quorum Day", pergunta: "Qual a receita de cotas, a de ingressos e o custo direto por edição?", sugestao: "800.000 / 141.000 / 373.000 (rever)" },
+    { numero: 31, bloco: "Quorum Day", pergunta: "O Quorum Day entra no horizonte? Em que meses?",
+      tipo: "evento", origem: "achado",
+    eventos: [{ mes: 8, campos: {} }],
+    observacao: "So achei uma edicao (mai/2027) na aba Quorum Novo. O BP antigo previa 3 edicoes -- confirmar se ha mais." },
+    { numero: 32, bloco: "Quorum Day", pergunta: "Qual a receita de cotas, a de ingressos e o custo direto por edição?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "receita_cotas", tipo: "numero", valor: 800000 }, { nome: "receita_ingressos", tipo: "numero", valor: 141000 }, { nome: "custo_direto", tipo: "numero", valor: 373000 }],
+    observacao: "Marcado \"rever\" na resposta original -- numeros do BP antigo, nunca recalibrados." },
 
-    { numero: 33, bloco: "Quorum House", pergunta: "A Quorum House entra no horizonte? A partir de que mês?", sugestao: "PROPOSTA DE TESTE — corrigir: jan/27. Não uso o mês 2 do BP antigo porque a casa não existe operacionalmente hoje (set/26), então repetir aquele número seria fingir que já começou." },
-    { numero: 34, bloco: "Quorum House", pergunta: "Qual o aluguel mais infraestrutura por mês?", sugestao: "40.000 (rever)" },
-    { numero: 35, bloco: "Quorum House", pergunta: "Qual o investimento inicial de reforma e montagem, e em que mês?", sugestao: "PROPOSTA DE TESTE — corrigir: 50.000 de uma vez, no mês de início (premissa 33), mesmo número do BP antigo." },
-    { numero: 36, bloco: "Quorum House", pergunta: "Ela gera receita própria de locação ou só reduz o custo de venue dos Encontros?", sugestao: "PROPOSTA DE TESTE — corrigir: gera receita própria, 15.000/mês a partir de 6 meses depois do início, mesmo padrão do BP antigo. Atenção: isso esbarra num risco jurídico que o Atila já sinalizou (art. 17, XV da LC 123, exclusão do Simples por locação), então é valor de teste, não decisão de negócio." },
+    { numero: 33, bloco: "Quorum House", pergunta: "A Quorum House entra no horizonte? A partir de que mês?",
+      tipo: "evento", origem: "proposta",
+    eventos: [{ mes: 4, campos: {} }] },
+    { numero: 34, bloco: "Quorum House", pergunta: "Qual o aluguel mais infraestrutura por mês?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "valor", tipo: "numero", valor: 40000 }],
+    observacao: "Marcado \"rever\" na resposta original." },
+    { numero: 35, bloco: "Quorum House", pergunta: "Qual o investimento inicial de reforma e montagem, e em que mês?",
+      tipo: "evento", origem: "proposta",
+    eventos: [{ mes: 4, campos: { valor: 50000 } }] },
+    { numero: 36, bloco: "Quorum House", pergunta: "Ela gera receita própria de locação ou só reduz o custo de venue dos Encontros?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "gera_receita_propria", tipo: "booleano", valor: true }, { nome: "valor_mensal", tipo: "numero", valor: 15000 }, { nome: "mes_inicio", tipo: "numero", valor: 10 }],
+    observacao: "Risco juridico ja sinalizado pelo Atila (art. 17, XV LC 123), em discussao aberta com Agilize e Pepa. Fica ligado por decisao de Alex." },
 
-    { numero: 37, bloco: "Pessoas", pergunta: "O pró-labore sai de zero? Se sim, qual valor por sócio e a partir de que mês?", sugestao: "Regra condicional: calcula receita menos impostos menos custos menos todas as despesas, exceto o pró-labore (é um EBITDA antes do pró-labore, só pra essa conta). Se der positivo, 50% disso vira pró-labore, dividido igual entre os dois sócios, teto de 80.000/mês somados (40.000 cada). Se der zero ou negativo, pró-labore fica zero no período. Vale desde o mês 1 do horizonte, substitui o \"mantém zero\" de vez. Mexe no Fator R, que hoje está zerado." },
-    { numero: 38, bloco: "Pessoas", pergunta: "Que contratações estão previstas nos 36 meses? Cargo, salário e mês de entrada.", sugestao: "PROPOSTA DE TESTE — corrigir: uma contratação só pra testar o motor, Community Leader a 4.000/mês a partir do mês 6. O BP antigo cogitava um time maior (Videomaker, Designer, Media Analyst, Event Manager, Copywriter), mas não achei salário nem mês pra nenhum, então não inventei os outros cinco." },
-    { numero: 39, bloco: "Pessoas", pergunta: "Qual o regime de cada contratação: CLT, PJ ou freela por projeto?", sugestao: "PROPOSTA DE TESTE — corrigir: PJ por padrão, mais simples de caixa no início. Confirmar com o Vigo o efeito no Fator R antes de travar." },
+    { numero: 37, bloco: "Pessoas", pergunta: "O pró-labore sai de zero? Se sim, qual valor por sócio e a partir de que mês?",
+      tipo: "condicional", origem: "confirmado",
+    regra: "pro_labore_50pct_ebitda_antes_pl",
+    percentual: 50.00, tetoPorSocio: 40000, numSocios: 2, mesInicio: 0 },
+    { numero: 38, bloco: "Pessoas", pergunta: "Que contratações estão previstas nos 36 meses? Cargo, salário e mês de entrada.",
+      tipo: "evento", origem: "vazio", eventos: [],
+    templateCampos: [{ nome: "cargo", tipo: "texto", padrao: "" }, { nome: "salario", tipo: "numero", padrao: 0 }, { nome: "regime", tipo: "texto", padrao: "PJ" }],
+    observacao: "Nenhuma contratacao prevista por enquanto. A unica despesa de pessoal ativa hoje e o pro-labore condicional da premissa 37 (Alex e Till)." },
+    { numero: 39, bloco: "Pessoas", pergunta: "Qual o regime de cada contratação: CLT, PJ ou freela por projeto?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "regime_padrao", tipo: "texto", valor: "PJ" }],
+    observacao: "Guardado como padrao pra quando a premissa 38 ganhar a primeira contratacao real." },
 
-    { numero: 40, bloco: "Despesas Fixas", pergunta: "Uso o realizado de agosto como base de partida das despesas fixas, cerca de 4.130/mês?", sugestao: "Sim" },
-    { numero: 41, bloco: "Despesas Fixas", pergunta: "Ferramentas e software mantêm o patamar atual de cerca de 1.940/mês? Há ferramenta nova prevista?", sugestao: "Mantém" },
-    { numero: 42, bloco: "Despesas Fixas", pergunta: "Qual o valor mensal de mídia e impulsionamento, e a partir de quando?", sugestao: "1.385/mês" },
-    { numero: 43, bloco: "Despesas Fixas", pergunta: "Além dos 450/mês da Agilize, há honorário avulso previsto?", sugestao: "Alteração contratual: 980 a 1.200" },
-    { numero: 44, bloco: "Despesas Fixas", pergunta: "O jurídico é retainer mensal com o Pepa ou por demanda? Qual valor?", sugestao: "Aparenta ser retainer: a linha \"Advogados\", dentro de Despesas Administrativas na aba Quorum Novo, mostra 500/mês a partir de mar-27. [Achado em planilha, não confirmado se é o Pepa ou outra despesa jurídica — validar.]" },
+    { numero: 40, bloco: "Despesas Fixas", pergunta: "Uso o realizado de agosto como base de partida das despesas fixas, cerca de 4.130/mês?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "valor_base", tipo: "numero", valor: 4130 }] },
+    { numero: 41, bloco: "Despesas Fixas", pergunta: "Ferramentas e software mantêm o patamar atual de cerca de 1.940/mês? Há ferramenta nova prevista?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "valor", tipo: "numero", valor: 1940 }] },
+    { numero: 42, bloco: "Despesas Fixas", pergunta: "Qual o valor mensal de mídia e impulsionamento, e a partir de quando?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "valor", tipo: "numero", valor: 1385 }] },
+    { numero: 43, bloco: "Despesas Fixas", pergunta: "Além dos 450/mês da Agilize, há honorário avulso previsto?",
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: null, campos: { valor_min: 980, valor_max: 1200 } }],
+    observacao: "Mes exato depende de quando a alteracao contratual for protocolada -- ainda sem data." },
+    { numero: 44, bloco: "Despesas Fixas", pergunta: "O jurídico é retainer mensal com o Pepa ou por demanda? Qual valor?",
+      tipo: "escalar", origem: "achado",
+    campos: [{ nome: "valor_mensal", tipo: "numero", valor: 500 }, { nome: "mes_inicio", tipo: "numero", valor: 6 }],
+    observacao: "Achado na aba Quorum Novo (linha Advogados). Nao confirmado se e o Pepa ou outra despesa juridica." },
 
-    { numero: 45, bloco: "Tributário", pergunta: "Confirma Anexo V como padrão, com faixa progressiva do Simples sobre a receita bruta dos últimos 12 meses?", sugestao: "Sim" },
-    { numero: 46, bloco: "Tributário", pergunta: "Se o Anexo III for confirmado pela Agilize, a partir de que mês aplico no cenário alternativo?", sugestao: "PROPOSTA DE TESTE — corrigir: cenário alternativo desligado por padrão, sem mês de virada, até a Agilize responder com base legal citada (item CONTESTADO). O motor testa com o Anexo V ligado o horizonte inteiro." },
-    { numero: 47, bloco: "Tributário", pergunta: "Algum contrato prevê retenção de ISS na fonte pelo cliente?", sugestao: "PROPOSTA DE TESTE — corrigir: nenhuma retenção nos contratos atuais, simplifica o caixa por enquanto. Regra já levantada com o Vigo (30/07/2026): federais o cliente não retém (IN RFB 1.234/2012); ISS é municipal, pode ser obrigatório dependendo do tomador, e se retiver tem que usar o percentual efetivo do Simples (art. 21 §4º LC 123), não os 5% da nota. Falta confirmar se algum contrato sob o 02496 cai nessa obrigação." },
-    { numero: 48, bloco: "Tributário", pergunta: "Entro com a CBS a partir de jan/27 como linha explícita, mais linha informativa do gap de crédito do cliente?", sugestao: "Sim" },
-    { numero: 49, bloco: "Tributário", pergunta: "A distribuição de lucros entra na projeção? A partir de que resultado acumulado e em que percentual?", sugestao: "Sim: 25% do lucro a cada 6 meses (semestral). Percentual e periodicidade ficam editáveis, não são fixos no motor." },
+    { numero: 45, bloco: "Tributário", pergunta: "Confirma Anexo V como padrão, com faixa progressiva do Simples sobre a receita bruta dos últimos 12 meses?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "anexo_padrao", tipo: "texto", valor: "V" }] },
+    { numero: 46, bloco: "Tributário", pergunta: "Se o Anexo III for confirmado pela Agilize, a partir de que mês aplico no cenário alternativo?",
+      tipo: "evento", origem: "vazio", eventos: [],
+    templateCampos: [],
+    observacao: "Fica vazio ate a Agilize responder com base legal citada (item CONTESTADO)." },
+    { numero: 47, bloco: "Tributário", pergunta: "Algum contrato prevê retenção de ISS na fonte pelo cliente?",
+      tipo: "escalar", origem: "proposta",
+    campos: [{ nome: "ha_retencao", tipo: "booleano", valor: false }],
+    observacao: "Regra ja levantada com o Vigo (IN RFB 1.234/2012, art. 21 par. 4 LC 123). Falta confirmar se algum contrato sob o 02496 cai na obrigacao de ISS." },
+    { numero: 48, bloco: "Tributário", pergunta: "Entro com a CBS a partir de jan/27 como linha explícita, mais linha informativa do gap de crédito do cliente?",
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: 4, campos: {} }] },
+    { numero: 49, bloco: "Tributário", pergunta: "A distribuição de lucros entra na projeção? A partir de que resultado acumulado e em que percentual?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "percentual", tipo: "percentual", valor: 25.00 }, { nome: "periodicidade_meses", tipo: "numero", valor: 6 }] },
 
-    { numero: 50, bloco: "Caixa e Política", pergunta: "Qual o caixa mínimo que a projeção deve sinalizar como alerta?", sugestao: "30.000" },
-    { numero: 51, bloco: "Caixa e Política", pergunta: "Mantenho a mecânica de recebimento por linha (50/50 nos Encontros, dia 10 na WebPeak) ou uso um PMR único?", sugestao: "Mecânica por linha" }
+    { numero: 50, bloco: "Caixa e Política", pergunta: "Qual o caixa mínimo que a projeção deve sinalizar como alerta?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "valor", tipo: "numero", valor: 30000 }] },
+    { numero: 51, bloco: "Caixa e Política", pergunta: "Mantenho a mecânica de recebimento por linha (50/50 nos Encontros, dia 10 na WebPeak) ou uso um PMR único?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "politica", tipo: "texto", valor: "PMR unico" }] },
   ];
 
   /* Agrupa mantendo a ordem de primeira aparicao no array acima. */
@@ -4272,13 +4388,315 @@
     return ordem.map(function (bloco) { return { bloco: bloco, itens: porBloco[bloco] }; });
   }
 
-  function ehAberto(texto) {
-    var limpo = String(texto || "").trim().toLowerCase();
-    return limpo === "a definir" || limpo.indexOf("a definir.") === 0 || limpo.indexOf("a definir,") === 0 || limpo.indexOf("a definir ") === 0;
+  var PREMISSAS_VERSAO = 2; /* muda toda vez que o formato do dado mudar de   */
+                             /* jeito incompativel, pra descartar limpo o que */
+                             /* estiver salvo num formato antigo.             */
+
+  function clonar(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+  /* Avalia o estado atual de uma premissa: se esta vazia de verdade (falta   */
+  /* dado essencial pro motor rodar), se foi editada em relacao ao default,   */
+  /* e qual selo mostrar. O selo de "proposta" ou "achado" so aparece         */
+  /* enquanto o campo continuar exatamente como veio, some assim que Alex     */
+  /* mexer nele, porque a edicao dele e a confirmacao.                        */
+  function estadoPremissa(item, valorAtual) {
+    var vazio = false;
+    if (item.tipo === "evento") {
+      vazio = !(valorAtual.eventos && valorAtual.eventos.length > 0);
+    } else if (item.tipo === "curva") {
+      vazio = (valorAtual.valorBase === null || valorAtual.valorBase === undefined);
+    } else if (item.tipo === "escalar") {
+      vazio = (valorAtual.campos || []).some(function (c) {
+        return c.valor === null || c.valor === undefined || c.valor === "";
+      });
+    }
+    var editado = JSON.stringify(valorAtual) !== JSON.stringify(item);
+    var selo = null;
+    if (vazio) selo = "aberto";
+    else if (!editado && item.origem === "proposta") selo = "proposta";
+    else if (!editado && item.origem === "achado") selo = "achado";
+    return { vazio: vazio, editado: editado, selo: selo };
   }
 
-  function ehProposta(texto) {
-    return String(texto || "").trim().toLowerCase().indexOf("proposta de teste") === 0;
+  /* mes 0 = set/26 (mesmo mes zero da premissa 2). Converte indice pra    */
+  /* rotulo "mmm/aa" pra mostrar do lado de todo campo de mes.              */
+  var MESES_ABREV_HORIZONTE = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  function rotuloMesHorizonte(indice) {
+    if (indice === null || indice === undefined || indice === "") return "";
+    var total = 8 + Number(indice);
+    var ano = 2026 + Math.floor(total / 12);
+    var mes = ((total % 12) + 12) % 12;
+    return MESES_ABREV_HORIZONTE[mes] + "/" + String(ano).slice(2);
+  }
+
+  var ROTULOS_CAMPO = {
+    valor: "Valor", meses: "Meses", percentual: "Percentual", regime: "Regime",
+    por_mes: "Por mês", mes_inicio: "Mês de início", fora_da_projecao: "Fora da projeção",
+    custo_por_presente: "Custo por presente", prazo_meses: "Prazo (meses)",
+    renovacao_automatica: "Renovação automática", preco: "Preço",
+    churn_percentual: "Churn (%)", cac: "CAC", fixo_mensal: "Fixo mensal",
+    take_rate_hotmart_percentual: "Take rate Hotmart (%)", modelo: "Modelo",
+    percentual_advisor: "% pro advisor", receita_cotas: "Receita de cotas",
+    receita_ingressos: "Receita de ingressos", custo_direto: "Custo direto",
+    gera_receita_propria: "Gera receita própria", valor_mensal: "Valor mensal",
+    valor_base: "Valor base", valor_min: "Valor mínimo", valor_max: "Valor máximo",
+    anexo_padrao: "Anexo padrão", periodicidade_meses: "Periodicidade (meses)",
+    politica: "Política", regime_padrao: "Regime padrão", ha_retencao: "Há retenção",
+    cargo: "Cargo", salario: "Salário", cota: "Cota", projetos_por_mes: "Projetos/mês"
+  };
+  function rotularCampo(nome) { return ROTULOS_CAMPO[nome] || nome; }
+
+  function seloBadge(texto, cor, fundo) {
+    return h("span", {
+      className: "uppercase",
+      style: {
+        fontSize: 9, letterSpacing: "0.08em", fontWeight: 700,
+        color: cor, background: fundo, border: "1px solid " + cor,
+        borderRadius: 4, padding: "2px 6px"
+      }
+    }, texto);
+  }
+
+  /* Input generico pra um campo { nome, tipo, valor }. tipo pode ser        */
+  /* numero, percentual, texto ou booleano.                                  */
+  function inputCampo(campo, aoMudar, key) {
+    if (campo.tipo === "booleano") {
+      return h("label", { key: key, className: "flex items-center gap-2", style: { fontSize: 12, color: COR.text } },
+        h("input", {
+          type: "checkbox", checked: !!campo.valor,
+          onChange: function (e) { aoMudar(e.target.checked); }
+        }),
+        rotularCampo(campo.nome)
+      );
+    }
+    if (campo.tipo === "texto") {
+      return h("div", { key: key },
+        h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, rotularCampo(campo.nome)),
+        h("input", {
+          type: "text", value: campo.valor === null || campo.valor === undefined ? "" : campo.valor,
+          onChange: function (e) { aoMudar(e.target.value); },
+          className: "rounded px-2 py-1",
+          style: { fontSize: 12, border: "1px solid " + COR.line, width: 200 }
+        })
+      );
+    }
+    var largura = campo.tipo === "percentual" ? 90 : 120;
+    return h("div", { key: key },
+      h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } },
+        rotularCampo(campo.nome) + (campo.tipo === "percentual" ? " (%)" : "")),
+      h("input", {
+        type: "number", step: campo.tipo === "percentual" ? "0.01" : "any",
+        value: campo.valor === null || campo.valor === undefined ? "" : campo.valor,
+        onChange: function (e) {
+          aoMudar(e.target.value === "" ? null : parseFloat(e.target.value));
+        },
+        className: "rounded px-2 py-1",
+        style: { fontSize: 12, border: "1px solid " + COR.line, width: largura }
+      })
+    );
+  }
+
+  /* Descobre o "molde" de campos pra usar quando Alex adiciona um evento    */
+  /* novo numa premissa do tipo evento: usa templateCampos do default se     */
+  /* existir (premissas que comecam vazias), senao copia o formato do        */
+  /* primeiro evento ja existente.                                           */
+  function templateCamposPara(item, valorAtual) {
+    if (item.templateCampos) return item.templateCampos;
+    var primeiro = (valorAtual.eventos || [])[0];
+    if (!primeiro) return [];
+    return Object.keys(primeiro.campos || {}).map(function (k) {
+      var v = primeiro.campos[k];
+      return { nome: k, tipo: typeof v === "number" ? "numero" : "texto", padrao: typeof v === "number" ? 0 : "" };
+    });
+  }
+
+  function corpoEscalar(item, v, atualizar) {
+    return h("div", { className: "flex gap-3 flex-wrap" },
+      (v.campos || []).map(function (c, i) {
+        return inputCampo(c, function (novo) {
+          atualizar(function (x) { x.campos[i].valor = novo; });
+        }, i);
+      })
+    );
+  }
+
+  function corpoCurva(item, v, atualizar) {
+    var filhos = [
+      h("div", { key: "base", className: "flex gap-3 flex-wrap" },
+        h("div", null,
+          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Valor base"),
+          h("input", {
+            type: "number", value: v.valorBase === null || v.valorBase === undefined ? "" : v.valorBase,
+            onChange: function (e) { atualizar(function (x) { x.valorBase = e.target.value === "" ? null : parseFloat(e.target.value); }); },
+            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 130 }
+          })
+        ),
+        h("div", null,
+          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Mês de início"),
+          h("input", {
+            type: "number", value: v.mesInicio === null || v.mesInicio === undefined ? "" : v.mesInicio,
+            onChange: function (e) { atualizar(function (x) { x.mesInicio = e.target.value === "" ? null : parseInt(e.target.value, 10); }); },
+            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 90 }
+          }),
+          v.mesInicio !== null && v.mesInicio !== undefined && h("div", { style: { fontSize: 10, color: COR.faint, marginTop: 2 } }, rotuloMesHorizonte(v.mesInicio))
+        )
+      )
+    ];
+    if (v.reajuste) {
+      filhos.push(
+        h("div", { key: "reajuste", className: "flex gap-3 flex-wrap mt-2" },
+          h("div", null,
+            h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Reajuste (%)"),
+            h("input", {
+              type: "number", step: "0.01", value: v.reajuste.valor === null || v.reajuste.valor === undefined ? "" : v.reajuste.valor,
+              onChange: function (e) { atualizar(function (x) { x.reajuste.valor = e.target.value === "" ? null : parseFloat(e.target.value); }); },
+              className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 90 }
+            })
+          ),
+          h("div", null,
+            h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "A cada quantos meses"),
+            h("input", {
+              type: "number", value: v.reajuste.frequenciaMeses === null || v.reajuste.frequenciaMeses === undefined ? "" : v.reajuste.frequenciaMeses,
+              onChange: function (e) { atualizar(function (x) { x.reajuste.frequenciaMeses = e.target.value === "" ? null : parseInt(e.target.value, 10); }); },
+              className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 90 }
+            })
+          )
+        )
+      );
+    } else {
+      filhos.push(h("div", { key: "semreajuste", style: { fontSize: 11, color: COR.faint, marginTop: 4 } }, "Sem reajuste, valor constante"));
+    }
+    if (v.precoUnitario !== undefined) {
+      filhos.push(h("div", { key: "preco", className: "mt-2" },
+        h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Preço unitário"),
+        h("input", {
+          type: "number", step: "0.01", value: v.precoUnitario === null ? "" : v.precoUnitario,
+          onChange: function (e) { atualizar(function (x) { x.precoUnitario = e.target.value === "" ? null : parseFloat(e.target.value); }); },
+          className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 110 }
+        })
+      ));
+    }
+    if (v.camposExtra) {
+      filhos.push(h("div", { key: "extra", className: "flex gap-3 flex-wrap mt-2" },
+        v.camposExtra.map(function (c, i) {
+          return inputCampo(c, function (novo) { atualizar(function (x) { x.camposExtra[i].valor = novo; }); }, i);
+        })
+      ));
+    }
+    return h("div", { className: "flex flex-col gap-1" }, filhos);
+  }
+
+  function corpoEvento(item, v, atualizar) {
+    var eventos = v.eventos || [];
+    return h("div", null,
+      eventos.map(function (ev, i) {
+        var chaves = Object.keys(ev.campos || {});
+        return h("div", {
+          key: i, className: "flex items-end gap-2 flex-wrap mb-2 p-2 rounded",
+          style: { background: COR.surfaceAlt }
+        },
+          h("div", null,
+            h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Mês"),
+            h("input", {
+              type: "number", value: ev.mes === null || ev.mes === undefined ? "" : ev.mes,
+              onChange: function (e) { atualizar(function (x) { x.eventos[i].mes = e.target.value === "" ? null : parseInt(e.target.value, 10); }); },
+              className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 70 }
+            }),
+            ev.mes !== null && ev.mes !== undefined && h("div", { style: { fontSize: 10, color: COR.faint, marginTop: 2 } }, rotuloMesHorizonte(ev.mes))
+          ),
+          chaves.map(function (k) {
+            var val = ev.campos[k];
+            var tipoInf = typeof val === "number" ? "numero" : "texto";
+            return h("div", { key: k },
+              h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, rotularCampo(k)),
+              h("input", {
+                type: tipoInf === "numero" ? "number" : "text",
+                value: val === null || val === undefined ? "" : val,
+                onChange: function (e) {
+                  atualizar(function (x) {
+                    x.eventos[i].campos[k] = tipoInf === "numero"
+                      ? (e.target.value === "" ? null : parseFloat(e.target.value))
+                      : e.target.value;
+                  });
+                },
+                className: "rounded px-2 py-1",
+                style: { fontSize: 12, border: "1px solid " + COR.line, width: tipoInf === "numero" ? 110 : 160 }
+              })
+            );
+          }),
+          h("button", {
+            onClick: function () { atualizar(function (x) { x.eventos.splice(i, 1); }); },
+            style: { fontSize: 10, color: COR.coral, textDecoration: "underline" }
+          }, "remover")
+        );
+      }),
+      h("button", {
+        onClick: function () {
+          var modelo = templateCamposPara(item, v);
+          var camposNovo = {};
+          modelo.forEach(function (c) { camposNovo[c.nome] = c.padrao; });
+          atualizar(function (x) { x.eventos.push({ mes: null, campos: camposNovo }); });
+        },
+        style: { fontSize: 11, color: COR.brass, textDecoration: "underline" }
+      }, "+ adicionar evento")
+    );
+  }
+
+  function corpoCondicional(item, v, atualizar) {
+    return h("div", null,
+      h("div", { style: { fontSize: 11, color: COR.faint, marginBottom: 6 } },
+        "Regra: se (receita − impostos − custos − despesas, exceto pró-labore) for positivo, aplica o percentual abaixo."),
+      h("div", { className: "flex gap-3 flex-wrap" },
+        h("div", null,
+          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Percentual do resultado (%)"),
+          h("input", {
+            type: "number", step: "0.01", value: v.percentual,
+            onChange: function (e) { atualizar(function (x) { x.percentual = parseFloat(e.target.value) || 0; }); },
+            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 100 }
+          })
+        ),
+        h("div", null,
+          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Teto por sócio"),
+          h("input", {
+            type: "number", value: v.tetoPorSocio,
+            onChange: function (e) { atualizar(function (x) { x.tetoPorSocio = parseFloat(e.target.value) || 0; }); },
+            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 120 }
+          })
+        ),
+        h("div", null,
+          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Número de sócios"),
+          h("input", {
+            type: "number", value: v.numSocios,
+            onChange: function (e) { atualizar(function (x) { x.numSocios = parseInt(e.target.value, 10) || 1; }); },
+            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 80 }
+          })
+        )
+      )
+    );
+  }
+
+  function corpoFonte(item, v) {
+    return h("div", { style: { fontSize: 12, color: COR.dim } },
+      "Lido automaticamente de ", h("strong", null, "Dashboard Financeiro"),
+      " (cartão Caixa Livre): ", (v.campos || []).join(", "), ". Não tem campo pra editar aqui."
+    );
+  }
+
+  function corpoReferencia(item, v) {
+    return h("div", { style: { fontSize: 12, color: COR.dim } },
+      "Mesmo dado da premissa ", h("strong", null, String(v.ref)), ", campo ", h("code", null, v.campo),
+      ". Editar lá edita aqui também."
+    );
+  }
+
+  function corpoPremissa(item, v, atualizar) {
+    if (item.tipo === "escalar") return corpoEscalar(item, v, atualizar);
+    if (item.tipo === "curva") return corpoCurva(item, v, atualizar);
+    if (item.tipo === "evento") return corpoEvento(item, v, atualizar);
+    if (item.tipo === "condicional") return corpoCondicional(item, v, atualizar);
+    if (item.tipo === "fonte") return corpoFonte(item, v);
+    if (item.tipo === "referencia") return corpoReferencia(item, v);
+    return null;
   }
 
   /* ------------------------------------------------------------------ */
@@ -4291,25 +4709,24 @@
     var estAbaBP = useState("bp");
     var abaBP = estAbaBP[0], setAbaBP = estAbaBP[1];
 
-    /* Valores correntes das premissas: comeca a partir da sugestao de     */
-    /* Alex, com qualquer edicao anterior recuperada do navegador. Objeto   */
-    /* numero -> texto, nao array, pra atualizar um campo sem tocar nos     */
-    /* outros 50.                                                           */
+    /* Valores correntes das premissas: comeca a partir do default tipado   */
+    /* de cada uma (clone, pra nao mutar PREMISSAS_DEFAULT), com qualquer   */
+    /* edicao anterior recuperada do navegador. So aceita o que estiver     */
+    /* salvo com a versao de estrutura atual -- formato antigo (texto       */
+    /* livre) e incompativel com os campos tipados de agora, entao e        */
+    /* descartado de proposito, nao convertido.                             */
     var estValores = useState(function () {
       var base = {};
-      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = item.sugestao; });
+      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = clonar(item); });
       try {
-        var salvo = armazenamento.getItem("quorum_premissas_bp");
+        var salvo = armazenamento.getItem("quorum_premissas_bp_v2");
         if (salvo) {
           var parsed = JSON.parse(salvo);
-          Object.keys(parsed).forEach(function (numero) {
-            if (!base.hasOwnProperty(numero)) return;
-            /* Residuo de uma sessao anterior a esta atualizacao: o campo     */
-            /* nunca foi editado de verdade, so guardou o placeholder velho.  */
-            /* Descarta e deixa passar o default novo do codigo.              */
-            if (String(parsed[numero] || "").trim().toLowerCase() === "a definir") return;
-            base[numero] = parsed[numero];
-          });
+          if (parsed && parsed.versao === PREMISSAS_VERSAO && parsed.valores) {
+            Object.keys(parsed.valores).forEach(function (numero) {
+              if (base.hasOwnProperty(numero)) base[numero] = parsed.valores[numero];
+            });
+          }
         }
       } catch (e) {}
       return base;
@@ -4317,43 +4734,54 @@
     var valores = estValores[0], setValores = estValores[1];
 
     /* Persistencia so acontece quando o usuario de fato edita um campo,    */
-    /* nunca no carregamento inicial. Se persistisse sempre, o primeiro     */
-    /* load gravava todos os 51 defaults no navegador, e dai uma atualizacao*/
-    /* de codigo (novo default) nunca mais aparecia pra quem ja tinha       */
-    /* aberto a aba uma vez -- foi exatamente isso que aconteceu com Alex.  */
+    /* nunca no carregamento inicial -- mesma logica da versao anterior,    */
+    /* pra nao repetir o bug de gravar tudo assim que a aba abre.            */
     function persistirValores(proximo) {
-      try { armazenamento.setItem("quorum_premissas_bp", JSON.stringify(proximo)); } catch (e) {}
+      try { armazenamento.setItem("quorum_premissas_bp_v2", JSON.stringify({ versao: PREMISSAS_VERSAO, valores: proximo })); } catch (e) {}
     }
 
-    function atualizarValor(numero, texto) {
+    /* Atualiza um item inteiro via funcao que muta uma copia dele. Cada     */
+    /* editor tipado (escalar, curva, evento...) usa isso pra mexer só no    */
+    /* campo aninhado certo, sem tocar nos outros 50 itens.                  */
+    function atualizarItem(numero, mutador) {
       setValores(function (anterior) {
         var proximo = {};
         Object.keys(anterior).forEach(function (chave) { proximo[chave] = anterior[chave]; });
-        proximo[numero] = texto;
+        var copia = clonar(anterior[numero]);
+        mutador(copia);
+        proximo[numero] = copia;
         persistirValores(proximo);
         return proximo;
       });
     }
 
-    function restaurarValor(numero, sugestao) {
-      atualizarValor(numero, sugestao);
+    function restaurarItem(numero) {
+      var def = PREMISSAS_DEFAULT.filter(function (i) { return i.numero === numero; })[0];
+      if (!def) return;
+      setValores(function (anterior) {
+        var proximo = {};
+        Object.keys(anterior).forEach(function (chave) { proximo[chave] = anterior[chave]; });
+        proximo[numero] = clonar(def);
+        persistirValores(proximo);
+        return proximo;
+      });
     }
 
     function restaurarTodas() {
       if (!window.confirm("Isso descarta qualquer edição feita e volta todas as 51 premissas para a sugestão original. Confirma?")) return;
       var base = {};
-      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = item.sugestao; });
+      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = clonar(item); });
       persistirValores(base);
       setValores(base);
     }
 
-    var totalAberto = PREMISSAS_DEFAULT.reduce(function (soma, item) {
-      return soma + (ehAberto(valores[item.numero]) ? 1 : 0);
-    }, 0);
-
-    var totalProposta = PREMISSAS_DEFAULT.reduce(function (soma, item) {
-      return soma + (ehProposta(valores[item.numero]) ? 1 : 0);
-    }, 0);
+    var totalAberto = 0, totalProposta = 0, totalAchado = 0;
+    PREMISSAS_DEFAULT.forEach(function (item) {
+      var estado = estadoPremissa(item, valores[item.numero]);
+      if (estado.selo === "aberto") totalAberto++;
+      else if (estado.selo === "proposta") totalProposta++;
+      else if (estado.selo === "achado") totalAchado++;
+    });
 
     var ABAS_BP = [
       ["bp", "BP"],
@@ -4397,10 +4825,9 @@
     /* ------------------------------------------------------------------ */
 
     function linhaPremissa(item) {
-      var valorAtual = valores[item.numero];
-      var aberto = ehAberto(valorAtual);
-      var proposta = !aberto && ehProposta(valorAtual);
-      var editado = valorAtual !== item.sugestao;
+      var v = valores[item.numero];
+      var estado = estadoPremissa(item, v);
+      var atualizar = function (mutador) { atualizarItem(item.numero, mutador); };
 
       return h("div", {
         key: item.numero,
@@ -4410,48 +4837,27 @@
         h("div", { className: "flex items-start justify-between gap-3 mb-1.5" },
           h("div", { style: { fontSize: 12, color: COR.text, maxWidth: 560 } },
             h("span", { style: { color: COR.faint, marginRight: 6 } }, item.numero + "."),
-            item.pergunta
+            item.pergunta,
+            item.observacao && h("div", { style: { fontSize: 10, color: COR.faint, marginTop: 3, lineHeight: 1.5 } }, item.observacao)
           ),
           h("div", { className: "flex items-center gap-2 shrink-0" },
-            aberto && h("span", {
-              className: "uppercase",
-              style: {
-                fontSize: 9, letterSpacing: "0.08em", fontWeight: 700,
-                color: COR.brass, background: COR.brassSoft,
-                border: "1px solid " + COR.brass, borderRadius: 4,
-                padding: "2px 6px"
-              }
-            }, "Aberto"),
-            proposta && h("span", {
-              className: "uppercase",
-              style: {
-                fontSize: 9, letterSpacing: "0.08em", fontWeight: 700,
-                color: COR.dim, background: COR.surfaceAlt,
-                border: "1px solid " + COR.line, borderRadius: 4,
-                padding: "2px 6px"
-              },
-              title: "Chute meu pra testar o motor, ainda não é resposta sua"
-            }, "Proposta"),
-            editado && h("button", {
-              onClick: function () { restaurarValor(item.numero, item.sugestao); },
+            estado.selo === "aberto" && seloBadge("Aberto", COR.brass, COR.brassSoft),
+            estado.selo === "proposta" && seloBadge("Proposta", COR.dim, COR.surfaceAlt),
+            estado.selo === "achado" && seloBadge("Achado", COR.mint, COR.mintSoft),
+            estado.editado && h("button", {
+              onClick: function () { restaurarItem(item.numero); },
               style: { fontSize: 10, color: COR.faint, textDecoration: "underline" },
-              title: "Volta esse campo para a sugestão original: " + item.sugestao
+              title: "Volta esse campo para o default original"
             }, "restaurar sugestão")
           )
         ),
-        h("textarea", {
-          value: valorAtual,
-          onChange: function (e) { atualizarValor(item.numero, e.target.value); },
-          rows: 2,
-          className: "w-full rounded px-2 py-1.5",
+        h("div", {
+          className: "rounded p-2 mt-1",
           style: {
-            fontSize: 12,
-            color: COR.text,
-            background: aberto ? COR.brassSoft : (proposta ? COR.surfaceAlt : COR.surface),
-            border: "1px solid " + (aberto ? COR.brass : COR.line),
-            resize: "vertical"
+            background: estado.vazio ? COR.brassSoft : COR.surface,
+            border: "1px solid " + (estado.vazio ? COR.brass : COR.line)
           }
-        })
+        }, corpoPremissa(item, v, atualizar))
       );
     }
 
@@ -4467,6 +4873,10 @@
             totalProposta > 0 && h(Fragment, null,
               " · ",
               h("span", { style: { color: COR.dim, fontWeight: 600 } }, totalProposta + " proposta(s) de teste")
+            ),
+            totalAchado > 0 && h(Fragment, null,
+              " · ",
+              h("span", { style: { color: COR.mint, fontWeight: 600 } }, totalAchado + " achado(s) de planilha")
             ),
             " · alimenta o motor de projeção na Fase 3, ainda não lido por nenhum cálculo"
           ),
