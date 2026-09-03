@@ -4303,7 +4303,12 @@
         if (salvo) {
           var parsed = JSON.parse(salvo);
           Object.keys(parsed).forEach(function (numero) {
-            if (base.hasOwnProperty(numero)) base[numero] = parsed[numero];
+            if (!base.hasOwnProperty(numero)) return;
+            /* Residuo de uma sessao anterior a esta atualizacao: o campo     */
+            /* nunca foi editado de verdade, so guardou o placeholder velho.  */
+            /* Descarta e deixa passar o default novo do codigo.              */
+            if (String(parsed[numero] || "").trim().toLowerCase() === "a definir") return;
+            base[numero] = parsed[numero];
           });
         }
       } catch (e) {}
@@ -4311,15 +4316,21 @@
     });
     var valores = estValores[0], setValores = estValores[1];
 
-    useEffect(function () {
-      armazenamento.setItem("quorum_premissas_bp", JSON.stringify(valores));
-    }, [valores]);
+    /* Persistencia so acontece quando o usuario de fato edita um campo,    */
+    /* nunca no carregamento inicial. Se persistisse sempre, o primeiro     */
+    /* load gravava todos os 51 defaults no navegador, e dai uma atualizacao*/
+    /* de codigo (novo default) nunca mais aparecia pra quem ja tinha       */
+    /* aberto a aba uma vez -- foi exatamente isso que aconteceu com Alex.  */
+    function persistirValores(proximo) {
+      try { armazenamento.setItem("quorum_premissas_bp", JSON.stringify(proximo)); } catch (e) {}
+    }
 
     function atualizarValor(numero, texto) {
       setValores(function (anterior) {
         var proximo = {};
         Object.keys(anterior).forEach(function (chave) { proximo[chave] = anterior[chave]; });
         proximo[numero] = texto;
+        persistirValores(proximo);
         return proximo;
       });
     }
@@ -4332,6 +4343,7 @@
       if (!window.confirm("Isso descarta qualquer edição feita e volta todas as 51 premissas para a sugestão original. Confirma?")) return;
       var base = {};
       PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = item.sugestao; });
+      persistirValores(base);
       setValores(base);
     }
 
