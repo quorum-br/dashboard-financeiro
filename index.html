@@ -4192,6 +4192,96 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* 11-A. PREMISSAS DO BUSINESS PLAN                                     */
+  /* Espelha 1:1 a planilha QUORUM_Premissas_BP_novo_v01 (aba Premissas). */
+  /* "sugestao" e o valor de partida: onde o Till respondeu na planilha,   */
+  /* essa resposta ainda nao foi incorporada aqui, entao o texto e sempre  */
+  /* a sugestao original de Alex. "a definir" marca o que esta em aberto.  */
+  /* Isto e so o catalogo de perguntas e defaults: o motor de projecao     */
+  /* (Fase 3) ainda nao le nada daqui.                                     */
+  /* ------------------------------------------------------------------ */
+
+  var PREMISSAS_DEFAULT = [
+    { numero: 1, bloco: "Horizonte e Estrutura", pergunta: "Qual o horizonte da projeção, em meses, a partir de set/26?", sugestao: "36 meses" },
+    { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero, inclusive caixa de 7.784,86, fatura de cartão de 3.043,16 e caução de 5.000?", sugestao: "Sim" },
+    { numero: 3, bloco: "Horizonte e Estrutura", pergunta: "Qual redutor aplicar no cenário conservador sobre a receita do cenário base?", sugestao: "60% do base" },
+    { numero: 4, bloco: "Horizonte e Estrutura", pergunta: "O mútuo conversível de 60.000 entra como entrada de caixa? Em que mês?", sugestao: "Sim, mês a definir" },
+    { numero: 5, bloco: "Horizonte e Estrutura", pergunta: "Os juros do mútuo entram como despesa financeira desde o desembolso ou só após a carência de 6 meses?", sugestao: "Accrual desde o desembolso, pago no vencimento" },
+
+    { numero: 6, bloco: "Encontros Exclusivos", pergunta: "Qual o fee QUORUM por Encontro, em regime?", sugestao: "27.000" },
+    { numero: 7, bloco: "Encontros Exclusivos", pergunta: "Quantos Encontros por mês no cenário base, e a partir de que mês?", sugestao: "1/mês a partir de out/26" },
+    { numero: 8, bloco: "Encontros Exclusivos", pergunta: "O jantar pago pelo cliente direto à casa fica fora da projeção, sem entrar como receita nem como custo?", sugestao: "Sim. Na projeção contaremos apenas com o que é fee da QUORUM, sem contar o que é pago pelo cliente direto para a casa." },
+    { numero: 9, bloco: "Encontros Exclusivos", pergunta: "Se algum Encontro for faturado com o jantar dentro, qual o custo médio por presente e o piso da casa?", sugestao: "390 por presente foi o custo do assador. Verificar Tier 1 e tier 2 com o Till" },
+    { numero: 10, bloco: "Encontros Exclusivos", pergunta: "Qual o custo QUORUM por Encontro fora o jantar (síntese autoral, brindes, deslocamento)?", sugestao: "2.500" },
+    { numero: 11, bloco: "Encontros Exclusivos", pergunta: "Qual o reajuste anual do fee, e a partir de quando?", sugestao: "5% a 10% a.a. a cada 12 meses" },
+
+    { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?", sugestao: "a definir" },
+    { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?", sugestao: "a definir" },
+    { numero: 14, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o prazo do contrato de cota?", sugestao: "12 meses com renovação automática. Temos que prever cancelamentos." },
+    { numero: 15, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual a probabilidade de renovação a usar no cenário base?", sugestao: "80%" },
+    { numero: 16, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Quantos patrocínios spot de happy hour por ano e qual o ticket médio?", sugestao: "4/ano a 25.000" },
+    { numero: 17, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Há comissão de sócios advisors sobre patrocínio originado? A que percentual?", sugestao: "15% sobre negócio originado" },
+
+    { numero: 18, bloco: "QR Insights - Assinatura", pergunta: "Em que mês a assinatura paga é lançada?", sugestao: "a definir" },
+    { numero: 19, bloco: "QR Insights - Assinatura", pergunta: "Qual o preço mensal por assinante?", sugestao: "35,90" },
+    { numero: 20, bloco: "QR Insights - Assinatura", pergunta: "Quantos assinantes novos por mês, e a que taxa de crescimento?", sugestao: "30/mês, +10% a.m." },
+    { numero: 21, bloco: "QR Insights - Assinatura", pergunta: "Qual o churn mensal esperado?", sugestao: "5%" },
+    { numero: 22, bloco: "QR Insights - Assinatura", pergunta: "Qual o CAC por assinante?", sugestao: "20,00" },
+    { numero: 23, bloco: "QR Insights - Assinatura", pergunta: "Qual o custo mensal de plataforma e IA para servir a base? Fixo ou por assinante?", sugestao: "a definir" },
+
+    { numero: 24, bloco: "QR Review", pergunta: "Em que mês o QR Review é lançado?", sugestao: "a definir" },
+    { numero: 25, bloco: "QR Review", pergunta: "Qual o modelo de cobrança: assinatura de vendor, licença por comprador ou relatório avulso?", sugestao: "a definir" },
+    { numero: 26, bloco: "QR Review", pergunta: "Qual o preço por unidade do driver escolhido e o volume esperado nos primeiros 12 meses?", sugestao: "a definir" },
+    { numero: 27, bloco: "QR Review", pergunta: "O custo de construção da plataforma é investimento pontual ou custo mensal de desenvolvimento? Qual valor?", sugestao: "a definir" },
+
+    { numero: 28, bloco: "QR Advisory", pergunta: "Em que mês o Advisory começa?", sugestao: "a definir" },
+    { numero: 29, bloco: "QR Advisory", pergunta: "Qual o ticket médio por projeto e quantos projetos por mês?", sugestao: "a definir" },
+    { numero: 30, bloco: "QR Advisory", pergunta: "Quanto do ticket vai para o advisor que executa?", sugestao: "a definir" },
+
+    { numero: 31, bloco: "Quorum Day", pergunta: "O Quorum Day entra no horizonte? Em que meses?", sugestao: "a definir" },
+    { numero: 32, bloco: "Quorum Day", pergunta: "Qual a receita de cotas, a de ingressos e o custo direto por edição?", sugestao: "800.000 / 141.000 / 373.000 (rever)" },
+
+    { numero: 33, bloco: "Quorum House", pergunta: "A Quorum House entra no horizonte? A partir de que mês?", sugestao: "a definir" },
+    { numero: 34, bloco: "Quorum House", pergunta: "Qual o aluguel mais infraestrutura por mês?", sugestao: "40.000 (rever)" },
+    { numero: 35, bloco: "Quorum House", pergunta: "Qual o investimento inicial de reforma e montagem, e em que mês?", sugestao: "a definir" },
+    { numero: 36, bloco: "Quorum House", pergunta: "Ela gera receita própria de locação ou só reduz o custo de venue dos Encontros?", sugestao: "a definir" },
+
+    { numero: 37, bloco: "Pessoas", pergunta: "O pró-labore sai de zero? Se sim, qual valor por sócio e a partir de que mês?", sugestao: "Mantém zero" },
+    { numero: 38, bloco: "Pessoas", pergunta: "Que contratações estão previstas nos 36 meses? Cargo, salário e mês de entrada.", sugestao: "a definir" },
+    { numero: 39, bloco: "Pessoas", pergunta: "Qual o regime de cada contratação: CLT, PJ ou freela por projeto?", sugestao: "a definir" },
+
+    { numero: 40, bloco: "Despesas Fixas", pergunta: "Uso o realizado de agosto como base de partida das despesas fixas, cerca de 4.130/mês?", sugestao: "Sim" },
+    { numero: 41, bloco: "Despesas Fixas", pergunta: "Ferramentas e software mantêm o patamar atual de cerca de 1.940/mês? Há ferramenta nova prevista?", sugestao: "Mantém" },
+    { numero: 42, bloco: "Despesas Fixas", pergunta: "Qual o valor mensal de mídia e impulsionamento, e a partir de quando?", sugestao: "1.385/mês" },
+    { numero: 43, bloco: "Despesas Fixas", pergunta: "Além dos 450/mês da Agilize, há honorário avulso previsto?", sugestao: "Alteração contratual: 980 a 1.200" },
+    { numero: 44, bloco: "Despesas Fixas", pergunta: "O jurídico é retainer mensal com o Pepa ou por demanda? Qual valor?", sugestao: "a definir" },
+
+    { numero: 45, bloco: "Tributário", pergunta: "Confirma Anexo V como padrão, com faixa progressiva do Simples sobre a receita bruta dos últimos 12 meses?", sugestao: "Sim" },
+    { numero: 46, bloco: "Tributário", pergunta: "Se o Anexo III for confirmado pela Agilize, a partir de que mês aplico no cenário alternativo?", sugestao: "a definir" },
+    { numero: 47, bloco: "Tributário", pergunta: "Algum contrato prevê retenção de ISS na fonte pelo cliente?", sugestao: "a definir" },
+    { numero: 48, bloco: "Tributário", pergunta: "Entro com a CBS a partir de jan/27 como linha explícita, mais linha informativa do gap de crédito do cliente?", sugestao: "Sim" },
+    { numero: 49, bloco: "Tributário", pergunta: "A distribuição de lucros entra na projeção? A partir de que resultado acumulado e em que percentual?", sugestao: "a definir" },
+
+    { numero: 50, bloco: "Caixa e Política", pergunta: "Qual o caixa mínimo que a projeção deve sinalizar como alerta?", sugestao: "30.000" },
+    { numero: 51, bloco: "Caixa e Política", pergunta: "Mantenho a mecânica de recebimento por linha (50/50 nos Encontros, dia 10 na WebPeak) ou uso um PMR único?", sugestao: "Mecânica por linha" }
+  ];
+
+  /* Agrupa mantendo a ordem de primeira aparicao no array acima. */
+  function agruparPremissas() {
+    var ordem = [];
+    var porBloco = {};
+    PREMISSAS_DEFAULT.forEach(function (item) {
+      if (!porBloco[item.bloco]) { porBloco[item.bloco] = []; ordem.push(item.bloco); }
+      porBloco[item.bloco].push(item);
+    });
+    return ordem.map(function (bloco) { return { bloco: bloco, itens: porBloco[bloco] }; });
+  }
+
+  function ehAberto(texto) {
+    return String(texto || "").trim().toLowerCase() === "a definir";
+  }
+
+  /* ------------------------------------------------------------------ */
   /* 11-B. TELA MASTER: BUSINESS PLAN (casca da Fase 1)                  */
   /* ------------------------------------------------------------------ */
   /* Sem logica de calculo ainda. So a navegacao entre abas e o lugar     */
@@ -4201,9 +4291,57 @@
     var estAbaBP = useState("bp");
     var abaBP = estAbaBP[0], setAbaBP = estAbaBP[1];
 
+    /* Valores correntes das premissas: comeca a partir da sugestao de     */
+    /* Alex, com qualquer edicao anterior recuperada do navegador. Objeto   */
+    /* numero -> texto, nao array, pra atualizar um campo sem tocar nos     */
+    /* outros 50.                                                           */
+    var estValores = useState(function () {
+      var base = {};
+      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = item.sugestao; });
+      try {
+        var salvo = armazenamento.getItem("quorum_premissas_bp");
+        if (salvo) {
+          var parsed = JSON.parse(salvo);
+          Object.keys(parsed).forEach(function (numero) {
+            if (base.hasOwnProperty(numero)) base[numero] = parsed[numero];
+          });
+        }
+      } catch (e) {}
+      return base;
+    });
+    var valores = estValores[0], setValores = estValores[1];
+
+    useEffect(function () {
+      armazenamento.setItem("quorum_premissas_bp", JSON.stringify(valores));
+    }, [valores]);
+
+    function atualizarValor(numero, texto) {
+      setValores(function (anterior) {
+        var proximo = {};
+        Object.keys(anterior).forEach(function (chave) { proximo[chave] = anterior[chave]; });
+        proximo[numero] = texto;
+        return proximo;
+      });
+    }
+
+    function restaurarValor(numero, sugestao) {
+      atualizarValor(numero, sugestao);
+    }
+
+    function restaurarTodas() {
+      if (!window.confirm("Isso descarta qualquer edição feita e volta todas as 51 premissas para a sugestão original. Confirma?")) return;
+      var base = {};
+      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = item.sugestao; });
+      setValores(base);
+    }
+
+    var totalAberto = PREMISSAS_DEFAULT.reduce(function (soma, item) {
+      return soma + (ehAberto(valores[item.numero]) ? 1 : 0);
+    }, 0);
+
     var ABAS_BP = [
       ["bp", "BP"],
-      ["premissas", "Premissas"]
+      ["premissas", "Premissas (" + totalAberto + " em aberto)"]
     ];
 
     var barraAbasBP = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
@@ -4238,6 +4376,86 @@
       );
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Aba: premissas                                                      */
+    /* ------------------------------------------------------------------ */
+
+    function linhaPremissa(item) {
+      var valorAtual = valores[item.numero];
+      var aberto = ehAberto(valorAtual);
+      var editado = valorAtual !== item.sugestao;
+
+      return h("div", {
+        key: item.numero,
+        className: "py-3",
+        style: { borderBottom: "1px solid " + COR.lineSoft }
+      },
+        h("div", { className: "flex items-start justify-between gap-3 mb-1.5" },
+          h("div", { style: { fontSize: 12, color: COR.text, maxWidth: 560 } },
+            h("span", { style: { color: COR.faint, marginRight: 6 } }, item.numero + "."),
+            item.pergunta
+          ),
+          h("div", { className: "flex items-center gap-2 shrink-0" },
+            aberto && h("span", {
+              className: "uppercase",
+              style: {
+                fontSize: 9, letterSpacing: "0.08em", fontWeight: 700,
+                color: COR.brass, background: COR.brassSoft,
+                border: "1px solid " + COR.brass, borderRadius: 4,
+                padding: "2px 6px"
+              }
+            }, "Aberto"),
+            editado && h("button", {
+              onClick: function () { restaurarValor(item.numero, item.sugestao); },
+              style: { fontSize: 10, color: COR.faint, textDecoration: "underline" },
+              title: "Volta esse campo para a sugestão original: " + item.sugestao
+            }, "restaurar sugestão")
+          )
+        ),
+        h("textarea", {
+          value: valorAtual,
+          onChange: function (e) { atualizarValor(item.numero, e.target.value); },
+          rows: 2,
+          className: "w-full rounded px-2 py-1.5",
+          style: {
+            fontSize: 12,
+            color: COR.text,
+            background: aberto ? COR.brassSoft : COR.surface,
+            border: "1px solid " + (aberto ? COR.brass : COR.line),
+            resize: "vertical"
+          }
+        })
+      );
+    }
+
+    function abaPremissas() {
+      var grupos = agruparPremissas();
+      return h("div", null,
+        h("div", { className: "flex items-center justify-between mb-4" },
+          h("div", { style: { fontSize: 12, color: COR.faint } },
+            "51 premissas · ",
+            totalAberto > 0
+              ? h("span", { style: { color: COR.brass, fontWeight: 600 } }, totalAberto + " em aberto")
+              : h("span", { style: { color: COR.mint, fontWeight: 600 } }, "todas respondidas"),
+            " · alimenta o motor de projeção na Fase 3, ainda não lido por nenhum cálculo"
+          ),
+          h("button", {
+            onClick: restaurarTodas,
+            style: { fontSize: 11, color: COR.faint, textDecoration: "underline" }
+          }, "Restaurar todas as sugestões")
+        ),
+        grupos.map(function (grupo) {
+          return h("div", { key: grupo.bloco, className: "mb-6" },
+            h("div", {
+              className: "uppercase mb-1",
+              style: { fontSize: 10, letterSpacing: "0.15em", color: COR.brass, fontWeight: 700 }
+            }, grupo.bloco),
+            grupo.itens.map(linhaPremissa)
+          );
+        })
+      );
+    }
+
     return h(Fragment, null,
       barraAbasBP,
       h("div", { className: "px-6 pb-16 pt-3" },
@@ -4245,10 +4463,7 @@
           "Aba BP",
           "DRE por competência combinado com as projeções. Chega na Fase 3, depois de as premissas estarem lançadas e o motor de projeção ligado."
         ),
-        abaBP === "premissas" && emConstrucao(
-          "Aba Premissas",
-          "Todos os campos que alimentam o motor de projeção, com as sugestões como valor padrão onde o Till ainda não respondeu. Chega na Fase 2."
-        )
+        abaBP === "premissas" && abaPremissas()
       )
     );
   }
