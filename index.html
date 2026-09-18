@@ -4196,10 +4196,24 @@
   /* (Fase 3) ainda nao le nada daqui.                                     */
   /* ------------------------------------------------------------------ */
 
+  /* Serie mensal explicita: {mes: valor}. Usada onde a planilha lanca dado */
+  /* real mes a mes (nao uma regra parametrica). Le o valor exato do mes;   */
+  /* se o mes pedido nao tem entrada, usa o ultimo mes conhecido anterior a */
+  /* ele (carrega o ultimo valor real pra frente), nunca inventa tendencia. */
+  /* Documentado como aproximacao onde apontado no comentario de quem usa.  */
+  function serieDe(item, mes) {
+    if (!item || !item.serieMensal) return 0;
+    var chaves = Object.keys(item.serieMensal).map(Number).filter(function (k) { return k <= mes; });
+    if (!chaves.length) return 0;
+    var maior = Math.max.apply(null, chaves);
+    return item.serieMensal[maior];
+  }
+
   var PREMISSAS_DEFAULT = [
     { numero: 1, bloco: "Horizonte e Estrutura", pergunta: "Qual o horizonte da projeção, em meses, a partir de set/26?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "meses", tipo: "numero", valor: 36 }] },
+    campos: [{ nome: "meses", tipo: "numero", valor: 36 }],
+    observacao: "A planilha oficial projeta 57 meses a partir de set/26; Alex decidiu manter 36 no motor online." },
     { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero? De onde vem o caixa, a fatura de cartão e a caução desse mês zero?",
       tipo: "fonte", origem: "confirmado",
     origemDados: "financeiro.posicao", campos: ["corrente", "cartao", "garantia"] },
@@ -4211,34 +4225,19 @@
     eventos: [{ mes: 0, campos: { valor: 60000 } }] },
     { numero: 5, bloco: "Horizonte e Estrutura", pergunta: "Os juros do mútuo entram como despesa financeira desde o desembolso ou só após a carência de 6 meses?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "regime", tipo: "texto", valor: "Accrual desde o desembolso, pago no vencimento" }] },
-
-    { numero: 6, bloco: "Encontros Exclusivos", pergunta: "Qual o fee QUORUM por Encontro, em regime?",
-      tipo: "curva", origem: "confirmado",
-    valorBase: 27000, mesInicio: null,
-    reajuste: { tipo: "percentual", valor: 5.00, frequenciaMeses: 12 } },
-    { numero: 7, bloco: "Encontros Exclusivos", pergunta: "Quantos Encontros por mês no cenário base, e a partir de que mês?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "por_mes", tipo: "numero", valor: 1 }, { nome: "mes_inicio", tipo: "numero", valor: 1 }] },
-    { numero: 8, bloco: "Encontros Exclusivos", pergunta: "O jantar pago pelo cliente direto à casa fica fora da projeção, sem entrar como receita nem como custo?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "fora_da_projecao", tipo: "booleano", valor: true }] },
-    { numero: 9, bloco: "Encontros Exclusivos", pergunta: "Se algum Encontro for faturado com o jantar dentro, qual o custo médio por presente e o piso da casa?",
-      tipo: "escalar", origem: "achado",
-    campos: [{ nome: "custo_por_presente", tipo: "numero", valor: 390 }],
-    observacao: "Piso da casa ainda sem valor. Verificar Tier 1 e Tier 2 com o Till. So entra em jogo se a premissa 8 for religada." },
-    { numero: 10, bloco: "Encontros Exclusivos", pergunta: "Qual o custo QUORUM por Encontro fora o jantar (síntese autoral, brindes, deslocamento)?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor", tipo: "numero", valor: 2500 }] },
-    { numero: 11, bloco: "Encontros Exclusivos", pergunta: "Qual o reajuste anual do fee, e a partir de quando?",
-      tipo: "referencia", origem: "confirmado", ref: 6, campo: "reajuste" },
+    campos: [
+      { nome: "carencia_meses", tipo: "numero", valor: 6 },
+      { nome: "cdi_proxy_anual_percentual", tipo: "percentual", valor: 10.50 },
+      { nome: "mes_exigibilidade", tipo: "numero", valor: 36 }
+    ],
+    observacao: "Conforme Contrato de Mutuo Conversivel v07, Clausula 4a: carencia de 6 meses sem remuneracao; a partir dai, 100% da variacao do CDI, capitalizacao anual (art. 591 CC), exigivel em parcela unica no mes 36, extinta se convertido. Alex decidiu projetar como se NAO fosse convertido, para ver a parcela no mes correto. CDI de 10,50% a.a. e proxy de mercado, nao esta no contrato -- e estimativa, nao dado contratual." },
 
     { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?",
       tipo: "curva", origem: "confirmado",
-    valorBase: 50000, mesInicio: 1, reajuste: null },
+    valorBase: 40000, mesInicio: 1, reajuste: null },
     { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?",
       tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 3, campos: { valor: 40000, cota: "2" } }, { mes: 6, campos: { valor: 40000, cota: "3" } }] },
+    eventos: [{ mes: 4, campos: { valor: 50000, cota: "2" } }, { mes: 6, campos: { valor: 50000, cota: "3" } }] },
     { numero: 14, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o prazo do contrato de cota?",
       tipo: "escalar", origem: "confirmado",
     campos: [{ nome: "prazo_meses", tipo: "numero", valor: 12 }, { nome: "renovacao_automatica", tipo: "booleano", valor: true }] },
@@ -4246,9 +4245,16 @@
       tipo: "escalar", origem: "confirmado",
     campos: [{ nome: "percentual", tipo: "percentual", valor: 80.00 }] },
     { numero: 16, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Quantos patrocínios spot de happy hour por ano e qual o ticket médio?",
-      tipo: "evento", origem: "vazio", eventos: [],
-    templateCampos: [{ nome: "valor", tipo: "numero", padrao: 25000 }],
-    observacao: "Aguardando Alex escolher os meses do ano em que ha patrocinio spot (4 por ano, 25.000 cada)." },
+      tipo: "evento", origem: "confirmado",
+    eventos: [
+      { mes: 1, campos: { valor: 25000 } }, { mes: 4, campos: { valor: 25000 } },
+      { mes: 7, campos: { valor: 25000 } }, { mes: 10, campos: { valor: 25000 } },
+      { mes: 13, campos: { valor: 25000 } }, { mes: 16, campos: { valor: 25000 } },
+      { mes: 19, campos: { valor: 25000 } }, { mes: 22, campos: { valor: 25000 } },
+      { mes: 25, campos: { valor: 25000 } }, { mes: 28, campos: { valor: 25000 } },
+      { mes: 31, campos: { valor: 25000 } }, { mes: 34, campos: { valor: 25000 } }
+    ],
+    templateCampos: [{ nome: "valor", tipo: "numero", padrao: 25000 }] },
     { numero: 17, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Há comissão de sócios advisors sobre patrocínio originado? A que percentual?",
       tipo: "escalar", origem: "confirmado",
     campos: [{ nome: "percentual", tipo: "percentual", valor: 15.00 }] },
@@ -4257,14 +4263,22 @@
       tipo: "referencia", origem: "confirmado", ref: 20, campo: "mesInicio" },
     { numero: 19, bloco: "QR Insights - Assinatura", pergunta: "Qual o preço mensal por assinante?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "preco", tipo: "numero", valor: 35.90 }] },
+    campos: [{ nome: "preco", tipo: "numero", valor: 79.00 }] },
     { numero: 20, bloco: "QR Insights - Assinatura", pergunta: "Quantos assinantes novos por mês, e a que taxa de crescimento?",
-      tipo: "curva", origem: "proposta",
-    valorBase: 30, mesInicio: 1,
-    reajuste: { tipo: "percentual", valor: 10.00, frequenciaMeses: 1 } },
+      tipo: "curva", origem: "confirmado", mesInicio: 4,
+    serieMensal: {
+      4: 100, 5: 150, 6: 121, 7: 137, 8: 136, 9: 139, 10: 165, 11: 196, 12: 233,
+      13: 222, 14: 255, 15: 219, 16: 241, 17: 265, 18: 292, 19: 321, 20: 353,
+      21: 259, 22: 272, 23: 285, 24: 300, 25: 315, 26: 330, 27: 347, 28: 364,
+      29: 383, 30: 402, 31: 422, 32: 443
+    },
+    observacao: "Volume absoluto de novos assinantes mes a mes, direto da Premissas New (nao e mais curva percentual). Meses 33 a 35 carregam o ultimo valor conhecido (443), aproximacao pela ausencia de dado alem do mes 32 na planilha." },
     { numero: 21, bloco: "QR Insights - Assinatura", pergunta: "Qual o churn mensal esperado?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "churn_percentual", tipo: "percentual", valor: 5.00 }] },
+    serieMensal: {
+      4: 9, 5: 9, 6: 8, 7: 8, 8: 7, 9: 7, 10: 6, 11: 6, 12: 6, 13: 5, 14: 5, 15: 5
+    },
+    observacao: "Churn combinado (plano mensal + plano anual, ponderado pelo mix) direto da Premissas New, caindo de 9% a 5% e estabilizando. A partir do mes 15 fica constante em 5%." },
     { numero: 22, bloco: "QR Insights - Assinatura", pergunta: "Qual o CAC por assinante?",
       tipo: "escalar", origem: "confirmado",
     campos: [{ nome: "cac", tipo: "numero", valor: 20.00 }] },
@@ -4287,47 +4301,70 @@
     eventos: [{ mes: 1, campos: { valor: 1500 } }, { mes: 2, campos: { valor: 1500 } }, { mes: 3, campos: { valor: 1500 } }] },
 
     { numero: 28, bloco: "QR Advisory", pergunta: "Em que mês o Advisory começa?",
-      tipo: "referencia", origem: "proposta", ref: 29, campo: "mesInicio" },
-    { numero: 29, bloco: "QR Advisory", pergunta: "Qual o ticket médio por projeto e quantos projetos por mês?",
-      tipo: "curva", origem: "confirmado",
-    valorBase: 7200, mesInicio: 6, reajuste: null,
-    camposExtra: [{ nome: "projetos_por_mes", tipo: "numero", valor: 1 }] },
-    { numero: 30, bloco: "QR Advisory", pergunta: "Quanto do ticket vai para o advisor que executa?",
-      tipo: "escalar", origem: "proposta",
-    campos: [{ nome: "percentual_advisor", tipo: "percentual", valor: 70.00 }] },
+      tipo: "referencia", origem: "confirmado", ref: 29, campo: "mesInicio" },
+    { numero: 29, bloco: "QR Advisory", pergunta: "Qual o Full Revenue mensal do Advisory (advisors × horas × % horas vendidas × preço/hora)?",
+      tipo: "curva", origem: "confirmado", mesInicio: 4,
+    serieMensal: {
+      4: 24000, 5: 24000, 6: 45000, 7: 45000, 8: 54000, 9: 72000, 10: 84000,
+      11: 84000, 12: 96000, 13: 96000, 14: 135000, 15: 135000
+    },
+    observacao: "Full Revenue direto da Premissas New (advisors de 20 a 45, horas vendidas de 10% a 25%, R$1.500/hora fixo). Alex preencheu a planilha alem de dez/27 (mes 15) mantendo os mesmos parametros constantes (45 advisors, 25% horas vendidas) -- o motor carrega esse ultimo valor (R$135.000) pra frente, meses 16 em diante." },
+    { numero: 30, bloco: "QR Advisory", pergunta: "Quanto do Full Revenue fica com o advisor que executa, e quanto é reconhecido como receita QUORUM?",
+      tipo: "escalar", origem: "confirmado",
+    campos: [{ nome: "percentual_advisor", tipo: "percentual", valor: 70.00 }],
+    observacao: "70% do Full Revenue vai para o advisor (custo); os 30% restantes (100% - percentual_advisor) sao a receita QUORUM (QUORUM Share)." },
 
     { numero: 31, bloco: "Quorum Day", pergunta: "O Quorum Day entra no horizonte? Em que meses?",
-      tipo: "evento", origem: "achado",
-    eventos: [{ mes: 8, campos: {} }],
-    observacao: "So achei uma edicao (mai/2027) na aba Quorum Novo. O BP antigo previa 3 edicoes -- confirmar se ha mais." },
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: 9, campos: {} }, { mes: 21, campos: {} }, { mes: 33, campos: {} }],
+    observacao: "Edicoes anuais recorrentes em junho: jun/27 (mes 9), jun/28 (mes 21), jun/29 (mes 33), conforme planilha." },
     { numero: 32, bloco: "Quorum Day", pergunta: "Qual a receita de cotas, a de ingressos e o custo direto por edição?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "receita_cotas", tipo: "numero", valor: 800000 }, { nome: "receita_ingressos", tipo: "numero", valor: 141000 }, { nome: "custo_direto", tipo: "numero", valor: 373000 }],
-    observacao: "Marcado \"rever\" na resposta original -- numeros do BP antigo, nunca recalibrados." },
+    campos: [
+      { nome: "receita_cotas", tipo: "numero", valor: 800000 },
+      { nome: "receita_ingressos", tipo: "numero", valor: 141000 },
+      { nome: "percentual_liquido_custo", tipo: "percentual", valor: 70.00 }
+    ],
+    observacao: "Cotas e ingressos batem com a planilha. Custo direto deixou de ser valor fixo (R$373.000 do BP antigo, nunca recalibrado): agora e um percentual liquido sobre a receita do evento, ja descontados os impostos proporcionais, travado por Alex em 70%." },
 
     { numero: 33, bloco: "Quorum House", pergunta: "A Quorum House entra no horizonte? A partir de que mês?",
-      tipo: "evento", origem: "proposta",
-    eventos: [{ mes: 4, campos: {} }] },
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: 7, campos: {} }] },
     { numero: 34, bloco: "Quorum House", pergunta: "Qual o aluguel mais infraestrutura por mês?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor", tipo: "numero", valor: 40000 }],
-    observacao: "Marcado \"rever\" na resposta original." },
+    campos: [{ nome: "valor", tipo: "numero", valor: 60000 }] },
     { numero: 35, bloco: "Quorum House", pergunta: "Qual o investimento inicial de reforma e montagem, e em que mês?",
-      tipo: "evento", origem: "proposta",
-    eventos: [{ mes: 4, campos: { valor: 50000 } }] },
-    { numero: 36, bloco: "Quorum House", pergunta: "Ela gera receita própria de locação ou só reduz o custo de venue dos Encontros?",
+      tipo: "evento", origem: "confirmado",
+    eventos: [{ mes: 8, campos: { valor: 150000 } }, { mes: 9, campos: { valor: 150000 } }],
+    observacao: "R$150.000 lancados em mai/27 (mes 8) E em jun/27 (mes 9), R$300.000 no total -- confirmado por Alex, nao e artefato de exibicao da planilha." },
+    { numero: 36, bloco: "Quorum House", pergunta: "Ela gera receita própria de locação, e como é calculada?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "gera_receita_propria", tipo: "booleano", valor: true }, { nome: "valor_mensal", tipo: "numero", valor: 15000 }, { nome: "mes_inicio", tipo: "numero", valor: 10 }],
-    observacao: "Risco juridico ja sinalizado pelo Atila (art. 17, XV LC 123), em discussao aberta com Agilize e Pepa. Fica ligado por decisao de Alex." },
+    campos: [
+      { nome: "gera_receita_propria", tipo: "booleano", valor: true },
+      { nome: "mes_inicio", tipo: "numero", valor: 10 },
+      { nome: "tier1_valor", tipo: "numero", valor: 10000 }, { nome: "tier1_eventos_mes", tipo: "numero", valor: 1 },
+      { nome: "tier2_valor", tipo: "numero", valor: 5000 }, { nome: "tier2_eventos_mes", tipo: "numero", valor: 0 },
+      { nome: "tier3_valor", tipo: "numero", valor: 3000 }, { nome: "tier3_eventos_mes", tipo: "numero", valor: 0 }
+    ],
+    observacao: "Nao e mais aluguel mensal fixo: a planilha modela por tier de evento fechado (Tier 1 R$10.000, Tier 2 R$5.000 = 50% do Tier 1, Tier 3 R$3.000 = 30% do Tier 1). Hoje so o Tier 1 tem ocupacao lancada, 1 evento/mes a partir de jul/27 (mes 10); Tier 2 e 3 zerados. Risco juridico ja sinalizado pelo Atila (art. 17, XV LC 123), em discussao aberta com Agilize e Pepa -- fica ligado por decisao de Alex." },
 
     { numero: 37, bloco: "Pessoas", pergunta: "O pró-labore sai de zero? Se sim, qual valor por sócio e a partir de que mês?",
-      tipo: "condicional", origem: "confirmado",
-    regra: "pro_labore_50pct_ebitda_antes_pl",
-    percentual: 50.00, tetoPorSocio: 40000, numSocios: 2, mesInicio: 0 },
+      tipo: "escalar", origem: "confirmado",
+    campos: [
+      { nome: "valor", tipo: "numero", valor: 20000 },
+      { nome: "mes_inicio", tipo: "numero", valor: 4 },
+      { nome: "num_socios", tipo: "numero", valor: 2 }
+    ],
+    observacao: "A planilha lanca valor fixo por socio (Till e Alex, R$20.000 cada, desde jan/27), nao a regra condicional (50% do EBITDA antes do proprio pro-labore, teto R$40.000/socio) que o motor usava antes. Alex decidiu trocar pro mecanismo da planilha." },
     { numero: 38, bloco: "Pessoas", pergunta: "Que contratações estão previstas nos 36 meses? Cargo, salário e mês de entrada.",
-      tipo: "evento", origem: "vazio", eventos: [],
+      tipo: "evento", origem: "confirmado",
+    eventos: [
+      { mes: 6, campos: { cargo: "Community Leader", salario: 20000, regime: "CLT" } },
+      { mes: 9, campos: { cargo: "Roque Ribeiro", salario: 40000, regime: "CLT" } },
+      { mes: 10, campos: { cargo: "Videomaker", salario: 10000, regime: "CLT" } }
+    ],
     templateCampos: [{ nome: "cargo", tipo: "texto", padrao: "" }, { nome: "salario", tipo: "numero", padrao: 0 }, { nome: "regime", tipo: "texto", padrao: "PJ" }],
-    observacao: "Nenhuma contratacao prevista por enquanto. A unica despesa de pessoal ativa hoje e o pro-labore condicional da premissa 37 (Alex e Till)." },
+    observacao: "A resposta anterior (\"nenhuma contratacao prevista\") estava desatualizada: a planilha tem essas tres contratacoes reais lancadas, confirmadas por Alex." },
     { numero: 39, bloco: "Pessoas", pergunta: "Qual o regime de cada contratação: CLT, PJ ou freela por projeto?",
       tipo: "escalar", origem: "confirmado",
     campos: [{ nome: "regime_padrao", tipo: "texto", valor: "PJ" }],
@@ -4341,11 +4378,12 @@
     campos: [{ nome: "valor", tipo: "numero", valor: 1940 }] },
     { numero: 42, bloco: "Despesas Fixas", pergunta: "Qual o valor mensal de mídia e impulsionamento, e a partir de quando?",
       tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor", tipo: "numero", valor: 1385 }] },
+    campos: [{ nome: "percentual_receita_bruta", tipo: "percentual", valor: 0.77 }],
+    observacao: "Deixou de ser valor fixo (a planilha lanca R$2.000/mes constante, sem premissa por tras). Alex pediu pra calcular com base num driver: 0,77% e o resultado de (R$2.000 x 12) dividido pela receita bruta projetada dos primeiros 12 meses do horizonte online (R$3.136.928, mes 0 a mes 11). Daqui em diante, mídia escala com a receita do mes, nao fica fixo." },
     { numero: 43, bloco: "Despesas Fixas", pergunta: "Além dos 450/mês da Agilize, há honorário avulso previsto?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: null, campos: { valor_min: 980, valor_max: 1200 } }],
-    observacao: "Mes exato depende de quando a alteracao contratual for protocolada -- ainda sem data." },
+      tipo: "evento", origem: "confirmado", eventos: [],
+    templateCampos: [{ nome: "valor", tipo: "numero", padrao: 0 }],
+    observacao: "Alex travou a contabilidade em R$450/mes fixo (sem o avulso de R$980-1200 que estava proposto). Fica com a lista de eventos vazia, e a opcao de \"+ adicionar evento\" continua disponivel pra lancar qualquer valor extra pontual quando necessario." },
     { numero: 44, bloco: "Despesas Fixas", pergunta: "O jurídico é retainer mensal com o Pepa ou por demanda? Qual valor?",
       tipo: "escalar", origem: "achado",
     campos: [{ nome: "valor_mensal", tipo: "numero", valor: 500 }, { nome: "mes_inicio", tipo: "numero", valor: 6 }],
@@ -4382,10 +4420,13 @@
   /* porque e neles que a granularidade de revisao mora; a vertical e o   */
   /* nivel de cima, que agrupa o que compartilha a mesma logica de        */
   /* negocio. Comunidade junta tudo que monetiza a comunidade curada:     */
-  /* Encontros, cotas, o Quorum Day e a House.                            */
+  /* Cotas, o Quorum Day e a House. Encontros Exclusivos foi aposentada:   */
+  /* nao existe correspondencia na planilha oficial, e o mecanismo mais    */
+  /* proximo (evento com contraparte pagando por fora) ja esta coberto     */
+  /* pelo Patrocinio Spot (premissa 16). Decisao de Alex.                  */
   var VERTICAIS = [
     { id: "comunidade", rotulo: "Comunidade",
-      blocos: ["Encontros Exclusivos", "Patrocínio Recorrente - Cotas Master", "Quorum Day", "Quorum House"] },
+      blocos: ["Patrocínio Recorrente - Cotas Master", "Quorum Day", "Quorum House"] },
     { id: "insights", rotulo: "QR Insights",
       blocos: ["QR Insights - Assinatura"] },
     { id: "review", rotulo: "QR Review",
@@ -4443,7 +4484,8 @@
     if (item.tipo === "evento") {
       vazio = !(valorAtual.eventos && valorAtual.eventos.length > 0);
     } else if (item.tipo === "curva") {
-      vazio = (valorAtual.valorBase === null || valorAtual.valorBase === undefined);
+      var temSerie = valorAtual.serieMensal && Object.keys(valorAtual.serieMensal).length > 0;
+      vazio = !temSerie && (valorAtual.valorBase === null || valorAtual.valorBase === undefined);
     } else if (item.tipo === "escalar") {
       vazio = (valorAtual.campos || []).some(function (c) {
         return c.valor === null || c.valor === undefined || c.valor === "";
@@ -4559,7 +4601,44 @@
     );
   }
 
+  /* Grade mensal: uma celula editavel por mes conhecido, rolando na       */
+  /* horizontal, do jeito que Alex ve na planilha (mes a mes, nao regra    */
+  /* parametrica resumida). Clicar e editar uma celula sobrescreve so       */
+  /* aquele mes; os demais continuam com o valor lancado. "+ mes" adiciona */
+  /* uma entrada nova pro primeiro mes que ainda nao tem valor.            */
+  function corpoSerieMensal(item, v, atualizar) {
+    var meses = Object.keys(v.serieMensal || {}).map(Number).sort(function (a, b) { return a - b; });
+    return h("div", null,
+      h("div", { className: "flex gap-2 overflow-x-auto pb-1", style: { maxWidth: "100%" } },
+        meses.map(function (mes) {
+          return h("div", { key: mes, className: "flex-shrink-0", style: { width: 76 } },
+            h("div", { style: { fontSize: 9, color: COR.faint, marginBottom: 2 } }, rotuloMesHorizonte(mes)),
+            h("input", {
+              type: "number", step: "any", value: v.serieMensal[mes],
+              onChange: function (e) {
+                atualizar(function (x) {
+                  x.serieMensal[mes] = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                });
+              },
+              className: "rounded px-1 py-1 w-full", style: { fontSize: 11, border: "1px solid " + COR.line }
+            })
+          );
+        })
+      ),
+      h("button", {
+        onClick: function () {
+          atualizar(function (x) {
+            var proximo = meses.length ? Math.max.apply(null, meses) + 1 : (item.mesInicio || 0);
+            x.serieMensal[proximo] = meses.length ? x.serieMensal[Math.max.apply(null, meses)] : 0;
+          });
+        },
+        style: { fontSize: 11, color: COR.brass, textDecoration: "underline", marginTop: 4 }
+      }, "+ mês")
+    );
+  }
+
   function corpoCurva(item, v, atualizar) {
+    if (v.serieMensal) return corpoSerieMensal(item, v, atualizar);
     var filhos = [
       h("div", { key: "base", className: "flex gap-3 flex-wrap" },
         h("div", null,
@@ -4729,6 +4808,7 @@
   }
 
   function corpoPremissa(item, v, atualizar) {
+    if (v.serieMensal) return corpoSerieMensal(item, v, atualizar);
     if (item.tipo === "escalar") return corpoEscalar(item, v, atualizar);
     if (item.tipo === "curva") return corpoCurva(item, v, atualizar);
     if (item.tipo === "evento") return corpoEvento(item, v, atualizar);
@@ -4873,17 +4953,17 @@
 
     /* Acumuladores por mes, um mapa por linha do DRE. */
     var L = {
-      recEncontros: {}, recPatrocinio: {}, recSpot: {}, recInsights: {},
+      recPatrocinio: {}, recSpot: {}, recInsights: {},
       recReview: {}, recAdvisory: {}, recHouse: {}, recQuorumDay: {},
       receita: {}, impostos: {}, receitaLiquida: {},
-      custoEncontros: {}, custoAdvisory: {}, custoQuorumDay: {},
+      custoAdvisory: {}, custoQuorumDay: {},
       custoComissao: {}, custoPlataforma: {}, custoCAC: {}, custo: {},
       lucroBruto: {},
       despFixas: {}, despFerramentas: {}, despMidia: {}, despContabil: {},
       despJuridico: {}, despHouse: {}, despPessoal: {}, despesas: {},
       ebitdaAntesPL: {}, proLabore: {}, ebitda: {},
       juros: {}, finDesp: {}, lucroLiquido: {},
-      capex: {}, aporte: {}, distribuicao: {},
+      capex: {}, aporte: {}, distribuicao: {}, pagamentoMutuo: {},
       fluxoMes: {}, caixa: {},
       assinantes: {}, assinantesReview: {}, rbt12: {}, aliquota: {}
     };
@@ -4898,54 +4978,57 @@
     /* Premissas lidas uma vez so, fora do loop. */
     var mutuoValor = valorDosEventos(P[4], primeiroMesDeEvento(P[4]), "valor");
     var mesMutuo = primeiroMesDeEvento(P[4]);
-    var encontrosPorMes = campoDe(P[7], "por_mes", 0);
-    var mesInicioEncontros = campoDe(P[7], "mes_inicio", 0);
-    var custoPorEncontro = campoDe(P[10], "valor", 0);
     var comissaoAdvisors = campoDe(P[17], "percentual", 0) / 100;
     var probRenovacao = campoDe(P[15], "percentual", 100) / 100;
     var prazoCota = campoDe(P[14], "prazo_meses", 12);
     var precoInsights = campoDe(P[19], "preco", 0);
-    var churn = campoDe(P[21], "churn_percentual", 0) / 100;
     var cac = campoDe(P[22], "cac", 0);
     var plataformaFixa = campoDe(P[23], "fixo_mensal", 0);
     var takeRate = campoDe(P[23], "take_rate_hotmart_percentual", 0) / 100;
     var precoReview = (P[26] && typeof P[26].precoUnitario === "number") ? P[26].precoUnitario : 0;
-    var ticketAdvisory = (P[29] && typeof P[29].valorBase === "number") ? P[29].valorBase : 0;
-    var projetosPorMes = campoExtraDe(P[29], "projetos_por_mes", 0);
     var splitAdvisor = campoDe(P[30], "percentual_advisor", 0) / 100;
     var qdCotas = campoDe(P[32], "receita_cotas", 0);
     var qdIngressos = campoDe(P[32], "receita_ingressos", 0);
-    var qdCusto = campoDe(P[32], "custo_direto", 0);
+    var qdCustoPercentual = campoDe(P[32], "percentual_liquido_custo", 0) / 100;
     var houseAluguel = campoDe(P[34], "valor", 0);
     var mesHouse = primeiroMesDeEvento(P[33]);
     var houseGeraReceita = campoDe(P[36], "gera_receita_propria", false);
-    var houseReceitaMensal = campoDe(P[36], "valor_mensal", 0);
     var houseMesReceita = campoDe(P[36], "mes_inicio", 0);
-    var plPercentual = (P[37] && typeof P[37].percentual === "number") ? P[37].percentual / 100 : 0;
-    var plTeto = (P[37] && typeof P[37].tetoPorSocio === "number") ? P[37].tetoPorSocio : 0;
-    var plSocios = (P[37] && typeof P[37].numSocios === "number") ? P[37].numSocios : 0;
-    var plMesInicio = (P[37] && typeof P[37].mesInicio === "number") ? P[37].mesInicio : 0;
+    var houseTier1Valor = campoDe(P[36], "tier1_valor", 0), houseTier1Qtd = campoDe(P[36], "tier1_eventos_mes", 0);
+    var houseTier2Valor = campoDe(P[36], "tier2_valor", 0), houseTier2Qtd = campoDe(P[36], "tier2_eventos_mes", 0);
+    var houseTier3Valor = campoDe(P[36], "tier3_valor", 0), houseTier3Qtd = campoDe(P[36], "tier3_eventos_mes", 0);
+    var houseReceitaMensal = houseTier1Valor * houseTier1Qtd + houseTier2Valor * houseTier2Qtd + houseTier3Valor * houseTier3Qtd;
+    var plValor = campoDe(P[37], "valor", 0);
+    var plSocios = campoDe(P[37], "num_socios", 0);
+    var plMesInicio = campoDe(P[37], "mes_inicio", 0);
     var despBase = campoDe(P[40], "valor_base", 0);
     var ferramentas = campoDe(P[41], "valor", 0);
-    var midia = campoDe(P[42], "valor", 0);
+    var midiaPercentual = campoDe(P[42], "percentual_receita_bruta", 0) / 100;
     var juridicoValor = campoDe(P[44], "valor_mensal", 0);
     var juridicoInicio = campoDe(P[44], "mes_inicio", 0);
     var distPercentual = campoDe(P[49], "percentual", 0) / 100;
     var distPeriodo = campoDe(P[49], "periodicidade_meses", 0);
     var caixaMinimo = campoDe(P[50], "valor", 0);
 
-    /* Juros do mutuo: 100% CDI simples, accrual desde o desembolso       */
-    /* conforme premissa 5. Uso 10,5% a.a. como proxy do CDI, que e uma   */
-    /* premissa minha e nao de Alex: fica declarada na tela como tal.     */
-    var CDI_PROXY_ANUAL = 0.105;
-    var jurosMensaisMutuo = mutuoValor * (Math.pow(1 + CDI_PROXY_ANUAL, 1 / 12) - 1);
+    /* Juros do mutuo conforme Contrato de Mutuo Conversivel v07, Clausula */
+    /* 4a: carencia sem remuneracao, depois 100% do CDI (proxy de mercado, */
+    /* nao contratual) com capitalizacao ANUAL (art. 591 CC) -- o juro do  */
+    /* ano corrente so vira base de calculo no aniversario de 12 meses, em */
+    /* vez de compor mes a mes. Reconhecido como despesa financeira desde  */
+    /* o fim da carencia; o principal + juros so sai do caixa em parcela   */
+    /* unica no mes de exigibilidade, assumindo que NAO converte (decisao  */
+    /* de Alex, pra ver a parcela no mes correto). Se esse mes cair fora   */
+    /* do horizonte projetado, a saida de caixa simplesmente nao aparece.  */
+    var carenciaMutuo = campoDe(P[5], "carencia_meses", 6);
+    var cdiProxyAnual = campoDe(P[5], "cdi_proxy_anual_percentual", 10.5) / 100;
+    var mesExigibilidadeMutuo = campoDe(P[5], "mes_exigibilidade", 36);
+    var mesInicioAccrualMutuo = (mesMutuo !== null) ? mesMutuo + carenciaMutuo : null;
+    var mutuoBase = mutuoValor;
+    var mutuoJurosDoAnoCorrente = 0;
+    var mutuoJurosAcumulados = 0;
 
     meses.forEach(function (chave, m) {
       /* ---------- RECEITAS ---------- */
-
-      /* Encontros: fee da curva 6, vezes a quantidade da premissa 7. */
-      var qtdEncontros = (m >= mesInicioEncontros) ? encontrosPorMes : 0;
-      L.recEncontros[chave] = valorDaCurva(P[6], m) * qtdEncontros;
 
       /* Cotas Master: a 1 vem da curva 12; a 2 e a 3 sao eventos de      */
       /* entrada na premissa 13 e valem recorrentemente a partir dali.    */
@@ -4972,10 +5055,12 @@
       /* Spot de happy hour: evento discreto, hoje vazio de proposito. */
       L.recSpot[chave] = valorDosEventos(P[16], m, "valor");
 
-      /* QR Insights: base de assinantes com entrada pela curva 20 e     */
-      /* saida pelo churn da premissa 21.                                 */
-      var novosAssinantes = valorDaCurva(P[20], m);
-      baseAssinantes = baseAssinantes * (1 - churn) + novosAssinantes;
+      /* QR Insights: base de assinantes com entrada e churn direto da    */
+      /* serie mensal real da Premissas New (premissas 20 e 21), nao mais */
+      /* curva percentual simples.                                        */
+      var novosAssinantes = serieDe(P[20], m);
+      var churnMes = serieDe(P[21], m) / 100;
+      baseAssinantes = baseAssinantes * (1 - churnMes) + novosAssinantes;
       L.assinantes[chave] = baseAssinantes;
       L.recInsights[chave] = baseAssinantes * precoInsights;
 
@@ -4985,24 +5070,26 @@
       L.assinantesReview[chave] = baseReview;
       L.recReview[chave] = baseReview * precoReview;
 
-      /* QR Advisory: ticket vezes projetos por mes, a partir do mes de   */
-      /* inicio da curva 29.                                              */
-      var advisoryAtivo = (P[29] && typeof P[29].mesInicio === "number" && m >= P[29].mesInicio);
-      L.recAdvisory[chave] = advisoryAtivo ? ticketAdvisory * projetosPorMes : 0;
+      /* QR Advisory: Full Revenue direto da serie mensal (premissa 29).  */
+      /* QUORUM reconhece o complemento do que fica com o advisor: se     */
+      /* splitAdvisor (premissa 30) e 70% pro advisor, os outros 30% sao  */
+      /* a receita QUORUM (QUORUM Share).                                  */
+      var fullRevenueAdvisory = serieDe(P[29], m);
+      L.recAdvisory[chave] = fullRevenueAdvisory * (1 - splitAdvisor);
 
-      /* Quorum House: receita propria de locacao, se ligada. */
+      /* Quorum House: receita propria por tier de evento fechado. */
       L.recHouse[chave] = (houseGeraReceita && m >= houseMesReceita) ? houseReceitaMensal : 0;
 
       /* Quorum Day: cotas mais ingressos nos meses de edicao. */
       L.recQuorumDay[chave] = temEventoNoMes(P[31], m) ? (qdCotas + qdIngressos) : 0;
 
-      var receitaBruta = (L.recEncontros[chave] + L.recPatrocinio[chave] + L.recSpot[chave]
+      var receitaBruta = (L.recPatrocinio[chave] + L.recSpot[chave]
         + L.recInsights[chave] + L.recReview[chave] + L.recAdvisory[chave]
         + L.recHouse[chave] + L.recQuorumDay[chave]) * redutorReceita;
 
       /* Reaplica o redutor linha a linha, para a tela mostrar as partes  */
       /* coerentes com o total no cenario conservador.                    */
-      ["recEncontros", "recPatrocinio", "recSpot", "recInsights",
+      ["recPatrocinio", "recSpot", "recInsights",
        "recReview", "recAdvisory", "recHouse", "recQuorumDay"].forEach(function (k) {
         L[k][chave] = L[k][chave] * redutorReceita;
       });
@@ -5027,9 +5114,15 @@
 
       /* ---------- CUSTOS DIRETOS ---------- */
 
-      L.custoEncontros[chave] = -custoPorEncontro * qtdEncontros;
-      L.custoAdvisory[chave] = -L.recAdvisory[chave] * splitAdvisor;
-      L.custoQuorumDay[chave] = temEventoNoMes(P[31], m) ? -qdCusto : 0;
+      /* Advisory: o que fica com o advisor e o complemento do QUORUM     */
+      /* Share, calculado sobre o Full Revenue (nao sobre a receita       */
+      /* QUORUM ja liquida do split) -- e a mecanica real da planilha.    */
+      L.custoAdvisory[chave] = -fullRevenueAdvisory * splitAdvisor;
+      /* Quorum Day: percentual liquido (pos-imposto) travado por Alex,   */
+      /* sobre a receita do proprio evento naquele mes.                   */
+      L.custoQuorumDay[chave] = temEventoNoMes(P[31], m)
+        ? -(L.recQuorumDay[chave] * (1 - aliq)) * qdCustoPercentual
+        : 0;
       /* Comissao dos advisors incide sobre patrocinio originado. */
       L.custoComissao[chave] = -(L.recPatrocinio[chave] + L.recSpot[chave]) * comissaoAdvisors;
       /* Plataforma: fixo mensal mais take rate sobre a receita de        */
@@ -5037,7 +5130,7 @@
       L.custoPlataforma[chave] = -(plataformaFixa + L.recInsights[chave] * takeRate);
       L.custoCAC[chave] = -novosAssinantes * cac;
 
-      L.custo[chave] = L.custoEncontros[chave] + L.custoAdvisory[chave]
+      L.custo[chave] = L.custoAdvisory[chave]
         + L.custoQuorumDay[chave] + L.custoComissao[chave]
         + L.custoPlataforma[chave] + L.custoCAC[chave];
 
@@ -5047,11 +5140,14 @@
 
       /* A base da premissa 40 ja inclui ferramentas e midia no realizado */
       /* de agosto, entao somar as tres cheias contaria duas vezes. Uso a */
-      /* base como piso e somo so o excedente de cada uma.                */
+      /* base como piso e somo so o excedente de cada uma. Midia agora e  */
+      /* percentual da receita bruta do mes (premissa 42), nao mais valor */
+      /* fixo -- por isso e calculada aqui dentro do loop.                */
+      var midiaValor = receitaBruta * midiaPercentual;
       L.despFerramentas[chave] = -ferramentas;
-      L.despMidia[chave] = -midia;
-      L.despFixas[chave] = -Math.max(0, despBase - ferramentas - midia);
-      L.despContabil[chave] = -450 - valorDosEventos(P[43], m, "valor_min");
+      L.despMidia[chave] = -midiaValor;
+      L.despFixas[chave] = -Math.max(0, despBase - ferramentas - midiaValor);
+      L.despContabil[chave] = -450 - valorDosEventos(P[43], m, "valor");
       L.despJuridico[chave] = (m >= juridicoInicio) ? -juridicoValor : 0;
       L.despHouse[chave] = (mesHouse !== null && m >= mesHouse) ? -houseAluguel : 0;
 
@@ -5071,30 +5167,46 @@
         + L.despMidia[chave] + L.despContabil[chave] + L.despJuridico[chave]
         + L.despHouse[chave] + L.despPessoal[chave];
 
-      /* ---------- PRO-LABORE CONDICIONAL (premissa 37) ---------- */
-      /* Calculado sobre o resultado ANTES do proprio pro-labore, o que   */
-      /* evita a circularidade: 50% do que sobra, com teto por socio.     */
+      /* ---------- PRO-LABORE FIXO (premissa 37) ---------- */
+      /* A planilha lanca valor fixo por socio desde jan/27, nao mais a   */
+      /* regra condicional de 50% do EBITDA antes do proprio pro-labore.  */
+      /* ebitdaAntesPL fica so como indicador informativo (nao decide     */
+      /* mais nada aqui).                                                 */
 
       L.ebitdaAntesPL[chave] = L.lucroBruto[chave] + despesasAntesPL;
-      var pl = 0;
-      if (m >= plMesInicio && L.ebitdaAntesPL[chave] > 0) {
-        pl = L.ebitdaAntesPL[chave] * plPercentual;
-        var teto = plTeto * plSocios;
-        if (teto > 0 && pl > teto) pl = teto;
-      }
+      var pl = (m >= plMesInicio) ? plValor * plSocios : 0;
       L.proLabore[chave] = -pl;
       L.despesas[chave] = despesasAntesPL + L.proLabore[chave];
       L.ebitda[chave] = L.lucroBruto[chave] + L.despesas[chave];
 
       /* ---------- RESULTADO FINANCEIRO ---------- */
 
-      L.juros[chave] = (mesMutuo !== null && m >= mesMutuo) ? -jurosMensaisMutuo : 0;
+      /* Juros do mutuo: accrual mensal a partir do fim da carencia,      */
+      /* capitalizando uma vez por ano (nao mes a mes) sobre a base       */
+      /* corrente. O pagamento em dinheiro fica pro fluxo de caixa.       */
+      var jurosMutuoMes = 0;
+      if (mesInicioAccrualMutuo !== null && m >= mesInicioAccrualMutuo) {
+        var mesesDesdeAccrual = m - mesInicioAccrualMutuo;
+        if (mesesDesdeAccrual > 0 && mesesDesdeAccrual % 12 === 0) {
+          mutuoBase += mutuoJurosDoAnoCorrente;
+          mutuoJurosDoAnoCorrente = 0;
+        }
+        jurosMutuoMes = mutuoBase * (cdiProxyAnual / 12);
+        mutuoJurosDoAnoCorrente += jurosMutuoMes;
+        mutuoJurosAcumulados += jurosMutuoMes;
+      }
+      L.juros[chave] = -jurosMutuoMes;
       L.finDesp[chave] = L.juros[chave];
       L.lucroLiquido[chave] = L.ebitda[chave] + L.finDesp[chave];
 
       /* ---------- FLUXO DE CAIXA ---------- */
 
       L.aporte[chave] = (m === mesMutuo) ? mutuoValor : 0;
+      /* Parcela unica do mutuo (principal + juros ja reconhecidos como   */
+      /* despesa financeira mes a mes): sai do caixa so no mes de         */
+      /* exigibilidade, sem afetar o resultado de novo. So dispara se     */
+      /* esse mes cair dentro do horizonte projetado.                     */
+      L.pagamentoMutuo[chave] = (m === mesExigibilidadeMutuo) ? -(mutuoBase + mutuoJurosAcumulados) : 0;
       L.capex[chave] = -valorDosEventos(P[35], m, "valor") - valorDosEventos(P[27], m, "valor");
 
       /* Distribuicao de lucros: percentual do acumulado nao distribuido, */
@@ -5110,7 +5222,7 @@
       L.distribuicao[chave] = -distribuiu;
 
       L.fluxoMes[chave] = L.lucroLiquido[chave] + L.aporte[chave]
-        + L.capex[chave] + L.distribuicao[chave];
+        + L.capex[chave] + L.distribuicao[chave] + L.pagamentoMutuo[chave];
       caixaCorrente += L.fluxoMes[chave];
       L.caixa[chave] = caixaCorrente;
     });
@@ -5127,18 +5239,16 @@
     comunidade: {
       rotulo: "Comunidade",
       receitas: [
-        ["recEncontros", "Encontros Exclusivos"],
         ["recPatrocinio", "Patrocínio recorrente"],
         ["recSpot", "Patrocínio spot"],
         ["recQuorumDay", "Quorum Day"],
         ["recHouse", "Quorum House"]
       ],
       custos: [
-        ["custoEncontros", "Custo dos Encontros"],
         ["custoQuorumDay", "Custo do Quorum Day"],
         ["custoComissao", "Comissão sobre patrocínio"]
       ],
-      nota: "Reúne tudo que monetiza a comunidade curada: fee dos Encontros, cotas Master, spot de happy hour, Quorum Day e locação da House. O aluguel da House não entra aqui porque é despesa fixa da empresa, não custo direto de uma venda."
+      nota: "Reúne tudo que monetiza a comunidade curada: cotas Master, spot de happy hour, Quorum Day e locação da House. Encontros Exclusivos foi aposentada (sem correspondência na planilha oficial). O aluguel da House não entra aqui porque é despesa fixa da empresa, não custo direto de uma venda."
     },
     insights: {
       rotulo: "QR Insights",
@@ -5589,12 +5699,11 @@
           style: { background: COR.brassSoft, border: "1px solid " + COR.brass, fontSize: 11, color: COR.dim, lineHeight: 1.6 }
         },
           h("strong", { style: { color: COR.brass } }, "Projeção, não apuração. "),
-          "O imposto usa a tabela progressiva do Anexo V (alíquota efetiva pela fórmula do art. 18, §1º-A da LC 123), o que é aproximação gerencial e não substitui a apuração do Vigo. O RBT12 dos primeiros meses só enxerga o histórico dentro deste horizonte, então a alíquota inicial sai mais baixa que a real. Os juros do mútuo usam CDI de 10,5% a.a. como proxy, premissa minha e não sua. E 11 premissas ainda são propostas de teste, não confirmadas."
+          "O imposto usa a tabela progressiva do Anexo V (alíquota efetiva pela fórmula do art. 18, §1º-A da LC 123), o que é aproximação gerencial e não substitui a apuração do Vigo. O RBT12 dos primeiros meses só enxerga o histórico dentro deste horizonte, então a alíquota inicial sai mais baixa que a real. Os juros do mútuo usam CDI de 10,5% a.a. como proxy de mercado (não é dado do contrato), com capitalização anual conforme a Cláusula 4ª — pagos em parcela única no mês 36, fora do horizonte de 36 meses (mês 0 a 35), então essa saída de caixa não aparece aqui. " + (totalAberto ? totalAberto + " premissa(s) em aberto" : "Nenhuma premissa em aberto") + (totalProposta ? ", " + totalProposta + " proposta(s) de teste ainda não confirmadas." : ".")
         ),
 
         tabelaProjecao(g, [
           ["Receita Bruta", L.receita, "secao", false, null],
-          ["Encontros Exclusivos", L.recEncontros, "grupo", false, null],
           ["Patrocínio recorrente", L.recPatrocinio, "grupo", false, null],
           ["Patrocínio spot", L.recSpot, "grupo", false, null],
           ["QR Insights", L.recInsights, "grupo", false, null],
@@ -5608,7 +5717,6 @@
           ["(=) Receita Líquida", L.receitaLiquida, "total", false, null],
 
           ["Custos Diretos", L.custo, "secao", false, null],
-          ["Custo dos Encontros", L.custoEncontros, "grupo", false, null],
           ["Repasse ao advisor", L.custoAdvisory, "grupo", false, null],
           ["Custo do Quorum Day", L.custoQuorumDay, "grupo", false, null],
           ["Comissão sobre patrocínio", L.custoComissao, "grupo", false, null],
@@ -5638,6 +5746,7 @@
           ["Aporte (mútuo)", L.aporte, "grupo", false, null],
           ["Investimento (capex)", L.capex, "grupo", false, null],
           ["Distribuição de lucros", L.distribuicao, "grupo", false, null],
+          ["Pagamento do mútuo (parcela única)", L.pagamentoMutuo, "grupo", false, null],
           ["(=) Caixa acumulado", L.caixa, "total", true, null],
 
           ["Base de assinantes Insights", L.assinantes, "item", true, "qtd"],
