@@ -4326,10 +4326,11 @@
     [131, "Custo Insights", "2.03", 1],
     [132, "Desenvolvimento Plataforma (Insights)", "2.03.99", 2],
     [133, "Manutenção Plataforma (Insights)", "2.03.98", 2],
-    [134, "APIs de fonte de notícia e conteúdo", "", 1],
+    [134, "APIs de fonte de notícia e conteúdo (Insights)", "", 1],
     [136, "Custo de Review", "2.05", 1],
     [137, "Desenvolvimento Plataforma (Review)", "2.05.97", 2],
     [138, "Manutenção Plataforma (Review)", "2.05.98", 2],
+    [139, "APIs de fonte de notícia e conteúdo (Review)", "", 1],
     [142, "Custo Advisory", "2.06", 1],
     [143, "Pagamento a Advisors (Prestação de Serviço)", "2.06.99", 2],
     [144, "Outros Custos de Advisory", "2.06.98", 2],
@@ -4489,6 +4490,21 @@
     [320, "(=) Saldo Final de Caixa", "", 0]
   ];
 
+  /* O motor identifica cada linha por um numero fixo (o da planilha em   */
+  /* 18/09/2026). Quando Alex insere ou move linhas na planilha, so este   */
+  /* mapa muda: ele traduz o identificador para o numero de linha atual,   */
+  /* usado para ordenar a tela e para dizer "linha X da planilha".         */
+  /* Atualizado em 24/09/2026: entrou a linha 139 (APIs do Review), a      */
+  /* aquisicao de midia passou para o Review e o trecho de marketing em    */
+  /* diante desceu duas linhas.                                            */
+  function bpLinhaPlanilha(id) {
+    if (id <= 139) return id;
+    if (id <= 202) return id - 1;
+    if (id === 203) return 205;
+    if (id <= 206) return id - 2;
+    return id + 2;
+  }
+  BP_LINHAS.sort(function (a, b) { return bpLinhaPlanilha(a[0]) - bpLinhaPlanilha(b[0]); });
   var BP_LINHA = {};
   BP_LINHAS.forEach(function (l) { BP_LINHA[l[0]] = { n: l[0], r: l[1], c: l[2], nv: l[3] }; });
 
@@ -4503,7 +4519,7 @@
     94: [7, 85],
     97: [98, 103, 109, 115, 122, 127, 131, 136, 142, 147],
     98: [99], 115: [116, 118, 120], 122: [123], 127: [128], 131: [132, 133], 133: [134],
-    136: [137, 138], 142: [143, 144], 147: [148],
+    136: [137, 138], 138: [139], 142: [143, 144], 147: [148],
     150: [94, 97],
     153: [154, 175, 199, 217, 225],
     154: [155, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173],
@@ -4632,7 +4648,7 @@
     l_ferr_tech: [0,0,0,0,0,0,-1000,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300],
     l_jur_tech: [0,0,0,0,0,0,-10000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     l_cont_tech: [0,0,0,0,0,0,0,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450],
-    l_cac_insights: [0,0,0,0,0,0,0,-10000,-12150,-8712,-8152,-6528,-6672,-7425,-8820,-8738,-7770,-8925,-7665,-8435,-9275,-10220,-11235,-12355,-9065,-9520,-9975,-10500,-11025,-11550,-12145,-12740,-13405,-14070,-14770,0],
+    l_cac_review: [0,0,0,0,0,0,0,-10000,-12150,-8712,-8152,-6528,-6672,-7425,-8820,-8738,-7770,-8925,-7665,-8435,-9275,-10220,-11235,-12355,-9065,-9520,-9975,-10500,-11025,-11550,-12145,-12740,-13405,-14070,-14770,0],
     l_criativos: [0,0,0,0,0,0,-20000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     l_backup: [0,0,0,0,0,0,0,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200],
     l_infra: [0,0,0,0,0,0,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583],
@@ -4644,7 +4660,7 @@
   var BP_SERIE_VERTICAL = {};
   Object.keys(BP_SERIES_PADRAO).forEach(function (id) {
     var tech = /^(rv_|adv_)/.test(id) ||
-      ["l_roque", "l_ferr_tech", "l_jur_tech", "l_cont_tech", "l_cac_insights", "l_criativos",
+      ["l_roque", "l_ferr_tech", "l_jur_tech", "l_cont_tech", "l_cac_review", "l_criativos",
        "l_backup", "l_infra", "l_ia", "l_apis"].indexOf(id) >= 0;
     BP_SERIE_VERTICAL[id] = tech ? "tech" : "com";
   });
@@ -4653,9 +4669,9 @@
   var BP_LANCAMENTOS = {
     l_till: 156, l_alex: 157, l_cl: 158, l_video: 159, l_roque: 160,
     l_ferr_com: 177, l_ferr_tech: 178, l_jur_com: 182, l_jur_tech: 183,
-    l_cont_com: 185, l_cont_tech: 186, l_estudio: 201, l_cac_insights: 203,
+    l_cont_com: 185, l_cont_tech: 186, l_estudio: 201, l_cac_review: 202,
     l_pr: 207, l_criativos: 214, l_brindes: 215, l_backup: 220, l_infra: 221,
-    l_ia: 223, l_comerciais: 227, l_apis: 134
+    l_ia: 223, l_comerciais: 227, l_apis: 139
   };
 
   /* Parametros escalares. Os marcados "online" nao existem na planilha:  */
@@ -5121,8 +5137,8 @@
       ["adv_share", "% QUORUM Share", "pct"] ] },
     { v: "tech", b: "Despesas lançadas mês a mês (Tech)", itens: [
       ["l_roque", "Roque Ribeiro", "rs"], ["l_ferr_tech", "Ferramentas Tech", "rs"], ["l_jur_tech", "Jurídico Tech", "rs"],
-      ["l_cont_tech", "Contabilidade Tech", "rs"], ["l_apis", "APIs de fonte de notícia e conteúdo", "rs"],
-      ["l_cac_insights", "Mídia | Aquisição QR Insights", "rs"], ["l_criativos", "Criativos Para Mídia", "rs"],
+      ["l_cont_tech", "Contabilidade Tech", "rs"], ["l_apis", "APIs de fonte de notícia e conteúdo (Review)", "rs"],
+      ["l_cac_review", "Mídia | Aquisição QR Review", "rs"], ["l_criativos", "Criativos Para Mídia", "rs"],
       ["l_backup", "Backup, réplica e ambiente de staging (Cloud)", "rs"],
       ["l_infra", "Infraestrutura, orquestração e observabilidade", "rs"],
       ["l_ia", "IA do pipeline (enriquecimentos, embeddings, etc)", "rs"] ] }
@@ -5330,7 +5346,7 @@
               return h("tr", { key: n, style: { background: e.bg, borderTop: "1px solid " + COR.lineSoft } },
                 h("td", { className: "py-1 pr-2", style: Object.assign({ paddingLeft: e.pad, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   position: "sticky", left: 0, zIndex: 1, background: e.bg === "transparent" ? COR.surface : e.bg }, st),
-                  title: l[1] + (l[2] ? " · " + l[2] : "") + " · linha " + n + " da planilha" },
+                  title: l[1] + (l[2] ? " · " + l[2] : "") + " · linha " + bpLinhaPlanilha(n) + " da planilha" },
                   l[2] && e.pad > 12 && !BP_DRIVERS[n] ? h("span", { style: { color: COR.faint, fontWeight: 400, marginRight: 6, fontSize: 10 } }, l[2]) : null,
                   l[1]),
                 colunas.map(function (c) {
