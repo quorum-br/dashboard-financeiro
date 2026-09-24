@@ -5576,6 +5576,7 @@
     else if (r <= 204) id = r + 2;
     else if (r === 205) id = 203;
     else if (r <= 208) id = null;
+    else if (r === 294 || r === 318) id = null;   /* espacadores: as linhas 292 e 316 do motor sao inseridas, nao gravadas por cima */
     else id = r - 2;
     return (id !== null && BP_LINHA[id]) ? id : null;
   }
@@ -5816,6 +5817,19 @@
     var RES = residuosAtivos();
     var ANCORA_RES = { 82: 82.5, 148: 148.5, 227: 227.5, 237: 237.5, 246: 246.5 };
     var MOLDE_RES = { 82.5: 81, 148.5: 146, 227.5: 227, 237.5: 236, 246.5: 248 };   /* linha de planilha que empresta o estilo */
+    /* Linhas que so existem no BP online e entram no fluxo de caixa do     */
+    /* Consolidado. A liquidacao do mutuo e mais uma conta do grupo 2.17     */
+    /* (Movimentacoes do Passivo - Saidas), com o estilo e o agrupamento das */
+    /* irmas, logo depois de "Cartao de Credito - Pagamento de Fatura". As   */
+    /* transferencias e nao classificados sao uma secao propria, como as     */
+    /* demais do fluxo, entre Investimentos e o Fluxo de Caixa Livre, com o  */
+    /* mesmo separador que a planilha usa entre secoes; so aparece quando o  */
+    /* realizado tem esse tipo de lancamento.                                */
+    var transfAtivo = (proj.cons[316] || []).some(function (v, i) { return tipos[i] === "R" && Math.abs(v || 0) >= 0.005; });
+    var INSERE_APOS_LINHA = {
+      293: [{ id: 292, molde: 293 }],
+      318: transfAtivo ? [{ id: 316, molde: 302, rotulo: "(+/-) Transferências entre Contas e Não Classificados" }, { id: null, molde: 318 }] : []
+    };
     function montarOrdem(maxLinha) {
       var specs = [], rowOf = {}, r = 0;
       var porNumero = {};
@@ -5825,6 +5839,11 @@
         var id = bpIdDaLinhaPlanilha(row.r);
         specs.push({ molde: row, id: id }); r++;
         if (id !== null) rowOf[id] = r;
+        (INSERE_APOS_LINHA[row.r] || []).forEach(function (ins) {
+          if (row.r > maxLinha) return;
+          specs.push({ molde: porNumero[ins.molde], id: ins.id, residuo: ins.id !== null, rotulo: ins.rotulo, extra: true }); r++;
+          if (ins.id !== null) rowOf[ins.id] = r;
+        });
         if (id !== null && ANCORA_RES[id] && RES[ANCORA_RES[id]]) {
           var rid = ANCORA_RES[id], base = porNumero[MOLDE_RES[rid]];
           specs.push({ molde: base, id: rid, residuo: true }); r++;
@@ -5973,7 +5992,7 @@
           if (n === 272) { cel.push(col === 5 ? bpCelTxt(ref, s, linha.r) : bpCelVazia(ref, s)); continue; }
           if (col === 2) { cel.push(bpCelTxt(ref, s, linha.c || "")); continue; }
           if (col === 3) { cel.push(bpCelTxt(ref, s, spec.residuo ? "" : (txt || ""))); continue; }
-          if (col === 5) { cel.push(bpCelTxt(ref, s, linha.r)); continue; }
+          if (col === 5) { cel.push(bpCelTxt(ref, s, spec.rotulo || linha.r)); continue; }
           if (col === 47) { cel.push(bpCelTxt(ref, s, spec.residuo ? "" : (txt || ""))); continue; }
           if (col >= 6 && col <= 41) {
             var i = col - 6, f, cache = valorMotor(vk, n, i);
