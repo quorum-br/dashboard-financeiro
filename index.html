@@ -96,12 +96,12 @@
   var SECAO_POR_CODIGO_GRUPO = {
     "1.01": "receita",   "1.02": "receita",   "1.03": "receita",
     "1.04": "receita",   "1.05": "receita",   "1.06": "receita",
-    "1.07": "receita",
+    "1.07": "receita",   "1.12": "receita",   "1.13": "receita",
     "1.08": "finRec",
     "1.09": "outrasRec", "1.10": "outrasRec",
     "2.01": "custo",     "2.02": "custo",     "2.03": "custo",
     "2.04": "custo",     "2.05": "custo",     "2.06": "custo",
-    "2.07": "custo",
+    "2.07": "custo",     "2.21": "custo",     "2.22": "custo",
     "2.08": "despesas",  "2.09": "despesas",  "2.10": "despesas",
     "2.11": "despesas",  "2.12": "despesas",
     "2.13": "finDesp",
@@ -4182,1419 +4182,1165 @@
                   )
             )
           )
-        : h(PainelBP, { posicao: posicao })
+        : h(PainelBP, { linhas: linhas })
     );
   }
 
   /* ------------------------------------------------------------------ */
-  /* 11-A. PREMISSAS DO BUSINESS PLAN                                     */
-  /* Espelha 1:1 a planilha QUORUM_Premissas_BP_novo_v01 (aba Premissas). */
-  /* "sugestao" e o valor de partida: onde o Till respondeu na planilha,   */
-  /* essa resposta ainda nao foi incorporada aqui, entao o texto e sempre  */
-  /* a sugestao original de Alex. "a definir" marca o que esta em aberto.  */
-  /* Isto e so o catalogo de perguntas e defaults: o motor de projecao     */
-  /* (Fase 3) ainda nao le nada daqui.                                     */
+  /* 11-A. BUSINESS PLAN: ESTRUTURA ESPELHADA DA PLANILHA                */
+  /* O BP online replica a BP_QUORUM_Oficial linha a linha: mesmas       */
+  /* linhas, mesmos rotulos, mesmos codigos Omie, mesmo numero de linha  */
+  /* da planilha (campo n), para que qualquer valor possa ser conferido  */
+  /* celula a celula contra ela. Tres visoes, como na planilha:          */
+  /* Comunidade e Tech calculadas cada uma por si (inclusive o imposto,  */
+  /* com RBT12 proprio), e Consolidado sempre como soma das duas, nunca  */
+  /* com calculo proprio -- e isso que impede o Consolidado de divergir  */
+  /* da soma das verticais, erro que a planilha ja teve.                 */
+  /*                                                                     */
+  /* Meses fechados usam o realizado da Omie, os mesmos lancamentos e a  */
+  /* mesma regra de data (competencia) da tela Financeiro, separados por */
+  /* centro de custo: QR Advisory, QR Insights e QR Review sao Tech, o   */
+  /* resto e Comunidade. Do mes corrente em diante, projecao.            */
   /* ------------------------------------------------------------------ */
 
-  /* Serie mensal explicita: {mes: valor}. Usada onde a planilha lanca dado */
-  /* real mes a mes (nao uma regra parametrica). Le o valor exato do mes;   */
-  /* se o mes pedido nao tem entrada, usa o ultimo mes conhecido anterior a */
-  /* ele (carrega o ultimo valor real pra frente), nunca inventa tendencia. */
-  /* Documentado como aproximacao onde apontado no comentario de quem usa.  */
-  function serieDe(item, mes) {
-    if (!item || !item.serieMensal) return 0;
-    var chaves = Object.keys(item.serieMensal).map(Number).filter(function (k) { return k <= mes; });
-    if (!chaves.length) return 0;
-    var maior = Math.max.apply(null, chaves);
-    return item.serieMensal[maior];
-  }
-
-  var PREMISSAS_DEFAULT = [
-    { numero: 1, bloco: "Horizonte e Estrutura", pergunta: "Qual o horizonte da projeção, em meses, a partir de set/26?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "meses", tipo: "numero", valor: 36 }],
-    observacao: "A planilha oficial projeta 57 meses a partir de set/26; Alex decidiu manter 36 no motor online." },
-    { numero: 2, bloco: "Horizonte e Estrutura", pergunta: "A projeção parte do realizado como mês zero? De onde vem o caixa, a fatura de cartão e a caução desse mês zero?",
-      tipo: "fonte", origem: "confirmado",
-    origemDados: "financeiro.posicao", campos: ["corrente", "cartao", "garantia"] },
-    { numero: 3, bloco: "Horizonte e Estrutura", pergunta: "Qual redutor aplicar no cenário conservador sobre a receita do cenário base?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "percentual", tipo: "percentual", valor: 60.00 }] },
-    { numero: 4, bloco: "Horizonte e Estrutura", pergunta: "O mútuo conversível de 60.000 entra como entrada de caixa? Em que mês?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 0, campos: { valor: 60000 } }] },
-    { numero: 5, bloco: "Horizonte e Estrutura", pergunta: "Os juros do mútuo entram como despesa financeira desde o desembolso ou só após a carência de 6 meses?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [
-      { nome: "carencia_meses", tipo: "numero", valor: 6 },
-      { nome: "cdi_proxy_anual_percentual", tipo: "percentual", valor: 10.50 },
-      { nome: "mes_exigibilidade", tipo: "numero", valor: 36 }
-    ],
-    observacao: "Conforme Contrato de Mutuo Conversivel v07, Clausula 4a: carencia de 6 meses sem remuneracao; a partir dai, 100% da variacao do CDI, capitalizacao anual (art. 591 CC), exigivel em parcela unica no mes 36, extinta se convertido. Alex decidiu projetar como se NAO fosse convertido, para ver a parcela no mes correto. CDI de 10,50% a.a. e proxy de mercado, nao esta no contrato -- e estimativa, nao dado contratual." },
-
-    { numero: 12, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal da Cota Master 1 e em que mês ela entra?",
-      tipo: "curva", origem: "confirmado",
-    valorBase: 40000, mesInicio: 1, reajuste: null },
-    { numero: 13, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o preço mensal das Cotas Master 2 e 3 e o mês de entrada de cada uma?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 4, campos: { valor: 50000, cota: "2" } }, { mes: 6, campos: { valor: 50000, cota: "3" } }] },
-    { numero: 14, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual o prazo do contrato de cota?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "prazo_meses", tipo: "numero", valor: 12 }, { nome: "renovacao_automatica", tipo: "booleano", valor: true }] },
-    { numero: 15, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Qual a probabilidade de renovação a usar no cenário base?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "percentual", tipo: "percentual", valor: 80.00 }] },
-    { numero: 16, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Quantos patrocínios spot de happy hour por ano e qual o ticket médio?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [
-      { mes: 1, campos: { valor: 25000 } }, { mes: 4, campos: { valor: 25000 } },
-      { mes: 7, campos: { valor: 25000 } }, { mes: 10, campos: { valor: 25000 } },
-      { mes: 13, campos: { valor: 25000 } }, { mes: 16, campos: { valor: 25000 } },
-      { mes: 19, campos: { valor: 25000 } }, { mes: 22, campos: { valor: 25000 } },
-      { mes: 25, campos: { valor: 25000 } }, { mes: 28, campos: { valor: 25000 } },
-      { mes: 31, campos: { valor: 25000 } }, { mes: 34, campos: { valor: 25000 } }
-    ],
-    templateCampos: [{ nome: "valor", tipo: "numero", padrao: 25000 }] },
-    { numero: 17, bloco: "Patrocínio Recorrente - Cotas Master", pergunta: "Há comissão de sócios advisors sobre patrocínio originado? A que percentual?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "percentual", tipo: "percentual", valor: 15.00 }] },
-
-    { numero: 18, bloco: "QR Insights - Assinatura", pergunta: "Em que mês a assinatura paga é lançada?",
-      tipo: "referencia", origem: "confirmado", ref: 20, campo: "mesInicio" },
-    { numero: 19, bloco: "QR Insights - Assinatura", pergunta: "Qual o preço mensal por assinante?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "preco", tipo: "numero", valor: 79.00 }] },
-    { numero: 20, bloco: "QR Insights - Assinatura", pergunta: "Quantos assinantes novos por mês, e a que taxa de crescimento?",
-      tipo: "curva", origem: "confirmado", mesInicio: 4,
-    serieMensal: {
-      4: 100, 5: 150, 6: 121, 7: 137, 8: 136, 9: 139, 10: 165, 11: 196, 12: 233,
-      13: 222, 14: 255, 15: 219, 16: 241, 17: 265, 18: 292, 19: 321, 20: 353,
-      21: 259, 22: 272, 23: 285, 24: 300, 25: 315, 26: 330, 27: 347, 28: 364,
-      29: 383, 30: 402, 31: 422, 32: 443
-    },
-    observacao: "Volume absoluto de novos assinantes mes a mes, direto da Premissas New (nao e mais curva percentual). Meses 33 a 35 carregam o ultimo valor conhecido (443), aproximacao pela ausencia de dado alem do mes 32 na planilha." },
-    { numero: 21, bloco: "QR Insights - Assinatura", pergunta: "Qual o churn mensal esperado?",
-      tipo: "escalar", origem: "confirmado",
-    serieMensal: {
-      4: 9, 5: 9, 6: 8, 7: 8, 8: 7, 9: 7, 10: 6, 11: 6, 12: 6, 13: 5, 14: 5, 15: 5
-    },
-    observacao: "Churn combinado (plano mensal + plano anual, ponderado pelo mix) direto da Premissas New, caindo de 9% a 5% e estabilizando. A partir do mes 15 fica constante em 5%." },
-    { numero: 22, bloco: "QR Insights - Assinatura", pergunta: "Qual o CAC por assinante?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "cac", tipo: "numero", valor: 20.00 }] },
-    { numero: 23, bloco: "QR Insights - Assinatura", pergunta: "Qual o custo mensal de plataforma e IA para servir a base? Fixo ou por assinante?",
-      tipo: "escalar", origem: "proposta",
-    campos: [{ nome: "fixo_mensal", tipo: "numero", valor: 300 }, { nome: "take_rate_hotmart_percentual", tipo: "percentual", valor: 9.90 }] },
-
-    { numero: 24, bloco: "QR Review", pergunta: "Em que mês o QR Review é lançado?",
-      tipo: "referencia", origem: "proposta", ref: 26, campo: "mesInicio" },
-    { numero: 25, bloco: "QR Review", pergunta: "Qual o modelo de cobrança: assinatura de vendor, licença por comprador ou relatório avulso?",
-      tipo: "escalar", origem: "proposta",
-    campos: [{ nome: "modelo", tipo: "texto", valor: "Assinatura por comprador (buyer)" }] },
-    { numero: 26, bloco: "QR Review", pergunta: "Qual o preço por unidade do driver escolhido e o volume esperado nos primeiros 12 meses?",
-      tipo: "curva", origem: "proposta",
-    valorBase: 100, mesInicio: 4,
-    reajuste: { tipo: "percentual", valor: 10.00, frequenciaMeses: 1 },
-    precoUnitario: 49.70 },
-    { numero: 27, bloco: "QR Review", pergunta: "O custo de construção da plataforma é investimento pontual ou custo mensal de desenvolvimento? Qual valor?",
-      tipo: "evento", origem: "proposta",
-    eventos: [{ mes: 1, campos: { valor: 1500 } }, { mes: 2, campos: { valor: 1500 } }, { mes: 3, campos: { valor: 1500 } }] },
-
-    { numero: 28, bloco: "QR Advisory", pergunta: "Em que mês o Advisory começa?",
-      tipo: "referencia", origem: "confirmado", ref: 29, campo: "mesInicio" },
-    { numero: 29, bloco: "QR Advisory", pergunta: "Qual o Full Revenue mensal do Advisory (advisors × horas × % horas vendidas × preço/hora)?",
-      tipo: "curva", origem: "confirmado", mesInicio: 4,
-    serieMensal: {
-      4: 24000, 5: 24000, 6: 45000, 7: 45000, 8: 54000, 9: 72000, 10: 84000,
-      11: 84000, 12: 96000, 13: 96000, 14: 135000, 15: 135000
-    },
-    observacao: "Full Revenue direto da Premissas New (advisors de 20 a 45, horas vendidas de 10% a 25%, R$1.500/hora fixo). Alex preencheu a planilha alem de dez/27 (mes 15) mantendo os mesmos parametros constantes (45 advisors, 25% horas vendidas) -- o motor carrega esse ultimo valor (R$135.000) pra frente, meses 16 em diante." },
-    { numero: 30, bloco: "QR Advisory", pergunta: "Quanto do Full Revenue fica com o advisor que executa, e quanto é reconhecido como receita QUORUM?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "percentual_advisor", tipo: "percentual", valor: 70.00 }],
-    observacao: "70% do Full Revenue vai para o advisor (custo); os 30% restantes (100% - percentual_advisor) sao a receita QUORUM (QUORUM Share)." },
-
-    { numero: 31, bloco: "Quorum Day", pergunta: "O Quorum Day entra no horizonte? Em que meses?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 9, campos: {} }, { mes: 21, campos: {} }, { mes: 33, campos: {} }],
-    observacao: "Edicoes anuais recorrentes em junho: jun/27 (mes 9), jun/28 (mes 21), jun/29 (mes 33), conforme planilha." },
-    { numero: 32, bloco: "Quorum Day", pergunta: "Qual a receita de cotas, a de ingressos e o custo direto por edição?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [
-      { nome: "receita_cotas", tipo: "numero", valor: 800000 },
-      { nome: "receita_ingressos", tipo: "numero", valor: 141000 },
-      { nome: "percentual_liquido_custo", tipo: "percentual", valor: 70.00 }
-    ],
-    observacao: "Cotas e ingressos batem com a planilha. Custo direto deixou de ser valor fixo (R$373.000 do BP antigo, nunca recalibrado): agora e um percentual liquido sobre a receita do evento, ja descontados os impostos proporcionais, travado por Alex em 70%." },
-
-    { numero: 33, bloco: "Quorum House", pergunta: "A Quorum House entra no horizonte? A partir de que mês?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 7, campos: {} }] },
-    { numero: 34, bloco: "Quorum House", pergunta: "Qual o aluguel mais infraestrutura por mês?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor", tipo: "numero", valor: 60000 }] },
-    { numero: 35, bloco: "Quorum House", pergunta: "Qual o investimento inicial de reforma e montagem, e em que mês?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 8, campos: { valor: 150000 } }, { mes: 9, campos: { valor: 150000 } }],
-    observacao: "R$150.000 lancados em mai/27 (mes 8) E em jun/27 (mes 9), R$300.000 no total -- confirmado por Alex, nao e artefato de exibicao da planilha." },
-    { numero: 36, bloco: "Quorum House", pergunta: "Ela gera receita própria de locação, e como é calculada?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [
-      { nome: "gera_receita_propria", tipo: "booleano", valor: true },
-      { nome: "mes_inicio", tipo: "numero", valor: 10 },
-      { nome: "tier1_valor", tipo: "numero", valor: 10000 }, { nome: "tier1_eventos_mes", tipo: "numero", valor: 1 },
-      { nome: "tier2_valor", tipo: "numero", valor: 5000 }, { nome: "tier2_eventos_mes", tipo: "numero", valor: 0 },
-      { nome: "tier3_valor", tipo: "numero", valor: 3000 }, { nome: "tier3_eventos_mes", tipo: "numero", valor: 0 }
-    ],
-    observacao: "Nao e mais aluguel mensal fixo: a planilha modela por tier de evento fechado (Tier 1 R$10.000, Tier 2 R$5.000 = 50% do Tier 1, Tier 3 R$3.000 = 30% do Tier 1). Hoje so o Tier 1 tem ocupacao lancada, 1 evento/mes a partir de jul/27 (mes 10); Tier 2 e 3 zerados. Risco juridico ja sinalizado pelo Atila (art. 17, XV LC 123), em discussao aberta com Agilize e Pepa -- fica ligado por decisao de Alex." },
-
-    { numero: 37, bloco: "Pessoas", pergunta: "O pró-labore sai de zero? Se sim, qual valor por sócio e a partir de que mês?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [
-      { nome: "valor", tipo: "numero", valor: 20000 },
-      { nome: "mes_inicio", tipo: "numero", valor: 4 },
-      { nome: "num_socios", tipo: "numero", valor: 2 }
-    ],
-    observacao: "A planilha lanca valor fixo por socio (Till e Alex, R$20.000 cada, desde jan/27), nao a regra condicional (50% do EBITDA antes do proprio pro-labore, teto R$40.000/socio) que o motor usava antes. Alex decidiu trocar pro mecanismo da planilha." },
-    { numero: 38, bloco: "Pessoas", pergunta: "Que contratações estão previstas nos 36 meses? Cargo, salário e mês de entrada.",
-      tipo: "evento", origem: "confirmado",
-    eventos: [
-      { mes: 6, campos: { cargo: "Community Leader", salario: 20000, regime: "CLT" } },
-      { mes: 9, campos: { cargo: "Roque Ribeiro", salario: 40000, regime: "CLT" } },
-      { mes: 10, campos: { cargo: "Videomaker", salario: 10000, regime: "CLT" } }
-    ],
-    templateCampos: [{ nome: "cargo", tipo: "texto", padrao: "" }, { nome: "salario", tipo: "numero", padrao: 0 }, { nome: "regime", tipo: "texto", padrao: "PJ" }],
-    observacao: "A resposta anterior (\"nenhuma contratacao prevista\") estava desatualizada: a planilha tem essas tres contratacoes reais lancadas, confirmadas por Alex." },
-    { numero: 39, bloco: "Pessoas", pergunta: "Qual o regime de cada contratação: CLT, PJ ou freela por projeto?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "regime_padrao", tipo: "texto", valor: "PJ" }],
-    observacao: "Guardado como padrao pra quando a premissa 38 ganhar a primeira contratacao real." },
-
-    { numero: 40, bloco: "Despesas Fixas", pergunta: "Uso o realizado de agosto como base de partida das despesas fixas, cerca de 4.130/mês?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor_base", tipo: "numero", valor: 4130 }] },
-    { numero: 41, bloco: "Despesas Fixas", pergunta: "Ferramentas e software mantêm o patamar atual de cerca de 1.940/mês? Há ferramenta nova prevista?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor", tipo: "numero", valor: 1940 }] },
-    { numero: 42, bloco: "Despesas Fixas", pergunta: "Qual o valor mensal de mídia e impulsionamento, e a partir de quando?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "percentual_receita_bruta", tipo: "percentual", valor: 0.77 }],
-    observacao: "Deixou de ser valor fixo (a planilha lanca R$2.000/mes constante, sem premissa por tras). Alex pediu pra calcular com base num driver: 0,77% e o resultado de (R$2.000 x 12) dividido pela receita bruta projetada dos primeiros 12 meses do horizonte online (R$3.136.928, mes 0 a mes 11). Daqui em diante, mídia escala com a receita do mes, nao fica fixo." },
-    { numero: 43, bloco: "Despesas Fixas", pergunta: "Além dos 450/mês da Agilize, há honorário avulso previsto?",
-      tipo: "evento", origem: "confirmado", eventos: [],
-    templateCampos: [{ nome: "valor", tipo: "numero", padrao: 0 }],
-    observacao: "Alex travou a contabilidade em R$450/mes fixo (sem o avulso de R$980-1200 que estava proposto). Fica com a lista de eventos vazia, e a opcao de \"+ adicionar evento\" continua disponivel pra lancar qualquer valor extra pontual quando necessario." },
-    { numero: 44, bloco: "Despesas Fixas", pergunta: "O jurídico é retainer mensal com o Pepa ou por demanda? Qual valor?",
-      tipo: "escalar", origem: "achado",
-    campos: [{ nome: "valor_mensal", tipo: "numero", valor: 500 }, { nome: "mes_inicio", tipo: "numero", valor: 6 }],
-    observacao: "Achado na aba Quorum Novo (linha Advogados). Nao confirmado se e o Pepa ou outra despesa juridica." },
-
-    { numero: 45, bloco: "Tributário", pergunta: "Confirma Anexo V como padrão, com faixa progressiva do Simples sobre a receita bruta dos últimos 12 meses?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "anexo_padrao", tipo: "texto", valor: "V" }] },
-    { numero: 46, bloco: "Tributário", pergunta: "Se o Anexo III for confirmado pela Agilize, a partir de que mês aplico no cenário alternativo?",
-      tipo: "evento", origem: "vazio", eventos: [],
-    templateCampos: [],
-    observacao: "Fica vazio ate a Agilize responder com base legal citada (item CONTESTADO)." },
-    { numero: 47, bloco: "Tributário", pergunta: "Algum contrato prevê retenção de ISS na fonte pelo cliente?",
-      tipo: "escalar", origem: "proposta",
-    campos: [{ nome: "ha_retencao", tipo: "booleano", valor: false }],
-    observacao: "Regra ja levantada com o Vigo (IN RFB 1.234/2012, art. 21 par. 4 LC 123). Falta confirmar se algum contrato sob o 02496 cai na obrigacao de ISS." },
-    { numero: 48, bloco: "Tributário", pergunta: "Entro com a CBS a partir de jan/27 como linha explícita, mais linha informativa do gap de crédito do cliente?",
-      tipo: "evento", origem: "confirmado",
-    eventos: [{ mes: 4, campos: {} }] },
-    { numero: 49, bloco: "Tributário", pergunta: "A distribuição de lucros entra na projeção? A partir de que resultado acumulado e em que percentual?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "percentual", tipo: "percentual", valor: 25.00 }, { nome: "periodicidade_meses", tipo: "numero", valor: 6 }] },
-
-    { numero: 50, bloco: "Caixa e Política", pergunta: "Qual o caixa mínimo que a projeção deve sinalizar como alerta?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "valor", tipo: "numero", valor: 30000 }] },
-    { numero: 51, bloco: "Caixa e Política", pergunta: "Mantenho a mecânica de recebimento por linha (50/50 nos Encontros, dia 10 na WebPeak) ou uso um PMR único?",
-      tipo: "escalar", origem: "confirmado",
-    campos: [{ nome: "politica", tipo: "texto", valor: "PMR unico" }] },
-  ];
-
-  /* Agrupa mantendo a ordem de primeira aparicao no array acima. */
-  /* Camada de vertical sobre os blocos. Os blocos continuam existindo    */
-  /* porque e neles que a granularidade de revisao mora; a vertical e o   */
-  /* nivel de cima, que agrupa o que compartilha a mesma logica de        */
-  /* negocio. Comunidade junta tudo que monetiza a comunidade curada:     */
-  /* Cotas, o Quorum Day e a House. Encontros Exclusivos foi aposentada:   */
-  /* nao existe correspondencia na planilha oficial, e o mecanismo mais    */
-  /* proximo (evento com contraparte pagando por fora) ja esta coberto     */
-  /* pelo Patrocinio Spot (premissa 16). Decisao de Alex.                  */
-  var VERTICAIS = [
-    { id: "comunidade", rotulo: "Comunidade",
-      blocos: ["Patrocínio Recorrente - Cotas Master", "Quorum Day", "Quorum House"] },
-    { id: "insights", rotulo: "QR Insights",
-      blocos: ["QR Insights - Assinatura"] },
-    { id: "review", rotulo: "QR Review",
-      blocos: ["QR Review"] },
-    { id: "advisory", rotulo: "QR Advisory",
-      blocos: ["QR Advisory"] },
-    { id: "transversal", rotulo: "Transversal",
-      blocos: ["Horizonte e Estrutura", "Pessoas", "Despesas Fixas", "Tributário", "Caixa e Política"] }
-  ];
-
-  /* Bloco -> vertical, montado uma vez a partir do mapa acima. */
-  var VERTICAL_DO_BLOCO = (function () {
-    var mapa = {};
-    VERTICAIS.forEach(function (v) {
-      v.blocos.forEach(function (b) { mapa[b] = v.id; });
-    });
-    return mapa;
+  var BP_INICIO = { ano: 2026, mes: 6 };   /* jun/26 = mes 1 da planilha */
+  var BP_N = 36;
+  var BP_MESES = (function () {
+    var r = [];
+    for (var i = 0; i < BP_N; i++) {
+      var t = (BP_INICIO.mes - 1) + i;
+      r.push((BP_INICIO.ano + Math.floor(t / 12)) + "-" + String((t % 12) + 1).padStart(2, "0"));
+    }
+    return r;
   })();
 
-  function verticalDaPremissa(item) {
-    return VERTICAL_DO_BLOCO[item.bloco] || "transversal";
-  }
+  /* Esqueleto de linhas, gerado a partir da aba Consolidado:             */
+  /* [numero da linha na planilha, rotulo, codigo Omie, nivel]. As linhas */
+  /* com numero fracionado (82.5 etc.) nao existem na planilha: so        */
+  /* aparecem em mes realizado, quando a Omie tem lancamento numa         */
+  /* categoria que o BP nao abre em linha propria, para que o total do    */
+  /* BP nunca se afaste do total da tela Financeiro.                      */
+  var BP_LINHAS = [
+    [7, "Receita Bruta", "", 0],
+    [8, "Receita Membership", "1.12", 1],
+    [9, "Membership | Assinatura", "1.12.99", 2],
+    [10, "# CTOs / CIOs", "", 3],
+    [11, "# CISOs", "", 3],
+    [12, "# CDOs / CAIOs", "", 3],
+    [13, "% Conversão (Quorum House)", "", 3],
+    [14, "# Paying Members", "", 3],
+    [15, "R$ Membership", "", 3],
+    [17, "Receita Patrocínio Recorrente", "", 1],
+    [18, "Patrocínio | Cota Master / Recorrente", "1.01.99", 2],
+    [19, "R$ Total Webpeak / Zoho CRM", "", 3],
+    [20, "R$ Total Cota Master 1", "", 3],
+    [21, "R$ Total Cota Master 2", "", 3],
+    [22, "R$ Total Cota Master 3", "", 3],
+    [24, "Receita Patrocínio Spot", "", 1],
+    [25, "Patrocínio | Evento Spot", "1.01.98", 2],
+    [26, "# Eventos Spot Receita (C.CLI)", "", 3],
+    [27, "R$ Evento Spot Receita (C.CLI)", "", 3],
+    [29, "Receita Quorum House", "1.04", 1],
+    [30, "Quorum House | Evento Fechado", "1.04.98", 2],
+    [31, "# Eventos Tier 1", "", 3],
+    [32, "# Eventos Tier 2", "", 3],
+    [33, "# Eventos Tier 3", "", 3],
+    [34, "R$ Eventos Tier 1", "", 3],
+    [35, "R$ Eventos Tier 2", "", 3],
+    [36, "R$ Eventos Tier 3", "", 3],
+    [37, "Quorum House | Eventos Abertos", "1.04.99", 2],
+    [39, "Receita Pesquisas", "1.13", 1],
+    [40, "Pesquisas | Surveys", "1.13.99", 2],
+    [41, "# Surveys", "", 3],
+    [42, "R$ Surveys", "", 3],
+    [44, "Receita Eventos Abertos", "1.02", 1],
+    [45, "Eventos Abertos | Venda de Ingressos", "1.02.98", 2],
+    [46, "# Participantes", "", 3],
+    [47, "R$ Ingresso", "", 3],
+    [48, "Eventos Abertos | Sponsorships", "1.02.99", 2],
+    [49, "# Cotas de Patrocínio", "", 3],
+    [50, "R$ Cota de Patrocínio", "", 3],
+    [52, "Receita de Insights", "1.03", 1],
+    [53, "Insights | Subscription", "1.03.99", 2],
+    [54, "# QUORUM Insights (Total Subscribers - Result)", "", 3],
+    [55, "# Subscribers (Início do mês)", "", 3],
+    [56, "# New Subscribers (Acquisition)", "", 3],
+    [57, "% Growth", "", 3],
+    [58, "R$ Pricing Subscription", "", 3],
+    [59, "Insights | Churn", "", 1],
+    [60, "% Mix de plano anual (% da base)", "", 3],
+    [61, "% Churn do plano mensal (%/mês)", "", 3],
+    [62, "% Churn do plano anual, na janela (%/mês)", "", 3],
+    [63, "% Churn Combinado (%/mês)", "", 3],
+    [65, "Receita de Review", "1.05", 1],
+    [66, "Receita Buyer", "", 1],
+    [67, "Review | Subscription Buyer", "1.05.98", 2],
+    [68, "Receita Vendor", "", 1],
+    [69, "Review | Subscription Vendor", "1.05.99", 2],
+    [71, "Receita QR Advisory", "1.06", 1],
+    [72, "Advisory | QUORUM Revenue Share", "1.06.99", 2],
+    [73, "# Advisors", "", 3],
+    [74, "# Horas de Advisory Disponibilizadas", "", 3],
+    [75, "% de Horas Vendidas", "", 3],
+    [76, "# de Horas Vendidas", "", 3],
+    [77, "R$ Average Pricing (Valor/Hora)", "", 3],
+    [78, "R$ Full Revenue", "", 3],
+    [79, "% QUORUM Share", "", 3],
+    [81, "Receita Comissões", "1.07", 1],
+    [82, "Comissão sobre Negócios Originados", "1.07.99", 2],
+    [82.5, "Demais receitas (realizado: categorias sem linha própria no BP)", "", 1],
+    [85, "(-) Impostos e Deduções", "", 0],
+    [86, "Impostos e Taxas", "2.14", 1],
+    [87, "Simples Nacional (DAS)", "2.14.99", 2],
+    [88, "ISS (reserva - regime futuro) [inativa]", "2.14.96", 2],
+    [89, "PIS (reserva - regime futuro) [inativa]", "2.14.98", 2],
+    [90, "COFINS (reserva - regime futuro) [inativa]", "2.14.97", 2],
+    [91, "CSLL (reserva - regime futuro) [inativa]", "2.14.94", 2],
+    [92, "IRPJ (reserva - regime futuro) [inativa]", "2.14.95", 2],
+    [94, "(=) Receita Líquida", "", 0],
+    [95, "% Receita Líquida", "", 3],
+    [97, "(-) Custo dos Serviços Prestados", "", 0],
+    [98, "Custo Membership", "2.21", 1],
+    [99, "Membership | Curadoria e Onboarding", "2.21.99", 2],
+    [103, "Custo Patrocínio Recorrente", "2.01.98", 2],
+    [104, "R$ Alimentos e Bebidas Total (C.QUO)", "", 3],
+    [105, "R$ Produção de Vídeos e Fotos / Evento (C.QUO)", "", 3],
+    [106, "R$ Locação de Equipamentos / Evento (C.QUO)", "", 3],
+    [107, "# Eventos Spot Custos QUORUM", "", 3],
+    [109, "Custo Patrocínio Spot", "2.01.99", 2],
+    [110, "R$ Alimentos e Bebidas Total (C.CLI)", "", 3],
+    [111, "R$ Produção de Vídeos e Fotos / Evento (C.CLI)", "", 3],
+    [112, "R$ Locação de Equipamentos / Evento (C.CLI)", "", 3],
+    [113, "# Eventos Spot Custos CLIENTE", "", 3],
+    [115, "Custo Quorum House", "2.04", 1],
+    [116, "Aluguel e Infraestrutura Quorum House", "2.04.98", 2],
+    [117, "# Aluguel QUORUM House", "", 3],
+    [118, "Reforma Quorum House", "2.04.99", 2],
+    [119, "# Reforma QUORUM House", "", 3],
+    [120, "Outros Custos de Quorum House", "2.04.97", 2],
+    [122, "Custo Pesquisas", "2.22", 1],
+    [123, "Pesquisas | Coleta e Incentivos", "2.22.99", 2],
+    [127, "Custo Eventos Abertos", "2.02", 1],
+    [128, "R$ Custo Bruto Eventos Abertos", "2.02.98", 2],
+    [129, "% Custo Bruto Eventos Abertos", "2.02.97", 2],
+    [131, "Custo Insights", "2.03", 1],
+    [132, "Desenvolvimento Plataforma (Insights)", "2.03.99", 2],
+    [133, "Manutenção Plataforma (Insights)", "2.03.98", 2],
+    [134, "APIs de fonte de notícia e conteúdo", "", 1],
+    [136, "Custo de Review", "2.05", 1],
+    [137, "Desenvolvimento Plataforma (Review)", "2.05.97", 2],
+    [138, "Manutenção Plataforma (Review)", "2.05.98", 2],
+    [142, "Custo Advisory", "2.06", 1],
+    [143, "Pagamento a Advisors (Prestação de Serviço)", "2.06.99", 2],
+    [144, "Outros Custos de Advisory", "2.06.98", 2],
+    [147, "Outros Custos Não Listados", "2.07", 1],
+    [148, "Outros Custos 1", "2.07.98", 2],
+    [148.5, "Demais custos (realizado: categorias sem linha própria no BP)", "", 1],
+    [150, "(=) Lucro Bruto", "", 0],
+    [151, "% Lucro Bruto", "", 3],
+    [153, "(-) Despesas Fixas", "", 0],
+    [154, "Despesas com Pessoal", "2.08", 1],
+    [155, "Salários e Pró-labore", "2.08.99", 2],
+    [156, "Till", "", 1],
+    [157, "Alex", "", 1],
+    [158, "Community Leader", "", 1],
+    [159, "Videomaker", "", 1],
+    [160, "Roque Ribeiro", "", 1],
+    [161, "Outros Benefícios", "2.08.86", 2],
+    [162, "Seguro de Vida", "2.08.87", 2],
+    [163, "Vale Refeição", "2.08.88", 2],
+    [164, "Vale Transporte", "2.08.89", 2],
+    [165, "Assistência Médica", "2.08.90", 2],
+    [166, "Pensão Alimentícia", "2.08.91", 2],
+    [167, "IRRF sobre Folha", "2.08.92", 2],
+    [168, "FGTS", "2.08.93", 2],
+    [169, "INSS sobre Folha", "2.08.94", 2],
+    [170, "13º Salário", "2.08.95", 2],
+    [171, "Rescisões", "2.08.96", 2],
+    [172, "Férias", "2.08.97", 2],
+    [173, "Adiantamento de Salário", "2.08.98", 2],
+    [175, "Despesas Administrativas", "2.09", 1],
+    [176, "Ferramentas e Software", "2.09.86", 2],
+    [177, "Ferramentas Comunidade", "", 1],
+    [178, "Ferramentas Tech", "", 1],
+    [179, "Limpeza", "2.09.87", 2],
+    [180, "Segurança", "2.09.88", 2],
+    [181, "Advogados", "2.09.89", 2],
+    [182, "Jurídico Comunidade", "", 1],
+    [183, "Jurídico Tech", "", 1],
+    [184, "Contabilidade", "2.09.90", 2],
+    [185, "Contabilidade Comunidade", "", 1],
+    [186, "Contabilidade Tech", "", 1],
+    [187, "IPTU", "2.09.91", 2],
+    [188, "Seguros", "2.09.92", 2],
+    [189, "Manutenção de Imobilizado", "2.09.93", 2],
+    [190, "Material de Escritório", "2.09.94", 2],
+    [191, "Telefonia e Internet", "2.09.95", 2],
+    [192, "Energia Elétrica", "2.09.96", 2],
+    [193, "Água e Esgoto", "2.09.97", 2],
+    [194, "Condomínio", "2.09.98", 2],
+    [195, "Aluguel (Escritório)", "2.09.99", 2],
+    [196, "Seguro Homem-Chave", "2.09.85", 2],
+    [197, "Taxas (TFE e outras municipais)", "2.14.93", 2],
+    [199, "Despesas de Vendas e Marketing", "2.10", 1],
+    [200, "Produção de Conteúdo | Freela Edição e Gravação", "2.10.92", 2],
+    [201, "Produção de Conteúdo | Aluguel de Estúdio", "2.10.93", 2],
+    [202, "Mídia | Aquisição QR Review", "2.10.94", 2],
+    [203, "Mídia | Aquisição QR Insights", "2.10.95", 2],
+    [204, "Mix % de New Subscribers (Mídia Paga)", "", 1],
+    [205, "Mix # de New Subscribers (Mídia Paga)", "", 1],
+    [206, "Custo de Aquisição (CAC) / Subscriber", "", 1],
+    [207, "Mídia | PR Agency", "2.10.96", 2],
+    [208, "Mídia | Impulsionamento", "2.10.97", 2],
+    [209, "Despesas de Viagens", "2.10.98", 2],
+    [210, "Marketing (Geral)", "2.10.99", 2],
+    [211, "IA — última milha (personalização)", "", 1],
+    [212, "Mensageria (envios de e-mails / whatsapps)", "", 1],
+    [213, "Parceiro de Mídia Paga", "", 1],
+    [214, "Criativos Para Mídia", "", 1],
+    [215, "Brindes e Materiais Promocionais", "2.10.91", 2],
+    [217, "Despesas com Tecnologia", "2.11", 1],
+    [218, "Take Rate LMS - Hotmart (Despesa de Tecnologia)", "2.11.97", 2],
+    [219, "Plataforma LMS (Despesa de Tecnologia)", "2.11.98", 2],
+    [220, "Backup, réplica e ambiente de staging (Cloud)", "", 1],
+    [221, "Infraestrutura, orquestração e observabilidade", "", 1],
+    [222, "Agentes IA (Despesa de Tecnologia)", "2.11.99", 2],
+    [223, "IA do pipeline (enriquecimentos, embeddings, etc)", "", 1],
+    [225, "Despesas Comerciais e de Representação", "2.12", 1],
+    [226, "Comissão de Sócios Advisors", "2.12.98", 2],
+    [227, "Despesas Comerciais Diversas", "2.12.99", 2],
+    [227.5, "Demais despesas (realizado: categorias sem linha própria no BP)", "", 1],
+    [229, "(=) EBITDA", "", 0],
+    [230, "% EBITDA", "", 3],
+    [232, "(+/-) Resultado Financeiro", "", 0],
+    [233, "Receitas Financeiras", "1.08", 1],
+    [234, "Descontos Obtidos", "1.08.97", 2],
+    [235, "Juros Recebidos", "1.08.98", 2],
+    [236, "Rendimentos de Aplicações", "1.08.99", 2],
+    [237, "Multas Recebidas", "1.08.96", 2],
+    [237.5, "Demais receitas financeiras (realizado)", "", 2],
+    [239, "Despesas Financeiras", "2.13", 1],
+    [240, "IOF", "2.13.96", 2],
+    [241, "Tarifas Bancárias", "2.13.97", 2],
+    [242, "Taxas Comunidade", "", 1],
+    [243, "Meios de Pagamento Tech", "", 1],
+    [244, "Multas Pagas", "2.13.98", 2],
+    [245, "Juros sobre Empréstimos", "2.13.99", 2],
+    [246, "Descontos Concedidos", "2.13.95", 2],
+    [246.5, "Demais despesas financeiras (realizado)", "", 2],
+    [248, "(+/-) Outras Receitas e Resultado Não Operacional", "", 0],
+    [249, "Outras Receitas Operacionais", "1.09", 1],
+    [250, "Recuperação de Despesas", "1.09.98", 2],
+    [251, "Reembolso de Despesas", "1.09.99", 2],
+    [253, "Resultado Não Operacional (Receitas)", "1.10", 1],
+    [254, "Ganho na Venda de Ativos", "1.10.99", 2],
+    [256, "Resultado Não Operacional (Despesas)", "2.20", 1],
+    [257, "Perda na Venda de Ativos", "2.20.99", 2],
+    [259, "(=) Resultado Antes de Impostos", "", 0],
+    [260, "% EBIT", "", 3],
+    [262, "Impostos sobre o Lucro (regime futuro)", "2.15", 1],
+    [263, "CSLL sobre o Lucro (regime futuro) [inativa]", "2.15.98", 2],
+    [264, "IRPJ sobre o Lucro (regime futuro) [inativa]", "2.15.99", 2],
+    [266, "(=) Lucro Líquido", "", 0],
+    [268, "(=) Resultado Acumulado", "", 0],
+    [269, "% Lucro Líquido", "", 3],
+    [272, "Fluxo de Caixa", "", 1],
+    [274, "(=) Lucro Líquido (do DRE)", "", 0],
+    [276, "(+) Entradas Não Operacionais", "", 0],
+    [277, "Movimentações do Passivo - Entradas", "1.11", 1],
+    [278, "Adiantamento de Clientes", "1.11.99", 2],
+    [279, "Mútuo de Sócios (Entrada)", "1.11.98", 2],
+    [280, "AFAC - Sócios", "1.11.97", 2],
+    [281, "Empréstimos Bancários - Captação", "1.11.96", 2],
+    [282, "Mútuo Conversível - Captação", "1.11.95", 2],
+    [284, "(-) Saídas Não Operacionais", "", 0],
+    [285, "Movimentações do Passivo - Saídas", "2.17", 1],
+    [286, "Mútuo de Sócios (Devolução)", "2.17.99", 2],
+    [287, "Partes Relacionadas (a Pagar)", "2.17.98", 2],
+    [288, "Empréstimos Bancários - Amortização", "2.17.97", 2],
+    [289, "Provisões Diversas", "2.17.96", 2],
+    [290, "Adiantamento de Clientes (Devolução)", "2.17.95", 2],
+    [291, "Cartão de Crédito - Pagamento de Fatura", "2.17.94", 2],
+    [292, "Mútuo Conversível - Liquidação (parcela única)", "", 2],
+    [293, "Lucros/Dividendos a Distribuir a Sócios", "2.16", 1],
+    [294, "Div. a Pagar - Carlo Merquior Worms Till", "2.16.99", 2],
+    [295, "Div. a Pagar - Alex Armstrong de Sousa", "2.16.98", 2],
+    [296, "Div. a Pagar - Alex Reche Franco (Minoritário)", "2.16.97", 2],
+    [297, "Div. a Pagar - Luiz Augusto Martins (Minoritário)", "2.16.96", 2],
+    [298, "Div. a Pagar - Tatiana Pinheiro de Oliveira (Minoritário)", "2.16.95", 2],
+    [300, "(+/-) Movimentação do Ativo", "", 0],
+    [301, "Movimentação do Ativo", "2.18", 1],
+    [302, "Adiantamento a Fornecedores", "2.18.99", 2],
+    [303, "Adiantamento a Funcionários", "2.18.98", 2],
+    [304, "Partes Relacionadas (a Receber)", "2.18.97", 2],
+    [305, "Despesas Antecipadas", "2.18.96", 2],
+    [306, "Aplicações de Liquidez Imediata", "2.18.95", 2],
+    [308, "(-) Investimentos", "", 0],
+    [309, "Investimentos em Imobilizado e Intangível", "2.19", 1],
+    [310, "Compra de Equipamentos de Informática", "2.19.99", 2],
+    [311, "Compra de Móveis e Utensílios", "2.19.98", 2],
+    [312, "Compra de Máquinas e Equipamentos", "2.19.97", 2],
+    [313, "Compra de Instalações", "2.19.96", 2],
+    [314, "Aquisição de Software e Licenças (Capitalizável)", "2.19.95", 2],
+    [315, "Registro de Marcas e Patentes", "2.19.94", 2],
+    [316, "Transferências entre contas e não classificados (realizado)", "", 0],
+    [317, "(=) Fluxo de Caixa Livre", "", 0],
+    [319, "Saldo Inicial de Caixa", "", 1],
+    [320, "(=) Saldo Final de Caixa", "", 0]
+  ];
 
-  /* Agrupa em dois niveis: vertical -> bloco -> premissas. A ordem de     */
-  /* VERTICAIS manda, e dentro dela a ordem dos blocos como declarada.     */
-  function agruparPremissas() {
-    var porBloco = {};
-    PREMISSAS_DEFAULT.forEach(function (item) {
-      if (!porBloco[item.bloco]) porBloco[item.bloco] = [];
-      porBloco[item.bloco].push(item);
-    });
-    return VERTICAIS.map(function (v) {
-      var blocos = v.blocos
-        .filter(function (b) { return porBloco[b] && porBloco[b].length; })
-        .map(function (b) { return { bloco: b, itens: porBloco[b] }; });
-      var total = 0;
-      blocos.forEach(function (g) { total += g.itens.length; });
-      return { vertical: v.id, rotulo: v.rotulo, blocos: blocos, total: total };
-    }).filter(function (g) { return g.blocos.length; });
-  }
+  var BP_LINHA = {};
+  BP_LINHAS.forEach(function (l) { BP_LINHA[l[0]] = { n: l[0], r: l[1], c: l[2], nv: l[3] }; });
 
-  var PREMISSAS_VERSAO = 2; /* muda toda vez que o formato do dado mudar de   */
-                             /* jeito incompativel, pra descartar limpo o que */
-                             /* estiver salvo num formato antigo.             */
-
-  function clonar(obj) { return JSON.parse(JSON.stringify(obj)); }
-
-  /* Avalia o estado atual de uma premissa: se esta vazia de verdade (falta   */
-  /* dado essencial pro motor rodar), se foi editada em relacao ao default,   */
-  /* e qual selo mostrar. O selo de "proposta" ou "achado" so aparece         */
-  /* enquanto o campo continuar exatamente como veio, some assim que Alex     */
-  /* mexer nele, porque a edicao dele e a confirmacao.                        */
-  function estadoPremissa(item, valorAtual) {
-    var vazio = false;
-    if (item.tipo === "evento") {
-      vazio = !(valorAtual.eventos && valorAtual.eventos.length > 0);
-    } else if (item.tipo === "curva") {
-      var temSerie = valorAtual.serieMensal && Object.keys(valorAtual.serieMensal).length > 0;
-      vazio = !temSerie && (valorAtual.valorBase === null || valorAtual.valorBase === undefined);
-    } else if (item.tipo === "escalar") {
-      vazio = (valorAtual.campos || []).some(function (c) {
-        return c.valor === null || c.valor === undefined || c.valor === "";
-      });
-    }
-    var editado = JSON.stringify(valorAtual) !== JSON.stringify(item);
-    var selo = null;
-    if (vazio) selo = "aberto";
-    else if (!editado && item.origem === "proposta") selo = "proposta";
-    else if (!editado && item.origem === "achado") selo = "achado";
-    return { vazio: vazio, editado: editado, selo: selo };
-  }
-
-  /* mes 0 = set/26 (mesmo mes zero da premissa 2). Converte indice pra    */
-  /* rotulo "mmm/aa" pra mostrar do lado de todo campo de mes.              */
-  var MESES_ABREV_HORIZONTE = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-  function rotuloMesHorizonte(indice) {
-    if (indice === null || indice === undefined || indice === "") return "";
-    var total = 8 + Number(indice);
-    var ano = 2026 + Math.floor(total / 12);
-    var mes = ((total % 12) + 12) % 12;
-    return MESES_ABREV_HORIZONTE[mes] + "/" + String(ano).slice(2);
-  }
-
-  var ROTULOS_CAMPO = {
-    valor: "Valor", meses: "Meses", percentual: "Percentual", regime: "Regime",
-    por_mes: "Por mês", mes_inicio: "Mês de início", fora_da_projecao: "Fora da projeção",
-    custo_por_presente: "Custo por presente", prazo_meses: "Prazo (meses)",
-    renovacao_automatica: "Renovação automática", preco: "Preço",
-    churn_percentual: "Churn (%)", cac: "CAC", fixo_mensal: "Fixo mensal",
-    take_rate_hotmart_percentual: "Take rate Hotmart (%)", modelo: "Modelo",
-    percentual_advisor: "% pro advisor", receita_cotas: "Receita de cotas",
-    receita_ingressos: "Receita de ingressos", custo_direto: "Custo direto",
-    gera_receita_propria: "Gera receita própria", valor_mensal: "Valor mensal",
-    valor_base: "Valor base", valor_min: "Valor mínimo", valor_max: "Valor máximo",
-    anexo_padrao: "Anexo padrão", periodicidade_meses: "Periodicidade (meses)",
-    politica: "Política", regime_padrao: "Regime padrão", ha_retencao: "Há retenção",
-    cargo: "Cargo", salario: "Salário", cota: "Cota", projetos_por_mes: "Projetos/mês"
+  /* Arvore de soma: linha -> linhas que ela soma. Reproduz as formulas   */
+  /* de SOMA da planilha. Linha fora desta arvore e calculada por formula */
+  /* propria no motor, ou e premissa, ou e lancamento.                    */
+  var BP_FILHOS = {
+    7: [8, 17, 24, 29, 39, 44, 52, 65, 71, 81],
+    8: [9], 17: [18], 18: [19, 20, 21, 22], 24: [25], 29: [30, 37], 39: [40],
+    44: [45, 48], 52: [53], 65: [66, 68], 66: [67], 68: [69], 71: [72], 81: [82],
+    85: [86], 86: [87, 88, 89, 90, 91, 92],
+    94: [7, 85],
+    97: [98, 103, 109, 115, 122, 127, 131, 136, 142, 147],
+    98: [99], 115: [116, 118, 120], 122: [123], 127: [128], 131: [132, 133], 133: [134],
+    136: [137, 138], 142: [143, 144], 147: [148],
+    150: [94, 97],
+    153: [154, 175, 199, 217, 225],
+    154: [155, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173],
+    155: [156, 157, 158, 159, 160],
+    175: [176, 179, 180, 181, 184, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197],
+    176: [177, 178], 181: [182, 183], 184: [185, 186],
+    199: [200, 201, 202, 203, 207, 208, 209, 210, 215], 210: [211, 212, 213, 214],
+    217: [218, 219, 222], 219: [220, 221], 222: [223],
+    225: [226, 227],
+    229: [150, 153],
+    232: [233, 239], 233: [234, 235, 236, 237], 239: [240, 241, 244, 245, 246], 241: [242, 243],
+    248: [249, 253, 256], 249: [250, 251], 253: [254], 256: [257],
+    259: [229, 232, 248],
+    262: [263, 264],
+    266: [259, 262],
+    274: [266],
+    276: [277], 277: [278, 279, 280, 281, 282],
+    284: [285, 293], 285: [286, 287, 288, 289, 290, 291, 292], 293: [294, 295, 296, 297, 298],
+    300: [301], 301: [302, 303, 304, 305, 306],
+    308: [309], 309: [310, 311, 312, 313, 314, 315],
+    317: [274, 276, 284, 300, 308, 316]
   };
-  function rotularCampo(nome) { return ROTULOS_CAMPO[nome] || nome; }
 
-  function seloBadge(texto, cor, fundo) {
-    return h("span", {
-      className: "uppercase",
-      style: {
-        fontSize: 9, letterSpacing: "0.08em", fontWeight: 700,
-        color: cor, background: fundo, border: "1px solid " + cor,
-        borderRadius: 4, padding: "2px 6px"
-      }
-    }, texto);
+  /* Linhas de premissa exibidas no DRE (quantidade, preco, percentual).  */
+  /* Nao somam no ano nem no total, e ficam em branco em mes realizado.   */
+  var BP_DRIVERS = {};
+  [10, 11, 12, 13, 14, 15, 26, 27, 31, 32, 33, 34, 35, 36, 41, 42, 46, 47, 49, 50,
+   54, 55, 56, 57, 58, 60, 61, 62, 63, 73, 74, 75, 76, 77, 79, 104, 105, 106, 107,
+   110, 111, 112, 113, 117, 119, 129, 204, 205, 206].forEach(function (n) { BP_DRIVERS[n] = true; });
+  var BP_FORMATO_PCT = {};
+  [13, 57, 60, 61, 62, 63, 75, 79, 129, 95, 151, 230, 260, 269].forEach(function (n) { BP_FORMATO_PCT[n] = true; });
+  var BP_RAZOES = { 95: [94, 7], 151: [150, 94], 230: [229, 94], 260: [259, 94], 269: [266, 94] };
+  var BP_SALDOS = { 268: true, 319: true, 320: true };
+
+  /* Em mes realizado, estas linhas totalizadoras vem direto do total da  */
+  /* secao correspondente na tela Financeiro (mesma regra de secao).      */
+  var BP_SECAO_REALIZADA = {
+    7: ["receita"], 85: ["impostos"], 97: ["custo"], 153: ["despesas"],
+    233: ["finRec"], 239: ["finDesp"], 248: ["outrasRec", "outrasDesp"], 262: ["impLucro"],
+    276: ["entradas"], 284: ["saidas"], 300: ["ativo"], 308: ["capex"],
+    316: ["transf", "naoClassificado"]
+  };
+  /* Subdivisao por vertical de uma categoria Omie unica (a planilha abre */
+  /* "Ferramentas e Software" em Comunidade e Tech, por exemplo). No       */
+  /* realizado, a linha da vertical recebe o valor da categoria-mae.       */
+  var BP_SUB_VERTICAL = { 177: "com", 178: "tech", 182: "com", 183: "tech", 185: "com", 186: "tech", 242: "com", 243: "tech" };
+  var BP_RESIDUO = { 82.5: 7, 148.5: 97, 227.5: 153, 237.5: 233, 246.5: 239 };
+  /* Linhas cujo codigo na planilha nao e categoria de lancamento (o      */
+  /* percentual de custo do evento aberto) ou pertence a outra secao na   */
+  /* Omie (taxa municipal com codigo de imposto, 2.14.93).                */
+  var BP_CODIGO_IGNORADO_NO_REALIZADO = { 129: true, 197: true };
+
+  /* Valores de partida das premissas, lidos da BP_QUORUM_Oficial (aba    */
+  /* Premissas New para os drivers, abas Comunidade e Tech para os        */
+  /* lancamentos mes a mes). Um array de 36 meses por serie, jun/26 a     */
+  /* mai/29. O que Alex editar na grade fica guardado a parte, celula a   */
+  /* celula, por cima destes valores.                                     */
+  var BP_SERIES_PADRAO = {
+    membros_cto: [36,45,56,66,76,86,96,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100],
+    membros_ciso: [0,0,0,0,0,0,0,0,22,36,45,56,66,76,86,96,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100],
+    membros_cdo: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22,36,45,56,66,76,86,96,100,100,100,100,100,100,100,100,100,100,100],
+    preco_membership: [990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990],
+    membros_por_evento: [40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40],
+    ab_membro_quo: [251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251],
+    video_evento_quo: [1500,1500,1500,1500,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,4000,4000,4000,4000,4000],
+    equip_evento_quo: [800,800,800,800,800,800,800,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
+    eventos_recorrentes_custo: [0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    webpeak: [0,8000,8000,25000,8000,25000,8000,8000,8000,25000,8000,8000,25000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    cota1: [0,0,0,0,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000],
+    cota2: [0,0,0,0,0,0,0,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000],
+    cota3: [0,0,0,0,0,0,0,0,0,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000],
+    spot_qtd: [0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,1,0,0],
+    spot_preco: [20000,20000,20000,20000,25000,25000,25000,25000,25000,25000,25000,25000,25000,30000,30000,30000,35000,35000,35000,35000,35000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000],
+    ab_membro_cli: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    video_evento_cli: [1500,1500,1500,1500,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,4000,4000,4000,4000,4000],
+    equip_evento_cli: [800,800,800,800,800,800,800,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
+    spot_eventos_custo_cli: [0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,1,0,0],
+    tier1_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    tier2_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    tier3_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    tier1_preco: [10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000],
+    tier2_preco: [5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000],
+    tier3_preco: [3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000],
+    house_aluguel_qtd: [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    house_aluguel_valor: [0,0,0,0,0,0,0,0,0,0,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000],
+    house_reforma_qtd: [0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    house_reforma_valor: [0,0,0,0,0,0,0,0,0,0,0,150000,150000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    surveys_qtd: [0,0,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1],
+    surveys_preco: [0,0,0,0,0,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000],
+    qd_participantes: [0,0,0,0,0,0,0,0,0,0,0,0,300,0,0,0,0,0,0,0,0,0,0,0,300,0,0,0,0,0,0,0,0,0,0,0],
+    qd_ingresso: [0,0,0,0,0,0,0,0,0,0,0,0,470,0,0,0,0,0,0,0,0,0,0,0,470,0,0,0,0,0,0,0,0,0,0,0],
+    qd_cotas_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,20,0,0,0,0,0,0,0,0,0,0,0,20,0,0,0,0,0,0,0,0,0,0,0],
+    qd_cota_valor: [0,0,0,0,0,0,0,0,0,0,0,0,40000,0,0,0,0,0,0,0,0,0,0,0,40000,0,0,0,0,0,0,0,0,0,0,0],
+    adv_advisors: [0,0,0,0,0,0,0,20,20,25,25,30,30,35,35,40,40,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45],
+    adv_pct_vendidas: [0,0,0,0,0,0,0,0.1,0.1,0.15,0.15,0.15,0.2,0.2,0.2,0.2,0.2,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25],
+    adv_preco_hora: [0,0,0,0,0,0,0,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500],
+    adv_share: [0,0,0,0,0,0,0,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
+    rv_avulso: [690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690],
+    rv_pacote: [4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700],
+    rv_pct_pacote: [0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15],
+    rv_vendors_lanc: [1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
+    rv_vendors_novos: [30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30],
+    rv_reiv_m1: [0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2],
+    rv_reiv_m12: [0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6],
+    rv_conv_m1: [0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05],
+    rv_conv_m12: [0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
+    rv_buyers_lanc: [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100],
+    rv_buyers_novos: [150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150],
+    rv_bconv_m1: [0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02],
+    rv_bconv_m12: [0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08],
+    rv_buyer_preco: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    conversao_house: [0,0,0,0,0,0,0,0,0,0,0,0,0.1,0.1,0.1,0.1,0.1,0.1,0.2,0.2,0.2,0.2,0.2,0.2,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
+    l_till: [-4000,-4000,-4000,-4000,-4000,-4000,-4000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000],
+    l_alex: [0,0,0,0,0,0,0,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000],
+    l_cl: [0,0,0,0,0,0,0,0,0,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000],
+    l_video: [0,0,0,0,0,0,0,0,0,0,0,0,0,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000],
+    l_ferr_com: [0,-2000,-2000,-2000,-2000,-2000,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500],
+    l_jur_com: [0,0,0,0,0,0,0,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500],
+    l_cont_com: [0,-360,-360,-360,-360,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450],
+    l_estudio: [0,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000],
+    l_pr: [0,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000],
+    l_impuls: [0,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000],
+    l_brindes: [0,-5000,-5000,-5000,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0],
+    l_comerciais: [0,0,0,0,0,0,0,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000],
+    l_roque: [0,0,0,0,0,0,0,0,0,0,0,0,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000],
+    l_ferr_tech: [0,0,0,0,0,0,-1000,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300],
+    l_jur_tech: [0,0,0,0,0,0,-10000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    l_cont_tech: [0,0,0,0,0,0,0,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450],
+    l_cac_insights: [0,0,0,0,0,0,0,-10000,-12150,-8712,-8152,-6528,-6672,-7425,-8820,-8738,-7770,-8925,-7665,-8435,-9275,-10220,-11235,-12355,-9065,-9520,-9975,-10500,-11025,-11550,-12145,-12740,-13405,-14070,-14770,0],
+    l_criativos: [0,0,0,0,0,0,-20000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    l_backup: [0,0,0,0,0,0,0,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200],
+    l_infra: [0,0,0,0,0,0,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583],
+    l_ia: [0,0,0,0,0,0,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,0],
+    l_apis: [0,0,0,0,0,0,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000]
+  };
+
+  /* Vertical dona de cada serie: na outra vertical ela vale zero. */
+  var BP_SERIE_VERTICAL = {};
+  Object.keys(BP_SERIES_PADRAO).forEach(function (id) {
+    var tech = /^(rv_|adv_)/.test(id) ||
+      ["l_roque", "l_ferr_tech", "l_jur_tech", "l_cont_tech", "l_cac_insights", "l_criativos",
+       "l_backup", "l_infra", "l_ia", "l_apis"].indexOf(id) >= 0;
+    BP_SERIE_VERTICAL[id] = tech ? "tech" : "com";
+  });
+
+  /* Lancamentos fixos: serie -> linha do DRE onde entra. */
+  var BP_LANCAMENTOS = {
+    l_till: 156, l_alex: 157, l_cl: 158, l_video: 159, l_roque: 160,
+    l_ferr_com: 177, l_ferr_tech: 178, l_jur_com: 182, l_jur_tech: 183,
+    l_cont_com: 185, l_cont_tech: 186, l_estudio: 201, l_cac_insights: 203,
+    l_pr: 207, l_criativos: 214, l_brindes: 215, l_backup: 220, l_infra: 221,
+    l_ia: 223, l_comerciais: 227, l_apis: 134
+  };
+
+  /* Parametros escalares. Os marcados "online" nao existem na planilha:  */
+  /* sao decisoes de Alex so para o BP online.                           */
+  var BP_PARAMS_PADRAO = {
+    renovacao_prob: 0.80,      /* online: probabilidade de renovar cada cota a cada ciclo */
+    renovacao_prazo: 12,       /* meses de cada ciclo de contrato de cota                 */
+    comissao_pct: 0.025,       /* online: comissao de socios advisors sobre receita liquida */
+    midia_pct: 0.0077,         /* online: impulsionamento = % da receita bruta da Comunidade */
+    qd_custo_pct: 0.70,        /* online: custo do evento aberto = % da receita liquida dele */
+    taxa_com: 0.002,           /* planilha: taxas bancarias, % da receita da Comunidade    */
+    taxa_tech: 0.03,           /* planilha: meios de pagamento, % da receita da Tech       */
+    horas_advisor: 8,          /* planilha: horas disponibilizadas por advisor no mes      */
+    review_lancamento: 7,      /* planilha: mes 1 do QR Review (indice 7 = jan/27)         */
+    mutuo_valor: 60000,        /* contrato v07                                             */
+    mutuo_mes: 3,              /* indice 3 = set/26                                        */
+    mutuo_carencia: 6,
+    mutuo_cdi: 0.105,          /* proxy de mercado, nao esta no contrato                   */
+    mutuo_prazo: 36,
+    dist_pct: 0.25,            /* online: distribuicao de lucros                            */
+    dist_periodo: 6,
+    conservador: 0.60,         /* online: fracao da receita no cenario conservador          */
+    caixa_minimo: 30000,
+    /* Chaves usadas so para conferir o motor contra a planilha. Nao      */
+    /* aparecem na tela: com elas em modo "planilha", o motor reproduz a  */
+    /* planilha exatamente, o que prova que a replica esta certa.         */
+    modo_midia: "pct",         /* "lanc" usa a serie l_impuls da planilha */
+    modo_qd: "liquido",        /* "bruto" usa 50% da receita bruta, como na planilha */
+    qd_bruto_pct: 0.50,
+    corrige_recorrente: true   /* false reproduz o erro de referencia da planilha */
+  };
+
+  /* Tabela do Anexo V (LC 123/2006, redacao LC 155/2016), a mesma da aba  */
+  /* Impostos da planilha.                                                 */
+  var BP_ANEXO_V = [
+    [180000, 0.155, 0], [360000, 0.18, 4500], [720000, 0.195, 9900],
+    [1800000, 0.205, 17100], [3600000, 0.23, 62100], [4800000, 0.305, 540000]
+  ];
+  function bpAliquotaSimples(rbt12) {
+    if (!(rbt12 > 0)) return BP_ANEXO_V[0][1];
+    var f = BP_ANEXO_V[BP_ANEXO_V.length - 1];
+    for (var i = 0; i < BP_ANEXO_V.length; i++) { if (rbt12 <= BP_ANEXO_V[i][0]) { f = BP_ANEXO_V[i]; break; } }
+    return Math.max(0, (rbt12 * f[1] - f[2]) / rbt12);
   }
 
-  /* Input generico pra um campo { nome, tipo, valor }. tipo pode ser        */
-  /* numero, percentual, texto ou booleano.                                  */
-  function inputCampo(campo, aoMudar, key) {
-    if (campo.tipo === "booleano") {
-      return h("label", { key: key, className: "flex items-center gap-2", style: { fontSize: 12, color: COR.text } },
-        h("input", {
-          type: "checkbox", checked: !!campo.valor,
-          onChange: function (e) { aoMudar(e.target.checked); }
-        }),
-        rotularCampo(campo.nome)
-      );
+  /* Motor fiscal de uma vertical, espelho das abas "Impostos Comun." e   */
+  /* "Impostos Tech". RBT12 inclui o mes corrente; nos primeiros 12 meses */
+  /* de atividade (contados de jun/26) e proporcionalizado: acumulado x   */
+  /* 12 / meses de atividade. Regime decidido em cascata pelo faturamento */
+  /* do ano anterior e pelo RBT12 do mes anterior.                        */
+  function bpImpostos(fat, i) {
+    function rbt(k) {
+      if (k < 0) return 0;
+      var s = 0, ini = (k + 1 < 12) ? 0 : k - 11;
+      for (var j = ini; j <= k; j++) s += fat[j] || 0;
+      return (k + 1 < 12) ? s * 12 / (k + 1) : s;
     }
-    if (campo.tipo === "texto") {
-      return h("div", { key: key },
-        h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, rotularCampo(campo.nome)),
-        h("input", {
-          type: "text", value: campo.valor === null || campo.valor === undefined ? "" : campo.valor,
-          onChange: function (e) { aoMudar(e.target.value); },
-          className: "rounded px-2 py-1",
-          style: { fontSize: 12, border: "1px solid " + COR.line, width: 200 }
-        })
-      );
-    }
-    var largura = campo.tipo === "percentual" ? 90 : 120;
-    return h("div", { key: key },
-      h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } },
-        rotularCampo(campo.nome) + (campo.tipo === "percentual" ? " (%)" : "")),
-      h("input", {
-        type: "number", step: campo.tipo === "percentual" ? "0.01" : "any",
-        value: campo.valor === null || campo.valor === undefined ? "" : campo.valor,
-        onChange: function (e) {
-          aoMudar(e.target.value === "" ? null : parseFloat(e.target.value));
-        },
-        className: "rounded px-2 py-1",
-        style: { fontSize: 12, border: "1px solid " + COR.line, width: largura }
-      })
-    );
-  }
-
-  /* Descobre o "molde" de campos pra usar quando Alex adiciona um evento    */
-  /* novo numa premissa do tipo evento: usa templateCampos do default se     */
-  /* existir (premissas que comecam vazias), senao copia o formato do        */
-  /* primeiro evento ja existente.                                           */
-  function templateCamposPara(item, valorAtual) {
-    if (item.templateCampos) return item.templateCampos;
-    var primeiro = (valorAtual.eventos || [])[0];
-    if (!primeiro) return [];
-    return Object.keys(primeiro.campos || {}).map(function (k) {
-      var v = primeiro.campos[k];
-      return { nome: k, tipo: typeof v === "number" ? "numero" : "texto", padrao: typeof v === "number" ? 0 : "" };
-    });
-  }
-
-  function corpoEscalar(item, v, atualizar) {
-    return h("div", { className: "flex gap-3 flex-wrap" },
-      (v.campos || []).map(function (c, i) {
-        return inputCampo(c, function (novo) {
-          atualizar(function (x) { x.campos[i].valor = novo; });
-        }, i);
-      })
-    );
-  }
-
-  /* Grade mensal: uma celula editavel por mes conhecido, rolando na       */
-  /* horizontal, do jeito que Alex ve na planilha (mes a mes, nao regra    */
-  /* parametrica resumida). Clicar e editar uma celula sobrescreve so       */
-  /* aquele mes; os demais continuam com o valor lancado. "+ mes" adiciona */
-  /* uma entrada nova pro primeiro mes que ainda nao tem valor.            */
-  function corpoSerieMensal(item, v, atualizar) {
-    var meses = Object.keys(v.serieMensal || {}).map(Number).sort(function (a, b) { return a - b; });
-    return h("div", null,
-      h("div", { className: "flex gap-2 overflow-x-auto pb-1", style: { maxWidth: "100%" } },
-        meses.map(function (mes) {
-          return h("div", { key: mes, className: "flex-shrink-0", style: { width: 76 } },
-            h("div", { style: { fontSize: 9, color: COR.faint, marginBottom: 2 } }, rotuloMesHorizonte(mes)),
-            h("input", {
-              type: "number", step: "any", value: v.serieMensal[mes],
-              onChange: function (e) {
-                atualizar(function (x) {
-                  x.serieMensal[mes] = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                });
-              },
-              className: "rounded px-1 py-1 w-full", style: { fontSize: 11, border: "1px solid " + COR.line }
-            })
-          );
-        })
-      ),
-      h("button", {
-        onClick: function () {
-          atualizar(function (x) {
-            var proximo = meses.length ? Math.max.apply(null, meses) + 1 : (item.mesInicio || 0);
-            x.serieMensal[proximo] = meses.length ? x.serieMensal[Math.max.apply(null, meses)] : 0;
-          });
-        },
-        style: { fontSize: 11, color: COR.brass, textDecoration: "underline", marginTop: 4 }
-      }, "+ mês")
-    );
-  }
-
-  function corpoCurva(item, v, atualizar) {
-    if (v.serieMensal) return corpoSerieMensal(item, v, atualizar);
-    var filhos = [
-      h("div", { key: "base", className: "flex gap-3 flex-wrap" },
-        h("div", null,
-          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Valor base"),
-          h("input", {
-            type: "number", value: v.valorBase === null || v.valorBase === undefined ? "" : v.valorBase,
-            onChange: function (e) { atualizar(function (x) { x.valorBase = e.target.value === "" ? null : parseFloat(e.target.value); }); },
-            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 130 }
-          })
-        ),
-        h("div", null,
-          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Mês de início"),
-          h("input", {
-            type: "number", value: v.mesInicio === null || v.mesInicio === undefined ? "" : v.mesInicio,
-            onChange: function (e) { atualizar(function (x) { x.mesInicio = e.target.value === "" ? null : parseInt(e.target.value, 10); }); },
-            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 90 }
-          }),
-          v.mesInicio !== null && v.mesInicio !== undefined && h("div", { style: { fontSize: 10, color: COR.faint, marginTop: 2 } }, rotuloMesHorizonte(v.mesInicio))
-        )
-      )
-    ];
-    if (v.reajuste) {
-      filhos.push(
-        h("div", { key: "reajuste", className: "flex gap-3 flex-wrap mt-2" },
-          h("div", null,
-            h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Reajuste (%)"),
-            h("input", {
-              type: "number", step: "0.01", value: v.reajuste.valor === null || v.reajuste.valor === undefined ? "" : v.reajuste.valor,
-              onChange: function (e) { atualizar(function (x) { x.reajuste.valor = e.target.value === "" ? null : parseFloat(e.target.value); }); },
-              className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 90 }
-            })
-          ),
-          h("div", null,
-            h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "A cada quantos meses"),
-            h("input", {
-              type: "number", value: v.reajuste.frequenciaMeses === null || v.reajuste.frequenciaMeses === undefined ? "" : v.reajuste.frequenciaMeses,
-              onChange: function (e) { atualizar(function (x) { x.reajuste.frequenciaMeses = e.target.value === "" ? null : parseInt(e.target.value, 10); }); },
-              className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 90 }
-            })
-          )
-        )
-      );
+    var rbt12 = rbt(i), rbtAnt = rbt(i - 1);
+    var ano = Number(BP_MESES[i].slice(0, 4)), anoAnt = 0, trimBase = 0, trimAdic = 0;
+    for (var j = 0; j < i; j++) if (Number(BP_MESES[j].slice(0, 4)) === ano - 1) anoAnt += fat[j] || 0;
+    var regime = anoAnt > 78000000 ? "Lucro Real"
+      : anoAnt > 4800000 ? "Lucro Presumido"
+      : rbtAnt > 5760000 ? "Lucro Presumido"
+      : rbtAnt > 3600000 ? "Simples Nacional (ISS por fora do DAS)" : "Simples Nacional";
+    var f = fat[i] || 0, r = { regime: regime, rbt12: rbt12, das: 0, iss: 0, pis: 0, cofins: 0, csll: 0, irpj: 0, aliq: 0 };
+    if (/^Simples/.test(regime)) {
+      r.aliq = bpAliquotaSimples(rbt12);
+      r.das = f * r.aliq;
     } else {
-      filhos.push(h("div", { key: "semreajuste", style: { fontSize: 11, color: COR.faint, marginTop: 4 } }, "Sem reajuste, valor constante"));
-    }
-    if (v.precoUnitario !== undefined) {
-      filhos.push(h("div", { key: "preco", className: "mt-2" },
-        h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Preço unitário"),
-        h("input", {
-          type: "number", step: "0.01", value: v.precoUnitario === null ? "" : v.precoUnitario,
-          onChange: function (e) { atualizar(function (x) { x.precoUnitario = e.target.value === "" ? null : parseFloat(e.target.value); }); },
-          className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 110 }
-        })
-      ));
-    }
-    if (v.camposExtra) {
-      filhos.push(h("div", { key: "extra", className: "flex gap-3 flex-wrap mt-2" },
-        v.camposExtra.map(function (c, i) {
-          return inputCampo(c, function (novo) { atualizar(function (x) { x.camposExtra[i].valor = novo; }); }, i);
-        })
-      ));
-    }
-    return h("div", { className: "flex flex-col gap-1" }, filhos);
-  }
-
-  function corpoEvento(item, v, atualizar) {
-    var eventos = v.eventos || [];
-    return h("div", null,
-      eventos.map(function (ev, i) {
-        var chaves = Object.keys(ev.campos || {});
-        return h("div", {
-          key: i, className: "flex items-end gap-2 flex-wrap mb-2 p-2 rounded",
-          style: { background: COR.surfaceAlt }
-        },
-          h("div", null,
-            h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Mês"),
-            h("input", {
-              type: "number", value: ev.mes === null || ev.mes === undefined ? "" : ev.mes,
-              onChange: function (e) { atualizar(function (x) { x.eventos[i].mes = e.target.value === "" ? null : parseInt(e.target.value, 10); }); },
-              className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 70 }
-            }),
-            ev.mes !== null && ev.mes !== undefined && h("div", { style: { fontSize: 10, color: COR.faint, marginTop: 2 } }, rotuloMesHorizonte(ev.mes))
-          ),
-          chaves.map(function (k) {
-            var val = ev.campos[k];
-            var tipoInf = typeof val === "number" ? "numero" : "texto";
-            return h("div", { key: k },
-              h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, rotularCampo(k)),
-              h("input", {
-                type: tipoInf === "numero" ? "number" : "text",
-                value: val === null || val === undefined ? "" : val,
-                onChange: function (e) {
-                  atualizar(function (x) {
-                    x.eventos[i].campos[k] = tipoInf === "numero"
-                      ? (e.target.value === "" ? null : parseFloat(e.target.value))
-                      : e.target.value;
-                  });
-                },
-                className: "rounded px-2 py-1",
-                style: { fontSize: 12, border: "1px solid " + COR.line, width: tipoInf === "numero" ? 110 : 160 }
-              })
-            );
-          }),
-          h("button", {
-            onClick: function () { atualizar(function (x) { x.eventos.splice(i, 1); }); },
-            style: { fontSize: 10, color: COR.coral, textDecoration: "underline" }
-          }, "remover")
-        );
-      }),
-      h("button", {
-        onClick: function () {
-          var modelo = templateCamposPara(item, v);
-          var camposNovo = {};
-          modelo.forEach(function (c) { camposNovo[c.nome] = c.padrao; });
-          atualizar(function (x) { x.eventos.push({ mes: null, campos: camposNovo }); });
-        },
-        style: { fontSize: 11, color: COR.brass, textDecoration: "underline" }
-      }, "+ adicionar evento")
-    );
-  }
-
-  function corpoCondicional(item, v, atualizar) {
-    return h("div", null,
-      h("div", { style: { fontSize: 11, color: COR.faint, marginBottom: 6 } },
-        "Regra: se (receita − impostos − custos − despesas, exceto pró-labore) for positivo, aplica o percentual abaixo."),
-      h("div", { className: "flex gap-3 flex-wrap" },
-        h("div", null,
-          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Percentual do resultado (%)"),
-          h("input", {
-            type: "number", step: "0.01", value: v.percentual,
-            onChange: function (e) { atualizar(function (x) { x.percentual = parseFloat(e.target.value) || 0; }); },
-            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 100 }
-          })
-        ),
-        h("div", null,
-          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Teto por sócio"),
-          h("input", {
-            type: "number", value: v.tetoPorSocio,
-            onChange: function (e) { atualizar(function (x) { x.tetoPorSocio = parseFloat(e.target.value) || 0; }); },
-            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 120 }
-          })
-        ),
-        h("div", null,
-          h("div", { style: { fontSize: 10, color: COR.faint, marginBottom: 2 } }, "Número de sócios"),
-          h("input", {
-            type: "number", value: v.numSocios,
-            onChange: function (e) { atualizar(function (x) { x.numSocios = parseInt(e.target.value, 10) || 1; }); },
-            className: "rounded px-2 py-1", style: { fontSize: 12, border: "1px solid " + COR.line, width: 80 }
-          })
-        )
-      )
-    );
-  }
-
-  function corpoFonte(item, v) {
-    return h("div", { style: { fontSize: 12, color: COR.dim } },
-      "Lido automaticamente de ", h("strong", null, "Dashboard Financeiro"),
-      " (cartão Caixa Livre): ", (v.campos || []).join(", "), ". Não tem campo pra editar aqui."
-    );
-  }
-
-  function corpoReferencia(item, v) {
-    return h("div", { style: { fontSize: 12, color: COR.dim } },
-      "Mesmo dado da premissa ", h("strong", null, String(v.ref)), ", campo ", h("code", null, v.campo),
-      ". Editar lá edita aqui também."
-    );
-  }
-
-  function corpoPremissa(item, v, atualizar) {
-    if (v.serieMensal) return corpoSerieMensal(item, v, atualizar);
-    if (item.tipo === "escalar") return corpoEscalar(item, v, atualizar);
-    if (item.tipo === "curva") return corpoCurva(item, v, atualizar);
-    if (item.tipo === "evento") return corpoEvento(item, v, atualizar);
-    if (item.tipo === "condicional") return corpoCondicional(item, v, atualizar);
-    if (item.tipo === "fonte") return corpoFonte(item, v);
-    if (item.tipo === "referencia") return corpoReferencia(item, v);
-    return null;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* 11-C. MOTOR DE PROJECAO                                             */
-  /* Le as 51 premissas tipadas e devolve o DRE projetado mes a mes, no  */
-  /* mesmo formato de secoes que a aba Financeiro ja usa. Nenhuma regra  */
-  /* de negocio mora aqui de forma implicita: tudo o que o motor decide  */
-  /* vem de uma premissa, e onde a premissa esta vazia o motor devolve   */
-  /* zero e registra a lacuna, em vez de arbitrar um numero.             */
-  /* ------------------------------------------------------------------ */
-
-  /* Tabela do Anexo V do Simples Nacional, LC 123/2006 na redacao da    */
-  /* LC 155/2016. Aliquota efetiva = (RBT12 x nominal - deduzir) / RBT12 */
-  /* conforme art. 18, par. 1-A. VERIFICADO em fonte publica, mas e      */
-  /* aproximacao gerencial: a apuracao oficial e do Vigo, nao daqui.     */
-  var FAIXAS_ANEXO_V = [
-    { teto: 180000,   nominal: 15.50, deduzir: 0 },
-    { teto: 360000,   nominal: 18.00, deduzir: 4500 },
-    { teto: 720000,   nominal: 19.50, deduzir: 9900 },
-    { teto: 1800000,  nominal: 20.50, deduzir: 17100 },
-    { teto: 3600000,  nominal: 23.00, deduzir: 62100 },
-    { teto: 4800000,  nominal: 30.50, deduzir: 540000 }
-  ];
-
-  /* Anexo III, para o cenario alternativo da premissa 46. So entra em   */
-  /* jogo se Alex ligar aquela premissa; enquanto ela estiver vazia,     */
-  /* esta tabela nao e consultada.                                       */
-  var FAIXAS_ANEXO_III = [
-    { teto: 180000,   nominal: 6.00,  deduzir: 0 },
-    { teto: 360000,   nominal: 11.20, deduzir: 9360 },
-    { teto: 720000,   nominal: 13.50, deduzir: 17640 },
-    { teto: 1800000,  nominal: 16.00, deduzir: 35640 },
-    { teto: 3600000,  nominal: 21.00, deduzir: 125640 },
-    { teto: 4800000,  nominal: 33.00, deduzir: 648000 }
-  ];
-
-  /* Aliquota efetiva do Simples sobre a receita de um mes, dado o RBT12 */
-  /* acumulado ate o mes anterior. Empresa nova, com menos de 12 meses   */
-  /* de historico, usa o acumulado que existe: a proporcionalizacao      */
-  /* formal do inicio de atividade e refinamento do Vigo, nao muda a     */
-  /* ordem de grandeza da projecao.                                      */
-  function aliquotaEfetiva(rbt12, faixas) {
-    if (!(rbt12 > 0)) return faixas[0].nominal / 100;
-    var faixa = faixas[faixas.length - 1];
-    for (var i = 0; i < faixas.length; i++) {
-      if (rbt12 <= faixas[i].teto) { faixa = faixas[i]; break; }
-    }
-    var efetiva = (rbt12 * (faixa.nominal / 100) - faixa.deduzir) / rbt12;
-    return Math.max(0, efetiva);
-  }
-
-  /* Leitores de premissa. Cada um sabe extrair um pedaco de um item     */
-  /* tipado sem quebrar quando o campo esta vazio: devolve o padrao e o  */
-  /* motor segue, porque premissa em aberto nao pode derrubar a tela.    */
-  function campoDe(item, nome, padrao) {
-    if (!item || !item.campos) return padrao;
-    var achado = null;
-    item.campos.forEach(function (c) { if (c && c.nome === nome) achado = c; });
-    if (!achado || achado.valor === null || achado.valor === undefined || achado.valor === "") return padrao;
-    return achado.valor;
-  }
-
-  function campoExtraDe(item, nome, padrao) {
-    if (!item || !item.camposExtra) return padrao;
-    var achado = null;
-    item.camposExtra.forEach(function (c) { if (c && c.nome === nome) achado = c; });
-    if (!achado || achado.valor === null || achado.valor === undefined) return padrao;
-    return achado.valor;
-  }
-
-  /* Valor de uma curva no mes pedido: zero antes do mes de inicio, e    */
-  /* valor base reajustado a cada N meses depois disso. Degrau, sem      */
-  /* interpolacao, que e como a premissa foi definida.                   */
-  function valorDaCurva(item, mes) {
-    if (!item || item.valorBase === null || item.valorBase === undefined) return 0;
-    var inicio = (item.mesInicio === null || item.mesInicio === undefined) ? 0 : item.mesInicio;
-    if (mes < inicio) return 0;
-    var valor = item.valorBase;
-    if (item.reajuste && item.reajuste.valor && item.reajuste.frequenciaMeses > 0) {
-      var ciclos = Math.floor((mes - inicio) / item.reajuste.frequenciaMeses);
-      valor = valor * Math.pow(1 + item.reajuste.valor / 100, ciclos);
-    }
-    return valor;
-  }
-
-  /* Soma o campo pedido de todos os eventos que caem no mes. Evento sem */
-  /* mes definido (mes null) nao entra em mes nenhum, de proposito: e o  */
-  /* caso do honorario avulso da Agilize, que ainda nao tem data.        */
-  function valorDosEventos(item, mes, campo) {
-    if (!item || !item.eventos) return 0;
-    var soma = 0;
-    item.eventos.forEach(function (ev) {
-      if (ev && ev.mes === mes && ev.campos && typeof ev.campos[campo] === "number") {
-        soma += ev.campos[campo];
+      r.iss = f * 0.05;
+      if (regime === "Lucro Presumido") {
+        r.pis = f * 0.0065; r.cofins = f * 0.03; r.csll = f * 0.32 * 0.09;
+        /* Adicional de 10% do IRPJ sobre a base presumida que passa de   */
+        /* R$60 mil no trimestre, reconhecido no mes em que ela passa.    */
+        var mesNoTrim = (Number(BP_MESES[i].slice(5, 7)) - 1) % 3;
+        for (var q = i - mesNoTrim; q < i; q++) trimBase += (fat[q] || 0) * 0.32;
+        trimAdic = Math.max(0, trimBase - 60000) * 0.10;
+        var baseAgora = trimBase + f * 0.32;
+        r.irpj = f * 0.32 * 0.15 + Math.max(0, baseAgora - 60000) * 0.10 - trimAdic;
       }
+      r.aliq = f ? (r.iss + r.pis + r.cofins + r.csll + r.irpj) / f : 0;
+    }
+    return r;
+  }
+
+  /* Realizado da Omie por vertical, categoria, grupo e secao. Mesma      */
+  /* regra de data da tela Financeiro em competencia: data de emissao, e  */
+  /* na falta dela a de pagamento. Nao altera os lancamentos recebidos.   */
+  function bpVerticalDoCentro(centro) {
+    return /^\s*qr\s+(advisory|insights|review)\s*$/i.test(centro || "") ? "tech" : "com";
+  }
+  function bpRealizado(linhas) {
+    function novo() { return { cat: {}, grp: {}, sec: {} }; }
+    var R = { com: novo(), tech: novo(), meses: {} };
+    function soma(mapa, k, mes, v) { if (!mapa[k]) mapa[k] = {}; mapa[k][mes] = (mapa[k][mes] || 0) + v; }
+    (linhas || []).forEach(function (l) {
+      var data = l.dEmi || l.dPag;
+      if (!data) return;
+      var mes = chaveMes(data);
+      var V = R[bpVerticalDoCentro(l.centro)];
+      soma(V.sec, secaoDaLinha(l), mes, l.valor);
+      if (l.codigoCategoria) soma(V.cat, String(l.codigoCategoria), mes, l.valor);
+      var g = l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || "";
+      if (g) soma(V.grp, String(g), mes, l.valor);
+      R.meses[mes] = true;
     });
-    return soma;
+    return R;
   }
 
-  function temEventoNoMes(item, mes) {
-    if (!item || !item.eventos) return false;
-    var achou = false;
-    item.eventos.forEach(function (ev) { if (ev && ev.mes === mes) achou = true; });
-    return achou;
-  }
-
-  /* Primeiro mes em que a premissa tem evento, ou null se nao tem. */
-  function primeiroMesDeEvento(item) {
-    if (!item || !item.eventos || !item.eventos.length) return null;
-    var menor = null;
-    item.eventos.forEach(function (ev) {
-      if (ev && typeof ev.mes === "number" && (menor === null || ev.mes < menor)) menor = ev.mes;
+  /* Series efetivas: padrao da planilha com as edicoes de Alex por cima. */
+  function bpSeriesEfetivas(overrides) {
+    var S = {};
+    Object.keys(BP_SERIES_PADRAO).forEach(function (id) {
+      var base = BP_SERIES_PADRAO[id].slice();
+      var ov = overrides && overrides[id];
+      if (ov) Object.keys(ov).forEach(function (k) { base[Number(k)] = ov[k]; });
+      S[id] = base;
     });
-    return menor;
+    return S;
   }
 
-  /* Rotulo "AAAA-MM" do mes N do horizonte, com mes 0 = set/2026.       */
-  function chaveMesHorizonte(indice) {
-    var total = 8 + indice;              /* set/26 e o mes 8 de 2026 */
-    var ano = 2026 + Math.floor(total / 12);
-    var mes = ((total % 12) + 12) % 12;
-    return ano + "-" + String(mes + 1).padStart(2, "0");
-  }
+  function bpZeros() { var a = []; for (var i = 0; i < BP_N; i++) a.push(0); return a; }
 
   /* ------------------------------------------------------------------ */
-  /* Projecao de um cenario. redutorReceita e 1 no base e, no            */
-  /* conservador, a fracao da premissa 3. O redutor incide so sobre as   */
-  /* linhas de receita: custo fixo nao encolhe porque a receita caiu, e  */
-  /* essa assimetria e justamente o que o cenario conservador testa.     */
+  /* Motor de uma vertical. tipos[i] e "R" (realizado) ou "P"            */
+  /* (projetado). Devolve { v: {linha: [36]}, calc: {...} }.              */
   /* ------------------------------------------------------------------ */
-  function projetarCenario(P, posicaoInicial, redutorReceita, faixasSimples) {
-    var horizonte = campoDe(P[1], "meses", 36);
-    var meses = [];
-    for (var i = 0; i < horizonte; i++) meses.push(chaveMesHorizonte(i));
+  function bpVertical(vert, S, P, realiz, tipos, redutor) {
+    var v = {};
+    function A(n) { if (!v[n]) v[n] = bpZeros(); return v[n]; }
+    function ser(id, i) { return BP_SERIE_VERTICAL[id] === vert ? ((S[id] || [])[i] || 0) : 0; }
+    function somaArvore(n, i) {
+      var f = BP_FILHOS[n];
+      if (!f) return A(n)[i] || 0;
+      var t = 0;
+      for (var k = 0; k < f.length; k++) t += somaArvore(f[k], i);
+      A(n)[i] = t;
+      return t;
+    }
+    var calc = { tipo: tipos, regime: [], aliq: [], rbt12: [] };
 
-    /* Acumuladores por mes, um mapa por linha do DRE. */
-    var L = {
-      recPatrocinio: {}, recSpot: {}, recInsights: {},
-      recReview: {}, recAdvisory: {}, recHouse: {}, recQuorumDay: {},
-      receita: {}, impostos: {}, receitaLiquida: {},
-      custoAdvisory: {}, custoQuorumDay: {},
-      custoComissao: {}, custoPlataforma: {}, custoCAC: {}, custo: {},
-      lucroBruto: {},
-      despFixas: {}, despFerramentas: {}, despMidia: {}, despContabil: {},
-      despJuridico: {}, despHouse: {}, despPessoal: {}, despesas: {},
-      ebitdaAntesPL: {}, proLabore: {}, ebitda: {},
-      juros: {}, finDesp: {}, lucroLiquido: {},
-      capex: {}, aporte: {}, distribuicao: {}, pagamentoMutuo: {},
-      fluxoMes: {}, caixa: {},
-      assinantes: {}, assinantesReview: {}, rbt12: {}, aliquota: {}
-    };
+    /* Review: rampa de 12 meses a partir do lancamento, espelho do bloco */
+    /* QR Review da Premissas New. Calculado para todos os meses, porque  */
+    /* depende so do mes de vida do produto, nao do realizado.            */
+    var rv = { cad: bpZeros(), reiv: bpZeros(), claimed: bpZeros(), conv: bpZeros(), pag: bpZeros(),
+               arpu: bpZeros(), rec: bpZeros(), breg: bpZeros(), bconv: bpZeros(), bpag: bpZeros(), brec: bpZeros() };
+    for (var i = 0; i < BP_N; i++) {
+      var k = i - P.review_lancamento + 1;
+      if (k < 1) continue;
+      var r = Math.min(k - 1, 11) / 11;
+      rv.cad[i] = (k === 1) ? ser("rv_vendors_lanc", i) : rv.cad[i - 1] + ser("rv_vendors_novos", i);
+      rv.reiv[i] = ser("rv_reiv_m1", i) + (ser("rv_reiv_m12", i) - ser("rv_reiv_m1", i)) * r;
+      rv.claimed[i] = rv.cad[i] * rv.reiv[i];
+      rv.conv[i] = ser("rv_conv_m1", i) + (ser("rv_conv_m12", i) - ser("rv_conv_m1", i)) * r;
+      rv.pag[i] = rv.claimed[i] * rv.conv[i];
+      rv.arpu[i] = ser("rv_avulso", i) * (1 - ser("rv_pct_pacote", i)) + ser("rv_pacote", i) * ser("rv_pct_pacote", i);
+      rv.rec[i] = rv.pag[i] * rv.arpu[i];
+      rv.breg[i] = (k === 1) ? ser("rv_buyers_lanc", i) : rv.breg[i - 1] + ser("rv_buyers_novos", i);
+      rv.bconv[i] = ser("rv_bconv_m1", i) + (ser("rv_bconv_m12", i) - ser("rv_bconv_m1", i)) * r;
+      rv.bpag[i] = rv.breg[i] * rv.bconv[i];
+      rv.brec[i] = rv.bpag[i] * ser("rv_buyer_preco", i);
+    }
+    calc.review = rv;
 
-    /* Estado que atravessa os meses. */
-    var baseAssinantes = 0;
-    var baseReview = 0;
-    var caixaCorrente = posicaoInicial ? posicaoInicial.livre : 0;
-    var lucroAcumuladoNaoDistribuido = 0;
-    var historicoReceita = [];
-
-    /* Premissas lidas uma vez so, fora do loop. */
-    var mutuoValor = valorDosEventos(P[4], primeiroMesDeEvento(P[4]), "valor");
-    var mesMutuo = primeiroMesDeEvento(P[4]);
-    var comissaoAdvisors = campoDe(P[17], "percentual", 0) / 100;
-    var probRenovacao = campoDe(P[15], "percentual", 100) / 100;
-    var prazoCota = campoDe(P[14], "prazo_meses", 12);
-    var precoInsights = campoDe(P[19], "preco", 0);
-    var cac = campoDe(P[22], "cac", 0);
-    var plataformaFixa = campoDe(P[23], "fixo_mensal", 0);
-    var takeRate = campoDe(P[23], "take_rate_hotmart_percentual", 0) / 100;
-    var precoReview = (P[26] && typeof P[26].precoUnitario === "number") ? P[26].precoUnitario : 0;
-    var splitAdvisor = campoDe(P[30], "percentual_advisor", 0) / 100;
-    var qdCotas = campoDe(P[32], "receita_cotas", 0);
-    var qdIngressos = campoDe(P[32], "receita_ingressos", 0);
-    var qdCustoPercentual = campoDe(P[32], "percentual_liquido_custo", 0) / 100;
-    var houseAluguel = campoDe(P[34], "valor", 0);
-    var mesHouse = primeiroMesDeEvento(P[33]);
-    var houseGeraReceita = campoDe(P[36], "gera_receita_propria", false);
-    var houseMesReceita = campoDe(P[36], "mes_inicio", 0);
-    var houseTier1Valor = campoDe(P[36], "tier1_valor", 0), houseTier1Qtd = campoDe(P[36], "tier1_eventos_mes", 0);
-    var houseTier2Valor = campoDe(P[36], "tier2_valor", 0), houseTier2Qtd = campoDe(P[36], "tier2_eventos_mes", 0);
-    var houseTier3Valor = campoDe(P[36], "tier3_valor", 0), houseTier3Qtd = campoDe(P[36], "tier3_eventos_mes", 0);
-    var houseReceitaMensal = houseTier1Valor * houseTier1Qtd + houseTier2Valor * houseTier2Qtd + houseTier3Valor * houseTier3Qtd;
-    var plValor = campoDe(P[37], "valor", 0);
-    var plSocios = campoDe(P[37], "num_socios", 0);
-    var plMesInicio = campoDe(P[37], "mes_inicio", 0);
-    var despBase = campoDe(P[40], "valor_base", 0);
-    var ferramentas = campoDe(P[41], "valor", 0);
-    var midiaPercentual = campoDe(P[42], "percentual_receita_bruta", 0) / 100;
-    var juridicoValor = campoDe(P[44], "valor_mensal", 0);
-    var juridicoInicio = campoDe(P[44], "mes_inicio", 0);
-    var distPercentual = campoDe(P[49], "percentual", 0) / 100;
-    var distPeriodo = campoDe(P[49], "periodicidade_meses", 0);
-    var caixaMinimo = campoDe(P[50], "valor", 0);
-
-    /* Juros do mutuo conforme Contrato de Mutuo Conversivel v07, Clausula */
-    /* 4a: carencia sem remuneracao, depois 100% do CDI (proxy de mercado, */
-    /* nao contratual) com capitalizacao ANUAL (art. 591 CC) -- o juro do  */
-    /* ano corrente so vira base de calculo no aniversario de 12 meses, em */
-    /* vez de compor mes a mes. Reconhecido como despesa financeira desde  */
-    /* o fim da carencia; o principal + juros so sai do caixa em parcela   */
-    /* unica no mes de exigibilidade, assumindo que NAO converte (decisao  */
-    /* de Alex, pra ver a parcela no mes correto). Se esse mes cair fora   */
-    /* do horizonte projetado, a saida de caixa simplesmente nao aparece.  */
-    var carenciaMutuo = campoDe(P[5], "carencia_meses", 6);
-    var cdiProxyAnual = campoDe(P[5], "cdi_proxy_anual_percentual", 10.5) / 100;
-    var mesExigibilidadeMutuo = campoDe(P[5], "mes_exigibilidade", 36);
-    var mesInicioAccrualMutuo = (mesMutuo !== null) ? mesMutuo + carenciaMutuo : null;
-    var mutuoBase = mutuoValor;
-    var mutuoJurosDoAnoCorrente = 0;
-    var mutuoJurosAcumulados = 0;
-
-    meses.forEach(function (chave, m) {
-      /* ---------- RECEITAS ---------- */
-
-      /* Cotas Master: a 1 vem da curva 12; a 2 e a 3 sao eventos de      */
-      /* entrada na premissa 13 e valem recorrentemente a partir dali.    */
-      /* A probabilidade de renovacao da premissa 15 entra a cada ciclo   */
-      /* de contrato completado, nao mes a mes.                           */
-      var patrocinio = valorDaCurva(P[12], m);
-      if (P[13] && P[13].eventos) {
-        P[13].eventos.forEach(function (ev) {
-          if (!ev || typeof ev.mes !== "number") return;
-          if (m < ev.mes) return;
-          var valor = (ev.campos && typeof ev.campos.valor === "number") ? ev.campos.valor : 0;
-          var ciclos = (prazoCota > 0) ? Math.floor((m - ev.mes) / prazoCota) : 0;
-          patrocinio += valor * Math.pow(probRenovacao, ciclos);
-        });
-      }
-      /* A Cota 1 tambem renova: aplico a mesma probabilidade por ciclo. */
-      if (P[12] && typeof P[12].mesInicio === "number" && m >= P[12].mesInicio && prazoCota > 0) {
-        var ciclos1 = Math.floor((m - P[12].mesInicio) / prazoCota);
-        patrocinio = patrocinio - valorDaCurva(P[12], m)
-                   + valorDaCurva(P[12], m) * Math.pow(probRenovacao, ciclos1);
-      }
-      L.recPatrocinio[chave] = patrocinio;
-
-      /* Spot de happy hour: evento discreto, hoje vazio de proposito. */
-      L.recSpot[chave] = valorDosEventos(P[16], m, "valor");
-
-      /* QR Insights: base de assinantes com entrada e churn direto da    */
-      /* serie mensal real da Premissas New (premissas 20 e 21), nao mais */
-      /* curva percentual simples.                                        */
-      var novosAssinantes = serieDe(P[20], m);
-      var churnMes = serieDe(P[21], m) / 100;
-      baseAssinantes = baseAssinantes * (1 - churnMes) + novosAssinantes;
-      L.assinantes[chave] = baseAssinantes;
-      L.recInsights[chave] = baseAssinantes * precoInsights;
-
-      /* QR Review: mesma mecanica, com preco unitario proprio. */
-      var novosReview = valorDaCurva(P[26], m);
-      baseReview = baseReview + novosReview;
-      L.assinantesReview[chave] = baseReview;
-      L.recReview[chave] = baseReview * precoReview;
-
-      /* QR Advisory: Full Revenue direto da serie mensal (premissa 29).  */
-      /* QUORUM reconhece o complemento do que fica com o advisor: se     */
-      /* splitAdvisor (premissa 30) e 70% pro advisor, os outros 30% sao  */
-      /* a receita QUORUM (QUORUM Share).                                  */
-      var fullRevenueAdvisory = serieDe(P[29], m);
-      L.recAdvisory[chave] = fullRevenueAdvisory * (1 - splitAdvisor);
-
-      /* Quorum House: receita propria por tier de evento fechado. */
-      L.recHouse[chave] = (houseGeraReceita && m >= houseMesReceita) ? houseReceitaMensal : 0;
-
-      /* Quorum Day: cotas mais ingressos nos meses de edicao. */
-      L.recQuorumDay[chave] = temEventoNoMes(P[31], m) ? (qdCotas + qdIngressos) : 0;
-
-      var receitaBruta = (L.recPatrocinio[chave] + L.recSpot[chave]
-        + L.recInsights[chave] + L.recReview[chave] + L.recAdvisory[chave]
-        + L.recHouse[chave] + L.recQuorumDay[chave]) * redutorReceita;
-
-      /* Reaplica o redutor linha a linha, para a tela mostrar as partes  */
-      /* coerentes com o total no cenario conservador.                    */
-      ["recPatrocinio", "recSpot", "recInsights",
-       "recReview", "recAdvisory", "recHouse", "recQuorumDay"].forEach(function (k) {
-        L[k][chave] = L[k][chave] * redutorReceita;
-      });
-      L.receita[chave] = receitaBruta;
-
-      /* ---------- IMPOSTOS ---------- */
-
-      /* RBT12: soma dos 12 meses anteriores de receita ja projetada.     */
-      /* No comeco do horizonte, a base e menor que 12 meses, entao a     */
-      /* aliquota sai artificialmente baixa. E limitacao conhecida:       */
-      /* o historico real anterior a set/26 nao entra aqui.               */
-      var rbt12 = 0;
-      var inicioJanela = Math.max(0, historicoReceita.length - 12);
-      for (var j = inicioJanela; j < historicoReceita.length; j++) rbt12 += historicoReceita[j];
-      L.rbt12[chave] = rbt12;
-      var aliq = aliquotaEfetiva(rbt12, faixasSimples);
-      L.aliquota[chave] = aliq;
-      L.impostos[chave] = -receitaBruta * aliq;
-      historicoReceita.push(receitaBruta);
-
-      L.receitaLiquida[chave] = L.receita[chave] + L.impostos[chave];
-
-      /* ---------- CUSTOS DIRETOS ---------- */
-
-      /* Advisory: o que fica com o advisor e o complemento do QUORUM     */
-      /* Share, calculado sobre o Full Revenue (nao sobre a receita       */
-      /* QUORUM ja liquida do split) -- e a mecanica real da planilha.    */
-      L.custoAdvisory[chave] = -fullRevenueAdvisory * splitAdvisor;
-      /* Quorum Day: percentual liquido (pos-imposto) travado por Alex,   */
-      /* sobre a receita do proprio evento naquele mes.                   */
-      L.custoQuorumDay[chave] = temEventoNoMes(P[31], m)
-        ? -(L.recQuorumDay[chave] * (1 - aliq)) * qdCustoPercentual
-        : 0;
-      /* Comissao dos advisors incide sobre patrocinio originado. */
-      L.custoComissao[chave] = -(L.recPatrocinio[chave] + L.recSpot[chave]) * comissaoAdvisors;
-      /* Plataforma: fixo mensal mais take rate sobre a receita de        */
-      /* assinatura, que e onde a Hotmart cobra.                          */
-      L.custoPlataforma[chave] = -(plataformaFixa + L.recInsights[chave] * takeRate);
-      L.custoCAC[chave] = -novosAssinantes * cac;
-
-      L.custo[chave] = L.custoAdvisory[chave]
-        + L.custoQuorumDay[chave] + L.custoComissao[chave]
-        + L.custoPlataforma[chave] + L.custoCAC[chave];
-
-      L.lucroBruto[chave] = L.receitaLiquida[chave] + L.custo[chave];
-
-      /* ---------- DESPESAS FIXAS ---------- */
-
-      /* A base da premissa 40 ja inclui ferramentas e midia no realizado */
-      /* de agosto, entao somar as tres cheias contaria duas vezes. Uso a */
-      /* base como piso e somo so o excedente de cada uma. Midia agora e  */
-      /* percentual da receita bruta do mes (premissa 42), nao mais valor */
-      /* fixo -- por isso e calculada aqui dentro do loop.                */
-      var midiaValor = receitaBruta * midiaPercentual;
-      L.despFerramentas[chave] = -ferramentas;
-      L.despMidia[chave] = -midiaValor;
-      L.despFixas[chave] = -Math.max(0, despBase - ferramentas - midiaValor);
-      L.despContabil[chave] = -450 - valorDosEventos(P[43], m, "valor");
-      L.despJuridico[chave] = (m >= juridicoInicio) ? -juridicoValor : 0;
-      L.despHouse[chave] = (mesHouse !== null && m >= mesHouse) ? -houseAluguel : 0;
-
-      /* Contratacoes da premissa 38: hoje vazia de proposito. */
-      var folha = 0;
-      if (P[38] && P[38].eventos) {
-        P[38].eventos.forEach(function (ev) {
-          if (ev && typeof ev.mes === "number" && m >= ev.mes
-              && ev.campos && typeof ev.campos.salario === "number") {
-            folha += ev.campos.salario;
-          }
-        });
-      }
-      L.despPessoal[chave] = -folha;
-
-      var despesasAntesPL = L.despFixas[chave] + L.despFerramentas[chave]
-        + L.despMidia[chave] + L.despContabil[chave] + L.despJuridico[chave]
-        + L.despHouse[chave] + L.despPessoal[chave];
-
-      /* ---------- PRO-LABORE FIXO (premissa 37) ---------- */
-      /* A planilha lanca valor fixo por socio desde jan/27, nao mais a   */
-      /* regra condicional de 50% do EBITDA antes do proprio pro-labore.  */
-      /* ebitdaAntesPL fica so como indicador informativo (nao decide     */
-      /* mais nada aqui).                                                 */
-
-      L.ebitdaAntesPL[chave] = L.lucroBruto[chave] + despesasAntesPL;
-      var pl = (m >= plMesInicio) ? plValor * plSocios : 0;
-      L.proLabore[chave] = -pl;
-      L.despesas[chave] = despesasAntesPL + L.proLabore[chave];
-      L.ebitda[chave] = L.lucroBruto[chave] + L.despesas[chave];
-
-      /* ---------- RESULTADO FINANCEIRO ---------- */
-
-      /* Juros do mutuo: accrual mensal a partir do fim da carencia,      */
-      /* capitalizando uma vez por ano (nao mes a mes) sobre a base       */
-      /* corrente. O pagamento em dinheiro fica pro fluxo de caixa.       */
-      var jurosMutuoMes = 0;
-      if (mesInicioAccrualMutuo !== null && m >= mesInicioAccrualMutuo) {
-        var mesesDesdeAccrual = m - mesInicioAccrualMutuo;
-        if (mesesDesdeAccrual > 0 && mesesDesdeAccrual % 12 === 0) {
-          mutuoBase += mutuoJurosDoAnoCorrente;
-          mutuoJurosDoAnoCorrente = 0;
+    /* Juros do mutuo (Comunidade, que e a PJ que assinou o contrato):    */
+    /* carencia, depois CDI com capitalizacao anual (art. 591 CC).        */
+    var juros = bpZeros(), mutuoSaldo = bpZeros();
+    if (vert === "com" && P.mutuo_valor > 0) {
+      var ini = P.mutuo_mes + P.mutuo_carencia, base = P.mutuo_valor, doAno = 0, acum = 0;
+      for (var j = 0; j < BP_N; j++) {
+        if (j >= ini) {
+          var d = j - ini;
+          if (d > 0 && d % 12 === 0) { base += doAno; doAno = 0; }
+          juros[j] = base * P.mutuo_cdi / 12;
+          doAno += juros[j]; acum += juros[j];
         }
-        jurosMutuoMes = mutuoBase * (cdiProxyAnual / 12);
-        mutuoJurosDoAnoCorrente += jurosMutuoMes;
-        mutuoJurosAcumulados += jurosMutuoMes;
+        mutuoSaldo[j] = j >= P.mutuo_mes ? P.mutuo_valor + acum : 0;
       }
-      L.juros[chave] = -jurosMutuoMes;
-      L.finDesp[chave] = L.juros[chave];
-      L.lucroLiquido[chave] = L.ebitda[chave] + L.finDesp[chave];
-
-      /* ---------- FLUXO DE CAIXA ---------- */
-
-      L.aporte[chave] = (m === mesMutuo) ? mutuoValor : 0;
-      /* Parcela unica do mutuo (principal + juros ja reconhecidos como   */
-      /* despesa financeira mes a mes): sai do caixa so no mes de         */
-      /* exigibilidade, sem afetar o resultado de novo. So dispara se     */
-      /* esse mes cair dentro do horizonte projetado.                     */
-      L.pagamentoMutuo[chave] = (m === mesExigibilidadeMutuo) ? -(mutuoBase + mutuoJurosAcumulados) : 0;
-      L.capex[chave] = -valorDosEventos(P[35], m, "valor") - valorDosEventos(P[27], m, "valor");
-
-      /* Distribuicao de lucros: percentual do acumulado nao distribuido, */
-      /* na periodicidade da premissa 49, e so se o acumulado for         */
-      /* positivo. Sai do caixa, nao do resultado.                        */
-      lucroAcumuladoNaoDistribuido += L.lucroLiquido[chave];
-      var distribuiu = 0;
-      if (distPeriodo > 0 && m > 0 && (m + 1) % distPeriodo === 0
-          && lucroAcumuladoNaoDistribuido > 0) {
-        distribuiu = lucroAcumuladoNaoDistribuido * distPercentual;
-        lucroAcumuladoNaoDistribuido -= distribuiu;
-      }
-      L.distribuicao[chave] = -distribuiu;
-
-      L.fluxoMes[chave] = L.lucroLiquido[chave] + L.aporte[chave]
-        + L.capex[chave] + L.distribuicao[chave] + L.pagamentoMutuo[chave];
-      caixaCorrente += L.fluxoMes[chave];
-      L.caixa[chave] = caixaCorrente;
-    });
-
-    return { meses: meses, L: L, caixaMinimo: caixaMinimo };
-  }
-
-  /* Composicao de cada vertical: que linhas de receita e que linhas de   */
-  /* custo direto pertencem a ela. So entra aqui o que e atribuivel sem   */
-  /* rateio -- imposto, despesa fixa, pro-labore e financeiro ficam de    */
-  /* fora de proposito, porque sao da empresa e nao da vertical, e        */
-  /* ratear isso produziria margem liquida ficticia.                      */
-  var COMPOSICAO_VERTICAL = {
-    comunidade: {
-      rotulo: "Comunidade",
-      receitas: [
-        ["recPatrocinio", "Patrocínio recorrente"],
-        ["recSpot", "Patrocínio spot"],
-        ["recQuorumDay", "Quorum Day"],
-        ["recHouse", "Quorum House"]
-      ],
-      custos: [
-        ["custoQuorumDay", "Custo do Quorum Day"],
-        ["custoComissao", "Comissão sobre patrocínio"]
-      ],
-      nota: "Reúne tudo que monetiza a comunidade curada: cotas Master, spot de happy hour, Quorum Day e locação da House. Encontros Exclusivos foi aposentada (sem correspondência na planilha oficial). O aluguel da House não entra aqui porque é despesa fixa da empresa, não custo direto de uma venda."
-    },
-    insights: {
-      rotulo: "QR Insights",
-      receitas: [["recInsights", "Assinatura QR Insights"]],
-      custos: [
-        ["custoPlataforma", "Plataforma e take rate"],
-        ["custoCAC", "CAC de assinantes"]
-      ],
-      nota: "Assinatura recorrente. O custo de plataforma tem parte fixa mensal e parte variável por take rate, e o CAC incide só sobre o assinante novo do mês, não sobre a base."
-    },
-    review: {
-      rotulo: "QR Review",
-      receitas: [["recReview", "Assinatura QR Review"]],
-      custos: [],
-      nota: "Não tem custo direto por unidade vendida na modelagem atual: o desenvolvimento da plataforma entra como investimento pontual no consolidado, não como custo da venda."
-    },
-    advisory: {
-      rotulo: "QR Advisory",
-      receitas: [["recAdvisory", "Matching de advisory"]],
-      custos: [["custoAdvisory", "Repasse ao advisor"]],
-      nota: "Margem é estruturalmente o complemento do split com o advisor que executa o projeto. Volume baixo, margem previsível."
     }
-  };
+    calc.mutuoSaldo = mutuoSaldo;
 
-  /* Roda os dois cenarios e devolve os dois lado a lado. */
-  function projetar(valores, posicaoInicial) {
-    var redutor = campoDe(valores[3], "percentual", 100) / 100;
-    var anexo = campoDe(valores[45], "anexo_padrao", "V");
-    var faixas = (String(anexo).toUpperCase() === "III") ? FAIXAS_ANEXO_III : FAIXAS_ANEXO_V;
-    return {
-      base: projetarCenario(valores, posicaoInicial, 1, faixas),
-      conservador: projetarCenario(valores, posicaoInicial, redutor, faixas),
-      redutor: redutor,
-      anexo: anexo
-    };
+    /* Fator de renovacao de cota: probabilidade elevada ao numero de     */
+    /* ciclos completos desde o primeiro mes da cota.                     */
+    function fatorRenovacao(id, i) {
+      var s = S[id] || [], inicio = -1;
+      for (var q = 0; q < BP_N; q++) if ((s[q] || 0) > 0) { inicio = q; break; }
+      if (inicio < 0 || i < inicio || !(P.renovacao_prazo > 0)) return 1;
+      return Math.pow(P.renovacao_prob, Math.floor((i - inicio) / P.renovacao_prazo));
+    }
+
+    var fat = bpZeros();
+    var iAt = 0;
+    function t(n, val) { A(n)[iAt] = val; }
+    for (var i = 0; i < BP_N; i++) {
+      var mk = BP_MESES[i];
+      if (tipos[i] === "R") {
+        preencherRealizado(i, mk);
+        fat[i] = A(7)[i];
+        continue;
+      }
+      var red = redutor;
+      iAt = i;
+
+      /* ---------- Receita ---------- */
+      var m10 = ser("membros_cto", i), m11 = ser("membros_ciso", i), m12 = ser("membros_cdo", i);
+      var conv13 = ser("conversao_house", i), preco15 = ser("preco_membership", i);
+      var pagantes = Math.round(m10 + m11 + m12) * conv13;
+      t(10, m10); t(11, m11); t(12, m12); t(13, conv13); t(14, pagantes); t(15, preco15);
+      t(9, pagantes * preco15 * red);
+      t(19, ser("webpeak", i) * red);
+      t(20, ser("cota1", i) * fatorRenovacao("cota1", i) * red);
+      t(21, ser("cota2", i) * fatorRenovacao("cota2", i) * red);
+      t(22, ser("cota3", i) * fatorRenovacao("cota3", i) * red);
+      var sq = ser("spot_qtd", i), sp = ser("spot_preco", i);
+      t(26, sq); t(27, sp); t(25, sq * sp * red);
+      var q1 = ser("tier1_qtd", i), q2 = ser("tier2_qtd", i), q3 = ser("tier3_qtd", i);
+      var p1 = ser("tier1_preco", i), p2 = ser("tier2_preco", i), p3 = ser("tier3_preco", i);
+      t(31, q1); t(32, q2); t(33, q3); t(34, p1); t(35, p2); t(36, p3);
+      t(30, (q1 * p1 + q2 * p2 + q3 * p3) * red);
+      var svq = ser("surveys_qtd", i), svp = ser("surveys_preco", i);
+      t(41, svq); t(42, svp); t(40, svq * svp * red);
+      var part = ser("qd_participantes", i), ing = ser("qd_ingresso", i), cq = ser("qd_cotas_qtd", i), cv = ser("qd_cota_valor", i);
+      t(46, part); t(47, ing); t(45, part * ing * red); t(49, cq); t(50, cv); t(48, cq * cv * red);
+      t(69, rv.rec[i] * red); t(67, rv.brec[i] * red);
+      var adv = ser("adv_advisors", i), horas = adv * P.horas_advisor, pv = ser("adv_pct_vendidas", i);
+      var hv = horas * pv, ph = ser("adv_preco_hora", i), full = hv * ph, sh = ser("adv_share", i);
+      t(73, adv); t(74, horas); t(75, pv); t(76, hv); t(77, ph); t(78, full); t(79, sh);
+      t(72, full * sh * red);
+      var rb = somaArvore(7, i);
+      fat[i] = rb;
+
+      /* ---------- Impostos sobre a receita ---------- */
+      var imp = bpImpostos(fat, i);
+      calc.regime[i] = imp.regime; calc.aliq[i] = imp.aliq; calc.rbt12[i] = imp.rbt12;
+      t(87, -imp.das); t(88, -imp.iss); t(89, -imp.pis); t(90, -imp.cofins); t(91, -imp.csll); t(92, -imp.irpj);
+      var rl = somaArvore(94, i);
+      var cargaReceita = rb ? -A(85)[i] / rb : 0;
+
+      /* ---------- Custo dos servicos ---------- */
+      var porEvento = ser("membros_por_evento", i);
+      t(104, -porEvento * ser("ab_membro_quo", i)); t(105, -ser("video_evento_quo", i)); t(106, -ser("equip_evento_quo", i));
+      /* Contagem de eventos da Webpeak com custo QUORUM. A planilha aponta */
+      /* esta linha para "# Eventos Spot Custos QUORUM" (sempre zero); o    */
+      /* correto e "# Eventos Recorrentes Custos QUORUM".                   */
+      var nRec = P.corrige_recorrente ? ser("eventos_recorrentes_custo", i) : 0;
+      t(107, nRec);
+      t(103, nRec * (A(104)[i] + A(105)[i] + A(106)[i]));
+      t(110, -porEvento * ser("ab_membro_cli", i)); t(111, -ser("video_evento_cli", i)); t(112, -ser("equip_evento_cli", i));
+      t(113, ser("spot_eventos_custo_cli", i));
+      t(109, A(113)[i] * (A(110)[i] + A(111)[i] + A(112)[i]));
+      var qAl = ser("house_aluguel_qtd", i), qRf = ser("house_reforma_qtd", i);
+      t(117, qAl); t(116, -qAl * ser("house_aluguel_valor", i));
+      t(119, qRf); t(118, -qRf * ser("house_reforma_valor", i));
+      if (P.modo_qd === "bruto") { t(129, P.qd_bruto_pct); t(128, -A(44)[i] * P.qd_bruto_pct); }
+      else { t(129, P.qd_custo_pct); t(128, -A(44)[i] * (1 - cargaReceita) * P.qd_custo_pct); }
+
+      /* ---------- Lancamentos fixos ---------- */
+      Object.keys(BP_LANCAMENTOS).forEach(function (id) { t(BP_LANCAMENTOS[id], ser(id, i)); });
+      somaArvore(150, i);
+
+      /* ---------- Despesas calculadas ---------- */
+      t(208, vert === "com" ? (P.modo_midia === "lanc" ? ser("l_impuls", i) : -rb * P.midia_pct) : 0);
+      t(226, -rl * P.comissao_pct);
+      somaArvore(229, i);
+
+      /* ---------- Resultado financeiro ---------- */
+      t(242, vert === "com" ? -rb * P.taxa_com : 0);
+      t(243, vert === "tech" ? -rb * P.taxa_tech : 0);
+      t(245, -juros[i]);
+      somaArvore(259, i);
+      somaArvore(266, i);
+    }
+
+    function preencherRealizado(i, mk) {
+      var V = realiz ? realiz[vert] : null;
+      var feitos = {};
+      function secao(chaves) {
+        var s = 0;
+        chaves.forEach(function (c) { s += (V && V.sec[c] && V.sec[c][mk]) || 0; });
+        return s;
+      }
+      function val(n) {
+        if (feitos.hasOwnProperty(n)) return feitos[n];
+        var linha = BP_LINHA[n], res = 0;
+        if (BP_DRIVERS[n]) res = null;
+        else if (BP_SECAO_REALIZADA[n]) res = secao(BP_SECAO_REALIZADA[n]);
+        else if (BP_RESIDUO[n] !== undefined) {
+          var pai = BP_RESIDUO[n], soma = 0;
+          (BP_FILHOS[pai] || []).forEach(function (f) { soma += val(f) || 0; });
+          res = val(pai) - soma;
+        } else if (BP_SUB_VERTICAL[n]) {
+          var mae = n <= 178 ? 176 : n <= 183 ? 181 : n <= 186 ? 184 : 241;
+          res = BP_SUB_VERTICAL[n] === vert ? val(mae) : 0;
+        } else if (linha && linha.c && !BP_CODIGO_IGNORADO_NO_REALIZADO[n]) {
+          var partes = linha.c.split(".").length;
+          var mapa = partes >= 3 ? (V && V.cat) : (V && V.grp);
+          res = (mapa && mapa[linha.c] && mapa[linha.c][mk]) || 0;
+        } else if (BP_FILHOS[n]) {
+          BP_FILHOS[n].forEach(function (f) { res += val(f) || 0; });
+        }
+        feitos[n] = res;
+        return res;
+      }
+      BP_LINHAS.forEach(function (l) {
+        var n = l[0];
+        if (BP_RAZOES[n] || BP_SALDOS[n] || n === 317) return;
+        A(n)[i] = val(n);
+      });
+      A(317)[i] = [274, 276, 284, 300, 308, 316].reduce(function (s, n) { return s + (val(n) || 0); }, 0);
+    }
+
+    fecharRazoes(v);
+    var acum = 0;
+    A(268).forEach(function (x, i) { acum += A(266)[i] || 0; A(268)[i] = acum; });
+    return { v: v, calc: calc };
+  }
+
+  function fecharRazoes(v) {
+    Object.keys(BP_RAZOES).forEach(function (n) {
+      var par = BP_RAZOES[n], num = v[par[0]] || [], den = v[par[1]] || [];
+      v[n] = bpZeros().map(function (x, i) { return den[i] ? (num[i] || 0) / den[i] : null; });
+    });
   }
 
   /* ------------------------------------------------------------------ */
-  /* 11-B. TELA MASTER: BUSINESS PLAN (casca da Fase 1)                  */
+  /* Projecao completa: as duas verticais, o Consolidado como soma e o   */
+  /* fluxo de caixa, que so existe no Consolidado (como na planilha).    */
   /* ------------------------------------------------------------------ */
-  /* Sem logica de calculo ainda. So a navegacao entre abas e o lugar     */
-  /* onde a Fase 2 (Premissas) e a Fase 3 (motor de projecao) entram.     */
+  function bpProjetar(overrides, params, realiz, redutor, hojeChave) {
+    var P = {};
+    Object.keys(BP_PARAMS_PADRAO).forEach(function (k) {
+      P[k] = (params && params[k] !== undefined && params[k] !== null && params[k] !== "") ? params[k] : BP_PARAMS_PADRAO[k];
+    });
+    var S = bpSeriesEfetivas(overrides);
+    var tipos = BP_MESES.map(function (mk) {
+      return (realiz && hojeChave && mk < hojeChave && realiz.meses[mk]) ? "R" : "P";
+    });
+    var com = bpVertical("com", S, P, realiz, tipos, redutor);
+    var tech = bpVertical("tech", S, P, realiz, tipos, redutor);
+
+    var cons = {};
+    BP_LINHAS.forEach(function (l) {
+      var n = l[0];
+      if (n > 269 || BP_RAZOES[n] || BP_SALDOS[n]) return;
+      var a = com.v[n] || bpZeros(), b = tech.v[n] || bpZeros();
+      cons[n] = a.map(function (x, i) {
+        if (x === null && b[i] === null) return null;
+        return (x || 0) + (b[i] || 0);
+      });
+    });
+    fecharRazoes(cons);
+    var acum = 0;
+    cons[268] = (cons[266] || bpZeros()).map(function (x) { acum += x || 0; return acum; });
+
+    /* Fluxo de caixa. Realizado: soma das duas verticais, direto da Omie. */
+    [274, 276, 277, 278, 279, 280, 281, 282, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293,
+     294, 295, 296, 297, 298, 300, 301, 302, 303, 304, 305, 306, 308, 309, 310, 311, 312, 313,
+     314, 315, 316, 317].forEach(function (n) {
+      var a = com.v[n] || bpZeros(), b = tech.v[n] || bpZeros();
+      cons[n] = a.map(function (x, i) { return (x || 0) + (b[i] || 0); });
+    });
+    var primeiroProj = tipos.indexOf("P");
+    var naoDistribuido = 0;
+    for (var i = 0; i < BP_N; i++) {
+      if (tipos[i] === "R") continue;
+      cons[274][i] = cons[266][i] || 0;
+      [278, 279, 280, 281, 282, 286, 287, 288, 289, 290, 291, 292, 294, 295, 296, 297, 298,
+       302, 303, 304, 305, 306, 310, 311, 312, 313, 314, 315, 316].forEach(function (n) { cons[n][i] = 0; });
+      if (i === P.mutuo_mes) cons[282][i] = P.mutuo_valor;
+      if (i === P.mutuo_mes + P.mutuo_prazo) cons[292][i] = -(com.calc.mutuoSaldo[i] || 0);
+      /* Distribuicao: % do lucro acumulado ainda nao distribuido, a cada */
+      /* N meses contados do primeiro mes projetado, se positivo.         */
+      naoDistribuido += cons[266][i] || 0;
+      var k = i - primeiroProj;
+      var dist = 0;
+      if (P.dist_periodo > 0 && (k + 1) % P.dist_periodo === 0 && naoDistribuido > 0) {
+        dist = naoDistribuido * P.dist_pct;
+        naoDistribuido -= dist;
+      }
+      cons[293][i] = -dist;
+      cons[277][i] = [278, 279, 280, 281, 282].reduce(function (s, n) { return s + cons[n][i]; }, 0);
+      cons[276][i] = cons[277][i];
+      cons[285][i] = [286, 287, 288, 289, 290, 291, 292].reduce(function (s, n) { return s + cons[n][i]; }, 0);
+      cons[284][i] = cons[285][i] + cons[293][i];
+      cons[301][i] = 0; cons[300][i] = 0; cons[309][i] = 0; cons[308][i] = 0;
+      cons[317][i] = cons[274][i] + cons[276][i] + cons[284][i] + cons[300][i] + cons[308][i] + cons[316][i];
+    }
+    cons[319] = bpZeros(); cons[320] = bpZeros();
+    for (var j = 0; j < BP_N; j++) {
+      cons[319][j] = j ? cons[320][j - 1] : 0;
+      cons[320][j] = cons[319][j] + cons[317][j];
+    }
+    return { tipos: tipos, P: P, S: S, com: com, tech: tech, cons: cons };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 11-B. CATALOGO DA GRADE DE PREMISSAS                                */
+  /* Mesma arvore da aba Premissas New: vertical, bloco, linha. Linhas   */
+  /* com "calc" sao calculadas (so leitura), como os totais da planilha. */
+  /* ------------------------------------------------------------------ */
+
+  function bpCalcSerie(proj, f) { return BP_MESES.map(function (m, i) { return f(proj, i); }); }
+  var BP_PREMISSAS_UI = [
+    { v: "com", b: "Membership", itens: [
+      ["membros_cto", "# CTOs / CIOs", "qtd"], ["membros_ciso", "# CISOs", "qtd"], ["membros_cdo", "# CDOs / CAIOs", "qtd"],
+      ["c_total_membros", "# Total Members", "qtd", function (p, i) { return (p.S.membros_cto[i] || 0) + (p.S.membros_ciso[i] || 0) + (p.S.membros_cdo[i] || 0); }],
+      ["conversao_house", "% Conversão (Quorum House)", "pct"],
+      ["c_pagantes", "# Paying Members", "qtd", function (p, i) { return p.com.v[14] ? p.com.v[14][i] : null; }],
+      ["preco_membership", "R$ Membership", "rs"],
+      ["membros_por_evento", "# Membros / Evento", "qtd"] ] },
+    { v: "com", b: "Patrocínios Recorrentes", itens: [
+      ["webpeak", "R$ Webpeak / Zoho CRM", "rs"], ["cota1", "R$ Total Cota Master 1", "rs"],
+      ["cota2", "R$ Total Cota Master 2", "rs"], ["cota3", "R$ Total Cota Master 3", "rs"],
+      ["ab_membro_quo", "R$ Alimentos e Bebidas / Membro (C.QUO)", "rs"],
+      ["c_ab_total_quo", "R$ Alimentos e Bebidas Total (C.QUO)", "rs", function (p, i) { return (p.S.membros_por_evento[i] || 0) * (p.S.ab_membro_quo[i] || 0); }],
+      ["video_evento_quo", "R$ Produção de Vídeos e Fotos / Evento (C.QUO)", "rs"],
+      ["equip_evento_quo", "R$ Locação de Equipamentos / Evento (C.QUO)", "rs"],
+      ["eventos_recorrentes_custo", "# Eventos Recorrentes Custos QUORUM", "qtd"] ] },
+    { v: "com", b: "Eventos Spot", itens: [
+      ["spot_qtd", "# Eventos Spot Receita (C.CLI)", "qtd"], ["spot_preco", "R$ Evento Spot Receita (C.CLI)", "rs"],
+      ["ab_membro_cli", "R$ Alimentos e Bebidas / Membro (C.CLI)", "rs"],
+      ["video_evento_cli", "R$ Produção de Vídeos e Fotos / Evento (C.CLI)", "rs"],
+      ["equip_evento_cli", "R$ Locação de Equipamentos / Evento (C.CLI)", "rs"],
+      ["spot_eventos_custo_cli", "# Eventos Spot Custos CLIENTE", "qtd"] ] },
+    { v: "com", b: "QUORUM House", itens: [
+      ["tier1_qtd", "# Eventos Tier 1", "qtd"], ["tier2_qtd", "# Eventos Tier 2", "qtd"], ["tier3_qtd", "# Eventos Tier 3", "qtd"],
+      ["tier1_preco", "R$ Eventos Tier 1", "rs"], ["tier2_preco", "R$ Eventos Tier 2", "rs"], ["tier3_preco", "R$ Eventos Tier 3", "rs"],
+      ["house_aluguel_qtd", "# Aluguel QUORUM House", "qtd"], ["house_aluguel_valor", "R$ Aluguel QUORUM House", "rs"],
+      ["house_reforma_qtd", "# Reforma QUORUM House", "qtd"], ["house_reforma_valor", "R$ Reforma QUORUM House", "rs"] ] },
+    { v: "com", b: "Surveys", itens: [
+      ["surveys_qtd", "# Surveys", "qtd"], ["surveys_preco", "R$ Surveys", "rs"] ] },
+    { v: "com", b: "Eventos Abertos (Aniversário, QUORUM Day)", itens: [
+      ["qd_participantes", "# Participantes", "qtd"], ["qd_ingresso", "R$ Ingresso", "rs"],
+      ["qd_cotas_qtd", "# Cotas de Patrocínio", "qtd"], ["qd_cota_valor", "R$ Cota de Patrocínio", "rs"] ] },
+    { v: "com", b: "Despesas lançadas mês a mês (Comunidade)", itens: [
+      ["l_till", "Till", "rs"], ["l_alex", "Alex", "rs"], ["l_cl", "Community Leader", "rs"], ["l_video", "Videomaker", "rs"],
+      ["l_ferr_com", "Ferramentas Comunidade", "rs"], ["l_jur_com", "Jurídico Comunidade", "rs"],
+      ["l_cont_com", "Contabilidade Comunidade", "rs"], ["l_estudio", "Produção de Conteúdo | Aluguel de Estúdio", "rs"],
+      ["l_pr", "Mídia | PR Agency", "rs"], ["l_brindes", "Brindes e Materiais Promocionais", "rs"],
+      ["l_comerciais", "Despesas Comerciais Diversas", "rs"] ] },
+    { v: "tech", b: "QR Review", itens: [
+      ["rv_avulso", "Vendor — módulo avulso (mensal)", "rs"], ["rv_pacote", "Vendor — pacote completo, 3 módulos (mensal)", "rs"],
+      ["rv_pct_pacote", "% de vendors pagantes que escolhem o pacote completo", "pct"],
+      ["rv_vendors_lanc", "Vendors cadastrados no lançamento", "qtd"], ["rv_vendors_novos", "Novos vendors cadastrados por mês", "qtd"],
+      ["rv_reiv_m1", "% da base que reivindica o perfil — mês 1", "pct"], ["rv_reiv_m12", "% da base que reivindica o perfil — mês 12", "pct"],
+      ["rv_conv_m1", "% dos vendors 'claimed' que convertem a pagante — mês 1", "pct"],
+      ["rv_conv_m12", "% dos vendors 'claimed' que convertem a pagante — mês 12", "pct"],
+      ["c_rv_cad", "Vendors cadastrados (cum.)", "qtd", function (p, i) { return p.tech.calc.review.cad[i]; }],
+      ["c_rv_claimed", "Vendors 'claimed' (cum.)", "qtd", function (p, i) { return p.tech.calc.review.claimed[i]; }],
+      ["c_rv_pag", "Vendors pagantes", "qtd", function (p, i) { return p.tech.calc.review.pag[i]; }],
+      ["c_rv_arpu", "ARPU Vendor (blend)", "rs", function (p, i) { return p.tech.calc.review.arpu[i]; }],
+      ["rv_buyers_lanc", "Buyers registrados no lançamento (mês 1)", "qtd"], ["rv_buyers_novos", "Novos buyers registrados por mês", "qtd"],
+      ["rv_bconv_m1", "% de buyers registrados que convertem a pagante — mês 1", "pct"],
+      ["rv_bconv_m12", "% de buyers registrados que convertem a pagante — mês 12", "pct"],
+      ["rv_buyer_preco", "Assinatura Buyer (mensal)", "rs"],
+      ["c_rv_bpag", "Buyers pagantes", "qtd", function (p, i) { return p.tech.calc.review.bpag[i]; }] ] },
+    { v: "tech", b: "QR Advisory", itens: [
+      ["adv_advisors", "# Advisors", "qtd"],
+      ["c_adv_horas", "# Horas de Advisory Disponibilizadas", "qtd", function (p, i) { return p.tech.v[74] ? p.tech.v[74][i] : null; }],
+      ["adv_pct_vendidas", "% de Horas Vendidas", "pct"],
+      ["adv_preco_hora", "R$ Average Pricing (Valor/Hora)", "rs"],
+      ["c_adv_full", "R$ Full Revenue", "rs", function (p, i) { return p.tech.v[78] ? p.tech.v[78][i] : null; }],
+      ["adv_share", "% QUORUM Share", "pct"] ] },
+    { v: "tech", b: "Despesas lançadas mês a mês (Tech)", itens: [
+      ["l_roque", "Roque Ribeiro", "rs"], ["l_ferr_tech", "Ferramentas Tech", "rs"], ["l_jur_tech", "Jurídico Tech", "rs"],
+      ["l_cont_tech", "Contabilidade Tech", "rs"], ["l_apis", "APIs de fonte de notícia e conteúdo", "rs"],
+      ["l_cac_insights", "Mídia | Aquisição QR Insights", "rs"], ["l_criativos", "Criativos Para Mídia", "rs"],
+      ["l_backup", "Backup, réplica e ambiente de staging (Cloud)", "rs"],
+      ["l_infra", "Infraestrutura, orquestração e observabilidade", "rs"],
+      ["l_ia", "IA do pipeline (enriquecimentos, embeddings, etc)", "rs"] ] }
+  ];
+
+  var BP_PARAMS_UI = [
+    ["renovacao_prob", "Probabilidade de renovação de cada cota Master, por ciclo", "pct", "Só no online. Com 100% o resultado é o da planilha."],
+    ["renovacao_prazo", "Duração do ciclo de contrato de cota (meses)", "qtd", ""],
+    ["comissao_pct", "Comissão de sócios advisors, % da receita líquida", "pct", "Só no online. Linha 2.12.98, nas duas verticais."],
+    ["midia_pct", "Mídia | Impulsionamento, % da receita bruta da Comunidade", "pct", "Só no online. A planilha usa R$2.000/mês fixos."],
+    ["qd_custo_pct", "Custo dos eventos abertos, % da receita líquida do evento", "pct", "Só no online. A planilha usa 50% da receita bruta."],
+    ["taxa_com", "Taxas bancárias, % da receita da Comunidade", "pct", "Da planilha."],
+    ["taxa_tech", "Meios de pagamento, % da receita da Tech", "pct", "Da planilha."],
+    ["horas_advisor", "Horas disponibilizadas por advisor no mês", "qtd", "Da planilha."],
+    ["review_lancamento", "Mês de lançamento do QR Review (mês 1 da rampa)", "mes", "Da planilha."],
+    ["mutuo_valor", "Mútuo conversível: valor", "rs", "Contrato v07."],
+    ["mutuo_mes", "Mútuo conversível: mês de entrada do dinheiro", "mes", "Contrato v07."],
+    ["mutuo_carencia", "Mútuo conversível: carência de juros (meses)", "qtd", "Contrato v07, Cláusula 4.1."],
+    ["mutuo_cdi", "Mútuo conversível: CDI anual (estimativa de mercado)", "pct", "Não está no contrato: é estimativa."],
+    ["mutuo_prazo", "Mútuo conversível: prazo até a parcela única (meses)", "qtd", "Contrato v07, Cláusula 4.3. Assume que não converte."],
+    ["dist_pct", "Distribuição de lucros, % do acumulado não distribuído", "pct", "Só no online."],
+    ["dist_periodo", "Distribuição de lucros, a cada quantos meses", "qtd", "Só no online."],
+    ["conservador", "Cenário conservador, fração da receita do cenário base", "pct", "Só no online."],
+    ["caixa_minimo", "Caixa mínimo para alerta", "rs", "Só no online."]
+  ];
+
+  var BP_ARMAZEM = "quorum_bp_v4";
+  function bpLerArmazem() {
+    try {
+      var s = armazenamento.getItem(BP_ARMAZEM);
+      var o = s ? JSON.parse(s) : null;
+      if (o && typeof o === "object") return { ov: o.ov || {}, pr: o.pr || {} };
+    } catch (e) {}
+    return { ov: {}, pr: {} };
+  }
+
+  function bpFormatar(v, tipo) {
+    if (v === null || v === undefined || (typeof v === "number" && isNaN(v))) return "";
+    if (tipo === "pct") return formatarPercentual(v);
+    return formatarNumero(v, 0);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 11-C. TELA BUSINESS PLAN                                            */
+  /* ------------------------------------------------------------------ */
 
   function PainelBP(props) {
-    var estAbaBP = useState("bp");
-    var abaBP = estAbaBP[0], setAbaBP = estAbaBP[1];
+    var estAba = useState("cons");            var aba = estAba[0], setAba = estAba[1];
+    var estCenario = useState("base");        var cenario = estCenario[0], setCenario = estCenario[1];
+    var estGran = useState("ano");            var granularidade = estGran[0], setGranularidade = estGran[1];
+    var estZeradas = useState(false);         var mostrarZeradas = estZeradas[0], setMostrarZeradas = estZeradas[1];
+    var estArmazem = useState(bpLerArmazem);  var armazem = estArmazem[0], setArmazem = estArmazem[1];
 
-    /* Cenario e granularidade da aba BP. Nao persistem entre sessoes de   */
-    /* proposito: sao lentes de leitura, nao configuracao do plano.        */
-    var estCenario = useState("base");
-    var cenario = estCenario[0], setCenario = estCenario[1];
-    var estGranularidade = useState("ano");
-    var granularidade = estGranularidade[0], setGranularidade = estGranularidade[1];
-
-    /* Valores correntes das premissas: comeca a partir do default tipado   */
-    /* de cada uma (clone, pra nao mutar PREMISSAS_DEFAULT), com qualquer   */
-    /* edicao anterior recuperada do navegador. So aceita o que estiver     */
-    /* salvo com a versao de estrutura atual -- formato antigo (texto       */
-    /* livre) e incompativel com os campos tipados de agora, entao e        */
-    /* descartado de proposito, nao convertido.                             */
-    var estValores = useState(function () {
-      var base = {};
-      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = clonar(item); });
-      try {
-        var salvo = armazenamento.getItem("quorum_premissas_bp_v2");
-        if (salvo) {
-          var parsed = JSON.parse(salvo);
-          if (parsed && parsed.versao === PREMISSAS_VERSAO && parsed.valores) {
-            Object.keys(parsed.valores).forEach(function (numero) {
-              if (base.hasOwnProperty(numero)) base[numero] = parsed.valores[numero];
-            });
-          }
-        }
-      } catch (e) {}
-      return base;
-    });
-    var valores = estValores[0], setValores = estValores[1];
-
-    /* Persistencia so acontece quando o usuario de fato edita um campo,    */
-    /* nunca no carregamento inicial -- mesma logica da versao anterior,    */
-    /* pra nao repetir o bug de gravar tudo assim que a aba abre.            */
-    function persistirValores(proximo) {
-      try { armazenamento.setItem("quorum_premissas_bp_v2", JSON.stringify({ versao: PREMISSAS_VERSAO, valores: proximo })); } catch (e) {}
+    function gravar(novo) {
+      setArmazem(novo);
+      try { armazenamento.setItem(BP_ARMAZEM, JSON.stringify(novo)); } catch (e) {}
+    }
+    function editarCelula(id, i, valor) {
+      var ov = JSON.parse(JSON.stringify(armazem.ov));
+      if (!ov[id]) ov[id] = {};
+      if (valor === null) delete ov[id][i]; else ov[id][i] = valor;
+      if (!Object.keys(ov[id]).length) delete ov[id];
+      gravar({ ov: ov, pr: armazem.pr });
+    }
+    function editarParam(k, valor) {
+      var pr = JSON.parse(JSON.stringify(armazem.pr));
+      if (valor === null) delete pr[k]; else pr[k] = valor;
+      gravar({ ov: armazem.ov, pr: pr });
     }
 
-    /* Atualiza um item inteiro via funcao que muta uma copia dele. Cada     */
-    /* editor tipado (escalar, curva, evento...) usa isso pra mexer só no    */
-    /* campo aninhado certo, sem tocar nos outros 50 itens.                  */
-    function atualizarItem(numero, mutador) {
-      setValores(function (anterior) {
-        var proximo = {};
-        Object.keys(anterior).forEach(function (chave) { proximo[chave] = anterior[chave]; });
-        var copia = clonar(anterior[numero]);
-        mutador(copia);
-        proximo[numero] = copia;
-        persistirValores(proximo);
-        return proximo;
+    var hoje = chaveMes(new Date());
+    var realiz = useMemo(function () { return bpRealizado(props.linhas); }, [props.linhas]);
+    var fracaoConservador = armazem.pr.conservador !== undefined ? armazem.pr.conservador : BP_PARAMS_PADRAO.conservador;
+    var projBase = useMemo(function () {
+      return bpProjetar(armazem.ov, armazem.pr, realiz, 1, hoje);
+    }, [armazem, realiz, hoje]);
+    var proj = useMemo(function () {
+      return cenario === "conservador" ? bpProjetar(armazem.ov, armazem.pr, realiz, fracaoConservador, hoje) : projBase;
+    }, [cenario, projBase, armazem, realiz, fracaoConservador, hoje]);
+
+    /* Conferencia do realizado contra a tela Financeiro: mesma funcao     */
+    /* calcular, em competencia, sobre copia dos lancamentos (calcular     */
+    /* escreve a data do regime em cada linha, e a tela Financeiro pode    */
+    /* estar em caixa).                                                    */
+    var conferencia = useMemo(function () {
+      if (!props.linhas) return null;
+      var fin = calcular(props.linhas.map(function (l) { return Object.assign({}, l); }), "competencia");
+      var difs = [];
+      proj.tipos.forEach(function (t, i) {
+        if (t !== "R") return;
+        var mk = BP_MESES[i];
+        [["Receita Bruta", 7, fin.S.receita[mk]], ["Lucro Líquido", 266, fin.lucroLiquido[mk]], ["Fluxo de Caixa Livre", 317, fin.fcl[mk]]]
+          .forEach(function (c) {
+            var bp = projBase.cons[c[1]][i] || 0, f = c[2] || 0;
+            if (Math.abs(bp - f) >= 0.01) difs.push(rotuloMes(mk) + " · " + c[0] + ": BP " + formatarNumero(bp, 2) + " × Financeiro " + formatarNumero(f, 2));
+          });
       });
+      return difs;
+    }, [props.linhas, projBase]);
+
+    var mesesR = proj.tipos.map(function (t, i) { return t === "R" ? i : -1; }).filter(function (i) { return i >= 0; });
+    var faixaTempo = (mesesR.length
+      ? "Realizado (Omie, competência): " + rotuloMes(BP_MESES[mesesR[0]]) + " a " + rotuloMes(BP_MESES[mesesR[mesesR.length - 1]]) + " · "
+      : "Sem mês realizado · ") + "Projetado: " + rotuloMes(BP_MESES[mesesR.length]) + " a " + rotuloMes(BP_MESES[BP_N - 1]);
+
+    function botaoGrupo(valorAtual, setter, opcoes) {
+      return h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+        opcoes.map(function (par) {
+          var ativo = valorAtual === par[0];
+          return h("button", {
+            key: String(par[0]), onClick: function () { setter(par[0]); }, className: "px-3 py-1.5",
+            style: { fontSize: 11, background: ativo ? COR.brass : "transparent", color: ativo ? "#FFFFFF" : COR.dim, fontWeight: ativo ? 600 : 400 }
+          }, par[1]);
+        })
+      );
     }
 
-    function restaurarItem(numero) {
-      var def = PREMISSAS_DEFAULT.filter(function (i) { return i.numero === numero; })[0];
-      if (!def) return;
-      setValores(function (anterior) {
-        var proximo = {};
-        Object.keys(anterior).forEach(function (chave) { proximo[chave] = anterior[chave]; });
-        proximo[numero] = clonar(def);
-        persistirValores(proximo);
-        return proximo;
-      });
-    }
-
-    function restaurarTodas() {
-      if (!window.confirm("Isso descarta qualquer edição feita e volta todas as 51 premissas para a sugestão original. Confirma?")) return;
-      var base = {};
-      PREMISSAS_DEFAULT.forEach(function (item) { base[item.numero] = clonar(item); });
-      persistirValores(base);
-      setValores(base);
-    }
-
-    var totalAberto = 0, totalProposta = 0, totalAchado = 0;
-    PREMISSAS_DEFAULT.forEach(function (item) {
-      var estado = estadoPremissa(item, valores[item.numero]);
-      if (estado.selo === "aberto") totalAberto++;
-      else if (estado.selo === "proposta") totalProposta++;
-      else if (estado.selo === "achado") totalAchado++;
-    });
-
-    var ABAS_BP = [
-      ["bp", "Consolidado"],
-      ["comunidade", "Comunidade"],
-      ["insights", "QR Insights"],
-      ["review", "QR Review"],
-      ["advisory", "QR Advisory"],
-      ["premissas", "Premissas (" + totalAberto + " em aberto)"]
-    ];
-
-    var barraAbasBP = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
-      ABAS_BP.map(function (par) {
-        var valorAba = par[0], rotulo = par[1];
+    var ABAS = [["cons", "Consolidado"], ["com", "Comunidade"], ["tech", "Tech"], ["premissas", "Premissas"]];
+    var barraAbas = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
+      ABAS.map(function (par) {
+        var ativo = aba === par[0];
         return h("button", {
-          key: valorAba,
-          onClick: function () { setAbaBP(valorAba); },
-          className: "px-3 py-2 rounded-t",
-          style: {
-            fontSize: 11,
-            background: abaBP === valorAba ? COR.surface : "transparent",
-            color: abaBP === valorAba ? COR.text : COR.faint,
-            fontWeight: abaBP === valorAba ? 600 : 400,
-            borderBottom: abaBP === valorAba ? "2px solid " + COR.brass : "2px solid transparent"
-          }
-        }, rotulo);
+          key: par[0], onClick: function () { setAba(par[0]); }, className: "px-3 py-2 rounded-t",
+          style: { fontSize: 11, background: ativo ? COR.surface : "transparent", color: ativo ? COR.text : COR.faint,
+                   fontWeight: ativo ? 600 : 400, borderBottom: "2px solid " + (ativo ? COR.brass : "transparent") }
+        }, par[1]);
       })
     );
 
-    function emConstrucao(titulo, descricao) {
-      return h("div", {
-        className: "flex items-center justify-center text-center py-20"
-      },
-        h("div", { style: { maxWidth: 440 } },
-          h("div", {
-            className: "uppercase mb-2",
-            style: { fontSize: 10, letterSpacing: "0.2em", color: COR.brass, fontWeight: 700 }
-          }, titulo),
-          h("div", { style: { fontSize: 12, color: COR.faint, lineHeight: 1.6 } }, descricao)
-        )
-      );
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Aba: premissas                                                      */
-    /* ------------------------------------------------------------------ */
-
-    function linhaPremissa(item) {
-      var v = valores[item.numero];
-      var estado = estadoPremissa(item, v);
-      var atualizar = function (mutador) { atualizarItem(item.numero, mutador); };
-
-      return h("div", {
-        key: item.numero,
-        className: "py-3",
-        style: { borderBottom: "1px solid " + COR.lineSoft }
-      },
-        h("div", { className: "flex items-start justify-between gap-3 mb-1.5" },
-          h("div", { style: { fontSize: 12, color: COR.text, maxWidth: 560 } },
-            h("span", { style: { color: COR.faint, marginRight: 6 } }, item.numero + "."),
-            item.pergunta,
-            item.observacao && h("div", { style: { fontSize: 10, color: COR.faint, marginTop: 3, lineHeight: 1.5 } }, item.observacao)
-          ),
-          h("div", { className: "flex items-center gap-2 shrink-0" },
-            estado.selo === "aberto" && seloBadge("Aberto", COR.brass, COR.brassSoft),
-            estado.selo === "proposta" && seloBadge("Proposta", COR.dim, COR.surfaceAlt),
-            estado.selo === "achado" && seloBadge("Achado", COR.mint, COR.mintSoft),
-            estado.editado && h("button", {
-              onClick: function () { restaurarItem(item.numero); },
-              style: { fontSize: 10, color: COR.faint, textDecoration: "underline" },
-              title: "Volta esse campo para o default original"
-            }, "restaurar sugestão")
-          )
-        ),
-        h("div", {
-          className: "rounded p-2 mt-1",
-          style: {
-            background: estado.vazio ? COR.brassSoft : COR.surface,
-            border: "1px solid " + (estado.vazio ? COR.brass : COR.line)
-          }
-        }, corpoPremissa(item, v, atualizar))
-      );
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Helpers compartilhados entre o Consolidado e as abas de vertical     */
-    /* ------------------------------------------------------------------ */
-
-    /* Larguras fixas em pixel, nao em porcentagem. Porcentagem numa        */
-    /* tabela com minWidth grande faz a coluna de rotulo esticar junto e    */
-    /* abrir um vao enorme ate a primeira coluna de numero; com pixel, a    */
-    /* coluna de rotulo tem o tamanho do texto e os numeros colam nela.     */
-    var LARG_ROTULO = 232;
-    var LARG_COL_MES = 78;
-    var LARG_COL_ANO = 104;
-    var LARG_TOTAL = 92;
-
-    /* Monta a grade de colunas conforme a granularidade escolhida. Na      */
-    /* visao anual, cada coluna soma 12 meses; nas linhas de saldo, mostra  */
-    /* o valor do ultimo mes do ano em vez da soma.                         */
-    function gradeColunas(mesesProj) {
-      if (granularidade === "ano") {
-        var anos = [];
-        for (var a = 0; a * 12 < mesesProj.length; a++) anos.push(a);
-        return {
-          meses: mesesProj,
-          colunas: anos,
-          largura: LARG_COL_ANO,
-          rotulo: function (a) {
-            var ini = mesesProj[a * 12];
-            var fim = mesesProj[Math.min((a + 1) * 12, mesesProj.length) - 1];
-            return "Ano " + (a + 1) + " · " + ini.slice(2, 4) + "/" + fim.slice(2, 4);
-          },
-          valor: function (linha, a, ehSaldo) {
-            var soma = 0, ultimo = 0;
-            for (var k = a * 12; k < Math.min((a + 1) * 12, mesesProj.length); k++) {
-              soma += linha[mesesProj[k]] || 0;
-              ultimo = linha[mesesProj[k]] || 0;
-            }
-            return ehSaldo ? ultimo : soma;
-          },
-          /* Media, e nao soma, para linhas de percentual. */
-          media: function (linha, a) {
-            var soma = 0, n = 0;
-            for (var k = a * 12; k < Math.min((a + 1) * 12, mesesProj.length); k++) {
-              soma += linha[mesesProj[k]] || 0; n++;
-            }
-            return n ? soma / n : 0;
-          }
-        };
+    /* ---------------- Tabela no formato da planilha ---------------- */
+    function tabelaDRE(valores, comFluxo) {
+      var anual = granularidade === "ano";
+      var colunas = anual ? [0, 1, 2] : BP_MESES.map(function (m, i) { return i; });
+      function mesesDaColuna(c) {
+        if (!anual) return [c];
+        var r = []; for (var i = c * 12; i < Math.min((c + 1) * 12, BP_N); i++) r.push(i); return r;
       }
-      return {
-        meses: mesesProj,
-        colunas: mesesProj.map(function (m, i) { return i; }),
-        largura: LARG_COL_MES,
-        rotulo: function (i) { return rotuloMes(mesesProj[i]); },
-        valor: function (linha, i) { return linha[mesesProj[i]] || 0; },
-        media: function (linha, i) { return linha[mesesProj[i]] || 0; }
-      };
-    }
-
-    /* Tabela de projecao generica. Recebe a grade e uma lista de linhas    */
-    /* no formato [rotulo, mapaDeValores, nivel, ehSaldo, formato].         */
-    function tabelaProjecao(g, linhas) {
-      var larguraTotal = LARG_ROTULO + g.colunas.length * g.largura + LARG_TOTAL;
-
-      function celula(conteudo, estilo, extra) {
-        var st = {
-          color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
-          fontVariantNumeric: "tabular-nums"
-        };
-        if (extra) Object.keys(extra).forEach(function (k) { st[k] = extra[k]; });
-        return h("td", { className: "px-2 py-1 text-right whitespace-nowrap", style: st }, conteudo);
+      var todos = BP_MESES.map(function (m, i) { return i; });
+      function agregado(n, idxs) {
+        var arr = valores[n] || [];
+        if (BP_RAZOES[n]) {
+          var num = 0, den = 0, par = BP_RAZOES[n];
+          idxs.forEach(function (i) { num += (valores[par[0]] || [])[i] || 0; den += (valores[par[1]] || [])[i] || 0; });
+          return den ? num / den : null;
+        }
+        if (n === 319) return arr[idxs[0]];
+        if (BP_SALDOS[n]) return arr[idxs[idxs.length - 1]];
+        if (BP_DRIVERS[n]) return idxs.length === 1 ? arr[idxs[0]] : null;
+        var s = 0, algum = false;
+        idxs.forEach(function (i) { if (arr[i] !== null && arr[i] !== undefined) { s += arr[i]; algum = true; } });
+        return algum ? s : null;
       }
-
+      var SEMPRE = { 7: 1, 85: 1, 94: 1, 97: 1, 150: 1, 153: 1, 229: 1, 232: 1, 259: 1, 266: 1, 268: 1, 317: 1, 319: 1, 320: 1, 272: 1 };
+      var linhas = BP_LINHAS.filter(function (l) {
+        var n = l[0];
+        if (!comFluxo && n >= 270) return false;
+        /* Premissa (quantidade, preco, %) nao se soma no ano: so aparece  */
+        /* no mes a mes, que e onde ela tem leitura.                        */
+        if (anual && BP_DRIVERS[n]) return false;
+        if (mostrarZeradas || SEMPRE[n] || BP_RAZOES[n]) return true;
+        var arr = valores[n] || [];
+        return arr.some(function (x) { return x !== null && x !== undefined && Math.abs(x) >= 0.5 && !(BP_FORMATO_PCT[n] && Math.abs(x) < 0.0001); });
+      });
+      var LR = 300, LC = anual ? 112 : 84, LT = 104;
+      var largura = LR + colunas.length * LC + LT;
+      function estiloDe(l) {
+        var n = l[0], nv = l[3], rot = l[1];
+        if (n === 272) return { bg: COR.ink, cor: COR.text, peso: 700, pad: 12, fs: 12.5 };
+        if (BP_RAZOES[n] || BP_DRIVERS[n]) return { bg: "transparent", cor: COR.faint, peso: 400, pad: 40, fs: 11, italico: true };
+        if (/^\(=\)/.test(rot)) return { bg: "rgba(138,106,22,0.12)", cor: "#7A5C10", peso: 700, pad: 12, fs: 12.5 };
+        if (nv === 0) return { bg: COR.surfaceAlt, cor: COR.text, peso: 600, pad: 12, fs: 12.5 };
+        if (nv === 1) return { bg: "transparent", cor: "#3C465A", peso: 500, pad: 24, fs: 12 };
+        return { bg: "transparent", cor: COR.dim, peso: 400, pad: 34, fs: 11.5 };
+      }
       return h("div", { className: "overflow-x-auto rounded", style: { border: "1px solid " + COR.line, background: COR.surface } },
-        h("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: larguraTotal } },
+        h("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: largura } },
           h("colgroup", null,
-            h("col", { style: { width: LARG_ROTULO } }),
-            g.colunas.map(function (c) { return h("col", { key: c, style: { width: g.largura } }); }),
-            h("col", { style: { width: LARG_TOTAL } })
+            h("col", { style: { width: LR } }),
+            colunas.map(function (c) { return h("col", { key: c, style: { width: LC } }); }),
+            h("col", { style: { width: LT } })
           ),
           h("thead", null,
-            h("tr", { style: { background: COR.ink } },
-              h("th", {
-                className: "pl-3 py-2 text-left uppercase",
-                style: { fontSize: 10, letterSpacing: "0.1em", color: COR.dim }
-              }, "Linha"),
-              g.colunas.map(function (c) {
-                return h("th", {
-                  key: c, className: "px-2 py-2 text-right uppercase whitespace-nowrap",
-                  style: { fontSize: 9.5, letterSpacing: "0.06em", color: COR.dim }
-                }, g.rotulo(c));
+            !anual && h("tr", { style: { background: COR.bg } },
+              h("th", { style: { position: "sticky", left: 0, background: COR.bg, zIndex: 2 } }),
+              colunas.map(function (c) {
+                var r = proj.tipos[c] === "R";
+                return h("th", { key: c, className: "px-2 pt-1.5 text-right",
+                  style: { fontSize: 9, color: r ? COR.mint : COR.brass, fontWeight: 600 } }, r ? "Realizado" : "Projetado");
               }),
-              h("th", {
-                className: "px-2 py-2 text-right uppercase whitespace-nowrap",
-                style: { fontSize: 9.5, letterSpacing: "0.06em", color: COR.brass, borderLeft: "1px solid " + COR.line }
-              }, "Total")
+              h("th", null)
+            ),
+            h("tr", { style: { background: COR.ink } },
+              h("th", { className: "pl-3 py-2 text-left uppercase", style: { fontSize: 10, letterSpacing: "0.1em", color: COR.dim, position: "sticky", left: 0, background: COR.ink, zIndex: 2 } }, "Linha"),
+              colunas.map(function (c) {
+                return h("th", { key: c, className: "px-2 py-2 text-right uppercase whitespace-nowrap", style: { fontSize: 9.5, color: COR.dim } },
+                  anual ? "Ano " + (c + 1) + " · " + BP_MESES[c * 12].slice(2, 4) + "/" + BP_MESES[c * 12 + 11].slice(2, 4) : rotuloMes(BP_MESES[c]));
+              }),
+              h("th", { className: "px-2 py-2 text-right uppercase", style: { fontSize: 9.5, color: COR.brass, borderLeft: "1px solid " + COR.line } }, "Total")
             )
           ),
           h("tbody", null,
-            linhas.map(function (def) {
-              var rotulo = def[0], linha = def[1], nivel = def[2], ehSaldo = def[3], formato = def[4];
-              var estilo = ESTILO_LINHA[nivel || "item"];
-              var ehPct = formato === "pct";
-
-              /* Total da direita: soma no fluxo, ultimo valor no saldo,     */
-              /* media ponderada nao faz sentido em percentual, entao fica   */
-              /* em branco.                                                  */
-              var total = 0;
-              if (ehPct) {
-                total = null;
-              } else if (ehSaldo) {
-                total = linha[g.meses[g.meses.length - 1]] || 0;
-              } else {
-                g.meses.forEach(function (mes) { total += linha[mes] || 0; });
-              }
-
-              return h("tr", { key: rotulo, style: { background: estilo.bg } },
-                h("td", {
-                  className: estilo.pad + " py-1 pr-2",
-                  style: {
-                    color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
-                  },
-                  title: rotulo
-                }, rotulo),
-                g.colunas.map(function (c) {
-                  var v = ehPct ? g.media(linha, c) : g.valor(linha, c, ehSaldo);
-                  return h(Fragment, { key: c },
-                    celula(
-                      ehPct ? formatarPercentual(v)
-                        : formato === "qtd" ? formatarNumero(v, 0)
-                        : formatarNumero(v, 0),
-                      estilo
-                    )
-                  );
+            linhas.map(function (l) {
+              var n = l[0], e = estiloDe(l), tipo = BP_FORMATO_PCT[n] ? "pct" : "num";
+              var st = { color: e.cor, fontWeight: e.peso, fontSize: e.fs, fontStyle: e.italico ? "italic" : "normal", fontVariantNumeric: "tabular-nums" };
+              return h("tr", { key: n, style: { background: e.bg, borderTop: "1px solid " + COR.lineSoft } },
+                h("td", { className: "py-1 pr-2", style: Object.assign({ paddingLeft: e.pad, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  position: "sticky", left: 0, zIndex: 1, background: e.bg === "transparent" ? COR.surface : e.bg }, st),
+                  title: l[1] + (l[2] ? " · " + l[2] : "") + " · linha " + n + " da planilha" },
+                  l[2] && e.pad > 12 && !BP_DRIVERS[n] ? h("span", { style: { color: COR.faint, fontWeight: 400, marginRight: 6, fontSize: 10 } }, l[2]) : null,
+                  l[1]),
+                colunas.map(function (c) {
+                  var v = agregado(n, mesesDaColuna(c));
+                  var real = !anual && proj.tipos[c] === "R";
+                  return h("td", { key: c, className: "px-2 py-1 text-right whitespace-nowrap",
+                    style: Object.assign({}, st, real ? { background: "rgba(13,122,82,0.04)" } : {}) }, bpFormatar(v, tipo));
                 }),
-                celula(total === null ? "" : formatarNumero(total, 0), estilo,
-                  { borderLeft: "1px solid " + COR.line })
+                h("td", { className: "px-2 py-1 text-right whitespace-nowrap", style: Object.assign({ borderLeft: "1px solid " + COR.line }, st) },
+                  bpFormatar(agregado(n, todos), tipo))
               );
             })
           )
@@ -5602,354 +5348,172 @@
       );
     }
 
-    /* Barra de controles de cenario e granularidade, comum a todas as      */
-    /* abas de projecao.                                                    */
-    function controlesProjecao(proj, mesesProj) {
-      function grupo(valorAtual, setter, opcoes) {
-        return h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
-          opcoes.map(function (par) {
-            return h("button", {
-              key: par[0],
-              onClick: function () { setter(par[0]); },
-              className: "px-3 py-1.5",
-              style: {
-                fontSize: 11,
-                background: valorAtual === par[0] ? COR.brass : "transparent",
-                color: valorAtual === par[0] ? "#FFFFFF" : COR.dim,
-                fontWeight: valorAtual === par[0] ? 600 : 400
-              }
-            }, par[1]);
-          })
-        );
+    function somaLinha(valores, n) { return (valores[n] || []).reduce(function (s, x) { return s + (x || 0); }, 0); }
+
+    function abaDRE(chave) {
+      var valores = chave === "cons" ? proj.cons : proj[chave].v;
+      var receita = somaLinha(valores, 7), ebitda = somaLinha(valores, 229), ll = somaLinha(valores, 266);
+      var cartoes;
+      if (chave === "cons") {
+        var caixaFim = proj.cons[320][BP_N - 1], minimo = proj.P.caixa_minimo, mesAlerta = null;
+        proj.tipos.forEach(function (t, i) { if (t === "P" && mesAlerta === null && proj.cons[320][i] < minimo) mesAlerta = i; });
+        cartoes = [
+          h(CartaoIndicador, { key: "r", rotulo: "Receita bruta", valor: receita, sub: "36 meses, realizado + projetado" }),
+          h(CartaoIndicador, { key: "e", rotulo: "EBITDA", valor: ebitda, tom: ebitda < 0 ? "neg" : "pos", sub: "margem " + formatarPercentual(receita ? ebitda / receita : 0) + " da receita bruta" }),
+          h(CartaoIndicador, { key: "c", rotulo: "Caixa no fim", valor: caixaFim, tom: caixaFim < 0 ? "neg" : "pos", sub: "saldo gerado desde jun/26, em " + rotuloMes(BP_MESES[BP_N - 1]) }),
+          h(CartaoIndicador, { key: "a", rotulo: "Alerta de caixa", valor: minimo, tom: mesAlerta === null ? "pos" : "neg",
+            sub: mesAlerta === null ? "nunca furado na projeção" : "furado em " + rotuloMes(BP_MESES[mesAlerta]) })
+        ];
+      } else {
+        cartoes = [
+          h(CartaoIndicador, { key: "r", rotulo: "Receita bruta", valor: receita, sub: "36 meses" }),
+          h(CartaoIndicador, { key: "e", rotulo: "EBITDA", valor: ebitda, tom: ebitda < 0 ? "neg" : "pos", sub: "margem " + formatarPercentual(receita ? ebitda / receita : 0) }),
+          h(CartaoIndicador, { key: "l", rotulo: "Lucro líquido", valor: ll, tom: ll < 0 ? "neg" : "pos", sub: "36 meses" }),
+          h(CartaoIndicador, { key: "i", rotulo: "Imposto sobre receita", valor: somaLinha(valores, 85), sub: "Simples calculado só nesta vertical, com RBT12 próprio" })
+        ];
       }
-      return h("div", { className: "flex flex-wrap items-center gap-3 mb-4" },
-        grupo(cenario, setCenario, [
-          ["base", "Cenário base"],
-          ["conservador", "Conservador (" + formatarPercentual(proj.redutor) + " da receita)"]
-        ]),
-        grupo(granularidade, setGranularidade, [["ano", "Por ano"], ["mes", "Mês a mês"]]),
-        h("div", { style: { fontSize: 11, color: COR.faint } },
-          mesesProj.length + " meses · Anexo " + proj.anexo + " · mês zero = set/26")
+      return h("div", null,
+        h("div", { className: "flex flex-wrap items-center gap-3 mb-4" },
+          botaoGrupo(cenario, setCenario, [["base", "Cenário base"], ["conservador", "Conservador (" + formatarPercentual(fracaoConservador) + " da receita)"]]),
+          botaoGrupo(granularidade, setGranularidade, [["ano", "Por ano"], ["mes", "Mês a mês"]]),
+          h("label", { className: "flex items-center gap-1.5", style: { fontSize: 11, color: COR.dim } },
+            h("input", { type: "checkbox", checked: mostrarZeradas, onChange: function (e) { setMostrarZeradas(e.target.checked); } }),
+            "mostrar linhas zeradas"),
+          h("div", { style: { fontSize: 11, color: COR.faint } }, faixaTempo)
+        ),
+        h("div", { className: "grid gap-3 mb-4", style: { gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" } }, cartoes),
+        chave === "cons" && conferencia && mesesR.length > 0 && h("div", {
+          className: "rounded px-4 py-2 mb-4",
+          style: { fontSize: 11, lineHeight: 1.6, color: conferencia.length ? COR.coral : COR.mint,
+                   background: conferencia.length ? COR.coralSoft : COR.mintSoft }
+        }, conferencia.length
+          ? ["O realizado do BP não bate com a tela Financeiro (competência): "].concat(conferencia.join(" · "))
+          : "Realizado conferido com a tela Financeiro em competência: receita bruta, lucro líquido e fluxo de caixa livre idênticos nos " + mesesR.length + " meses fechados."),
+        tabelaDRE(valores, chave === "cons")
       );
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Aba: Consolidado                                                     */
-    /* ------------------------------------------------------------------ */
-
-    function abaBPProjetada() {
-      var proj = projetar(valores, props.posicao);
-      var cenarioAtivo = cenario === "conservador" ? proj.conservador : proj.base;
-      var mesesProj = cenarioAtivo.meses;
-      var L = cenarioAtivo.L;
-      var g = gradeColunas(mesesProj);
-
-      function pctSobreRL(linha) {
-        var r = {};
-        mesesProj.forEach(function (mes) {
-          r[mes] = L.receitaLiquida[mes] ? linha[mes] / L.receitaLiquida[mes] : 0;
-        });
-        return r;
+    /* ---------------- Grade de premissas ---------------- */
+    function celulaEditavel(id, i, valorPadrao, valorAtual, unidade, realizado) {
+      var editado = armazem.ov[id] && armazem.ov[id].hasOwnProperty(i);
+      var mostrar = valorAtual === null || valorAtual === undefined ? "" :
+        unidade === "pct" ? String(Math.round(valorAtual * 100000) / 1000) : String(Math.round(valorAtual * 100) / 100);
+      if (realizado) {
+        return h("td", { key: i, className: "px-1 py-0.5 text-right", style: { fontSize: 11, color: COR.faint, background: "rgba(13,122,82,0.04)" },
+          title: "Mês realizado: vale o número da Omie, a premissa não entra." }, bpFormatar(valorAtual, unidade === "pct" ? "pct" : "num"));
       }
-
-      var mesAlerta = null, mesNegativo = null;
-      mesesProj.forEach(function (mes) {
-        if (mesAlerta === null && L.caixa[mes] < cenarioAtivo.caixaMinimo) mesAlerta = mes;
-        if (mesNegativo === null && L.caixa[mes] < 0) mesNegativo = mes;
-      });
-
-      var receitaTotal = 0, ebitdaTotal = 0;
-      mesesProj.forEach(function (mes) {
-        receitaTotal += L.receita[mes];
-        ebitdaTotal += L.ebitda[mes];
-      });
-      var caixaFinal = L.caixa[mesesProj[mesesProj.length - 1]];
-
-      return h("div", null,
-        controlesProjecao(proj, mesesProj),
-
-        h("div", {
-          className: "grid gap-3 mb-4",
-          style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
-        },
-          h(CartaoIndicador, {
-            rotulo: "Receita projetada", valor: receitaTotal, sub: "soma do horizonte",
-            ajuda: "Receita bruta somada nos " + mesesProj.length + " meses, no cenário " + (cenario === "base" ? "base" : "conservador") + ". Vem inteiramente das premissas, não do realizado."
-          }),
-          h(CartaoIndicador, {
-            rotulo: "EBITDA projetado", valor: ebitdaTotal,
-            tom: ebitdaTotal < 0 ? "neg" : "pos", sub: "soma do horizonte",
-            ajuda: "Resultado operacional acumulado, já descontado o pró-labore condicional da premissa 37."
-          }),
-          h(CartaoIndicador, {
-            rotulo: "Caixa no fim", valor: caixaFinal, casas: 0,
-            tom: caixaFinal < 0 ? "neg" : "pos", sub: "posição no último mês",
-            ajuda: "Parte do caixa livre de hoje, soma o mútuo, o resultado de cada mês, o investimento e a distribuição de lucros."
-          }),
-          h(CartaoIndicador, {
-            rotulo: "Alerta de caixa", valor: cenarioAtivo.caixaMinimo, casas: 0,
-            tom: mesAlerta ? "neg" : "pos",
-            sub: mesAlerta ? "furado em " + rotuloMes(mesAlerta) : "nunca furado no horizonte",
-            ajuda: "Piso da premissa 50. " + (mesNegativo ? "O caixa fica NEGATIVO em " + rotuloMes(mesNegativo) + "." : "O caixa não fica negativo em nenhum mês.")
-          })
-        ),
-
-        h("div", {
-          className: "rounded px-4 py-3 mb-4",
-          style: { background: COR.brassSoft, border: "1px solid " + COR.brass, fontSize: 11, color: COR.dim, lineHeight: 1.6 }
-        },
-          h("strong", { style: { color: COR.brass } }, "Projeção, não apuração. "),
-          "O imposto usa a tabela progressiva do Anexo V (alíquota efetiva pela fórmula do art. 18, §1º-A da LC 123), o que é aproximação gerencial e não substitui a apuração do Vigo. O RBT12 dos primeiros meses só enxerga o histórico dentro deste horizonte, então a alíquota inicial sai mais baixa que a real. Os juros do mútuo usam CDI de 10,5% a.a. como proxy de mercado (não é dado do contrato), com capitalização anual conforme a Cláusula 4ª — pagos em parcela única no mês 36, fora do horizonte de 36 meses (mês 0 a 35), então essa saída de caixa não aparece aqui. " + (totalAberto ? totalAberto + " premissa(s) em aberto" : "Nenhuma premissa em aberto") + (totalProposta ? ", " + totalProposta + " proposta(s) de teste ainda não confirmadas." : ".")
-        ),
-
-        tabelaProjecao(g, [
-          ["Receita Bruta", L.receita, "secao", false, null],
-          ["Patrocínio recorrente", L.recPatrocinio, "grupo", false, null],
-          ["Patrocínio spot", L.recSpot, "grupo", false, null],
-          ["QR Insights", L.recInsights, "grupo", false, null],
-          ["QR Review", L.recReview, "grupo", false, null],
-          ["QR Advisory", L.recAdvisory, "grupo", false, null],
-          ["Quorum House", L.recHouse, "grupo", false, null],
-          ["Quorum Day", L.recQuorumDay, "grupo", false, null],
-
-          ["Impostos sobre a receita", L.impostos, "secao", false, null],
-          ["% alíquota efetiva do Simples", L.aliquota, "pct", false, "pct"],
-          ["(=) Receita Líquida", L.receitaLiquida, "total", false, null],
-
-          ["Custos Diretos", L.custo, "secao", false, null],
-          ["Repasse ao advisor", L.custoAdvisory, "grupo", false, null],
-          ["Custo do Quorum Day", L.custoQuorumDay, "grupo", false, null],
-          ["Comissão sobre patrocínio", L.custoComissao, "grupo", false, null],
-          ["Plataforma e take rate", L.custoPlataforma, "grupo", false, null],
-          ["CAC de assinantes", L.custoCAC, "grupo", false, null],
-
-          ["(=) Lucro Bruto", L.lucroBruto, "total", false, null],
-          ["% margem bruta", pctSobreRL(L.lucroBruto), "pct", false, "pct"],
-
-          ["Despesas Fixas", L.despesas, "secao", false, null],
-          ["Despesas administrativas", L.despFixas, "grupo", false, null],
-          ["Ferramentas e software", L.despFerramentas, "grupo", false, null],
-          ["Mídia e impulsionamento", L.despMidia, "grupo", false, null],
-          ["Contabilidade", L.despContabil, "grupo", false, null],
-          ["Jurídico", L.despJuridico, "grupo", false, null],
-          ["Quorum House (aluguel)", L.despHouse, "grupo", false, null],
-          ["Folha de contratações", L.despPessoal, "grupo", false, null],
-          ["Pró-labore (condicional)", L.proLabore, "grupo", false, null],
-
-          ["(=) EBITDA", L.ebitda, "total", false, null],
-          ["% margem EBITDA", pctSobreRL(L.ebitda), "pct", false, "pct"],
-
-          ["Despesas Financeiras", L.finDesp, "secao", false, null],
-          ["(=) Lucro Líquido", L.lucroLiquido, "total", false, null],
-
-          ["Fluxo de Caixa", L.fluxoMes, "secao", false, null],
-          ["Aporte (mútuo)", L.aporte, "grupo", false, null],
-          ["Investimento (capex)", L.capex, "grupo", false, null],
-          ["Distribuição de lucros", L.distribuicao, "grupo", false, null],
-          ["Pagamento do mútuo (parcela única)", L.pagamentoMutuo, "grupo", false, null],
-          ["(=) Caixa acumulado", L.caixa, "total", true, null],
-
-          ["Base de assinantes Insights", L.assinantes, "item", true, "qtd"],
-          ["Base de assinantes Review", L.assinantesReview, "item", true, "qtd"]
-        ])
-      );
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Aba de vertical: margem de contribuicao                             */
-    /* Para de proposito antes do imposto e da despesa fixa. O imposto do  */
-    /* Simples e apurado sobre a receita consolidada, entao rateio por     */
-    /* vertical produziria numero que induz decisao errada: a vertical     */
-    /* pequena pareceria barata e a grande cara, quando na verdade e o     */
-    /* total que define a faixa da tabela para todas elas.                 */
-    /* ------------------------------------------------------------------ */
-
-    function abaVertical(idVertical) {
-      var comp = COMPOSICAO_VERTICAL[idVertical];
-      var proj = projetar(valores, props.posicao);
-      var cenarioAtivo = cenario === "conservador" ? proj.conservador : proj.base;
-      var mesesProj = cenarioAtivo.meses;
-      var L = cenarioAtivo.L;
-      var g = gradeColunas(mesesProj);
-
-      /* Soma das linhas de receita e de custo da vertical, mes a mes. */
-      function somarLinhas(pares) {
-        var r = {};
-        mesesProj.forEach(function (mes) {
-          var s = 0;
-          pares.forEach(function (par) { s += (L[par[0]][mes] || 0); });
-          r[mes] = s;
-        });
-        return r;
-      }
-
-      var receitaVert = somarLinhas(comp.receitas);
-      var custoVert = somarLinhas(comp.custos);
-      var margem = {};
-      var pctMargem = {};
-      mesesProj.forEach(function (mes) {
-        margem[mes] = receitaVert[mes] + custoVert[mes];
-        pctMargem[mes] = receitaVert[mes] ? margem[mes] / receitaVert[mes] : 0;
-      });
-
-      /* Participacao da vertical na receita consolidada do horizonte. */
-      var totalReceitaVert = 0, totalCustoVert = 0, totalMargem = 0, totalReceitaEmpresa = 0;
-      mesesProj.forEach(function (mes) {
-        totalReceitaVert += receitaVert[mes];
-        totalCustoVert += custoVert[mes];
-        totalMargem += margem[mes];
-        totalReceitaEmpresa += L.receita[mes];
-      });
-      var participacao = totalReceitaEmpresa ? totalReceitaVert / totalReceitaEmpresa : 0;
-      var margemPct = totalReceitaVert ? totalMargem / totalReceitaVert : 0;
-
-      /* Mes em que a vertical passa a ter receita. */
-      var primeiroMesComReceita = null;
-      mesesProj.forEach(function (mes) {
-        if (primeiroMesComReceita === null && receitaVert[mes] > 0) primeiroMesComReceita = mes;
-      });
-
-      return h("div", null,
-        controlesProjecao(proj, mesesProj),
-
-        h("div", {
-          className: "grid gap-3 mb-4",
-          style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
-        },
-          h(CartaoIndicador, {
-            rotulo: "Receita da vertical",
-            valor: totalReceitaVert,
-            sub: "soma do horizonte",
-            ajuda: "Receita bruta desta vertical somada nos " + mesesProj.length + " meses do cenário " + (cenario === "base" ? "base" : "conservador") + "."
-          }),
-          h(CartaoIndicador, {
-            rotulo: "Custo direto",
-            valor: totalCustoVert,
-            tom: "neg",
-            sub: "soma do horizonte",
-            ajuda: "Só o que é atribuível a esta vertical sem rateio. Despesa fixa, imposto e pró-labore ficam no Consolidado."
-          }),
-          h(CartaoIndicador, {
-            rotulo: "Margem de contribuição",
-            valor: totalMargem,
-            tom: totalMargem < 0 ? "neg" : "pos",
-            sub: formatarPercentual(margemPct) + " da receita da vertical",
-            ajuda: "Quanto esta vertical contribui para pagar a estrutura da empresa. Não é lucro: o imposto e as despesas fixas ainda não foram descontados aqui."
-          }),
-          h(CartaoIndicador, {
-            rotulo: "Participação na receita",
-            valor: participacao * 100,
-            casas: 1,
-            sufixo: "%",
-            sub: primeiroMesComReceita ? "primeira receita em " + rotuloMes(primeiroMesComReceita) : "sem receita no horizonte",
-            ajuda: "Peso desta vertical na receita bruta consolidada do horizonte inteiro."
-          })
-        ),
-
-        h("div", {
-          className: "rounded px-4 py-3 mb-4",
-          style: { background: COR.ink, border: "1px solid " + COR.line, fontSize: 11, color: COR.dim, lineHeight: 1.6 }
-        },
-          h("strong", { style: { color: COR.brass } }, "Para na margem de contribuição. "),
-          comp.nota,
-          " O imposto do Simples é apurado sobre a receita consolidada da empresa, então ratear por vertical daria número errado: é o total que define a faixa da tabela para todas as verticais ao mesmo tempo."
-        ),
-
-        tabelaProjecao(g, [
-          ["Receita da vertical", receitaVert, "secao", false, null]
-        ].concat(comp.receitas.map(function (par) {
-          return [par[1], L[par[0]], "grupo", false, null];
-        })).concat(
-          comp.custos.length
-            ? [["Custos Diretos", custoVert, "secao", false, null]].concat(
-                comp.custos.map(function (par) { return [par[1], L[par[0]], "grupo", false, null]; })
-              )
-            : [["Custos Diretos (nenhum atribuível)", custoVert, "secao", false, null]]
-        ).concat([
-          ["(=) Margem de Contribuição", margem, "total", false, null],
-          ["% margem de contribuição", pctMargem, "pct", false, "pct"]
-        ]))
+      return h("td", { key: i, className: "px-0.5 py-0.5" },
+        h("input", {
+          key: id + ":" + i + ":" + mostrar,
+          defaultValue: mostrar,
+          onBlur: function (e) {
+            var bruto = e.target.value.trim().replace(/\./g, "").replace(",", ".");
+            if (bruto === "") { editarCelula(id, i, null); return; }
+            var num = Number(bruto);
+            if (isNaN(num)) { e.target.value = mostrar; return; }
+            if (unidade === "pct") num = num / 100;
+            if (Math.abs(num - (valorPadrao || 0)) < 1e-9) editarCelula(id, i, null); else editarCelula(id, i, num);
+          },
+          onKeyDown: function (e) { if (e.key === "Enter") e.target.blur(); },
+          title: (editado ? "Editado. Padrão da planilha: " + bpFormatar(valorPadrao, unidade === "pct" ? "pct" : "num") + ". " : "") +
+                 "Em branco volta para o valor da planilha." + (unidade === "pct" ? " Digite em %." : ""),
+          className: "w-full rounded px-1 py-0.5 text-right",
+          style: { fontSize: 11, fontVariantNumeric: "tabular-nums", border: "1px solid " + (editado ? COR.brass : "transparent"),
+                   background: editado ? COR.brassSoft : "transparent", color: COR.text }
+        })
       );
     }
 
     function abaPremissas() {
-      var grupos = agruparPremissas();
-      return h("div", null,
-        h("div", { className: "flex items-center justify-between mb-4" },
-          h("div", { style: { fontSize: 12, color: COR.faint } },
-            "51 premissas · ",
-            totalAberto > 0
-              ? h("span", { style: { color: COR.brass, fontWeight: 600 } }, totalAberto + " em aberto")
-              : h("span", { style: { color: COR.mint, fontWeight: 600 } }, "nenhuma em aberto"),
-            totalProposta > 0 && h(Fragment, null,
-              " · ",
-              h("span", { style: { color: COR.dim, fontWeight: 600 } }, totalProposta + " proposta(s) de teste")
-            ),
-            totalAchado > 0 && h(Fragment, null,
-              " · ",
-              h("span", { style: { color: COR.mint, fontWeight: 600 } }, totalAchado + " achado(s) de planilha")
-            ),
-            " · alimenta o motor de projeção na Fase 3, ainda não lido por nenhum cálculo"
-          ),
-          h("button", {
-            onClick: restaurarTodas,
-            style: { fontSize: 11, color: COR.faint, textDecoration: "underline" }
-          }, "Restaurar todas as sugestões")
-        ),
-        grupos.map(function (grupo) {
-          /* Contagem de pendencia por vertical, pra Alex saber onde ainda  */
-          /* falta decidir sem precisar abrir tudo.                         */
-          var abertosNaVertical = 0, propostasNaVertical = 0;
-          grupo.blocos.forEach(function (b) {
-            b.itens.forEach(function (item) {
-              var est = estadoPremissa(item, valores[item.numero]);
-              if (est === "aberto") abertosNaVertical++;
-              if (est === "proposta") propostasNaVertical++;
-            });
+      var LR = 330, LC = 78;
+      var nEditadas = 0;
+      Object.keys(armazem.ov).forEach(function (id) { nEditadas += Object.keys(armazem.ov[id]).length; });
+      var cab = h("tr", { style: { background: COR.ink } },
+        h("th", { className: "pl-3 py-2 text-left uppercase", style: { fontSize: 10, color: COR.dim, position: "sticky", left: 0, background: COR.ink, zIndex: 2 } }, "Item"),
+        BP_MESES.map(function (m, i) {
+          return h("th", { key: i, className: "px-1 py-2 text-right whitespace-nowrap",
+            style: { fontSize: 9.5, color: proj.tipos[i] === "R" ? COR.mint : COR.dim } }, rotuloMes(m));
+        }));
+      var corpo = [];
+      ["com", "tech"].forEach(function (vert) {
+        corpo.push(h("tr", { key: "v" + vert, style: { background: "#3E4A5C" } },
+          h("td", { colSpan: BP_N + 1, className: "pl-3 py-1.5", style: { fontSize: 11, color: "#FFFFFF", fontWeight: 700, letterSpacing: "0.08em", position: "sticky", left: 0 } },
+            vert === "com" ? "VERTICAL COMUNIDADE" : "VERTICAL TECH")));
+        BP_PREMISSAS_UI.filter(function (g) { return g.v === vert; }).forEach(function (g) {
+          corpo.push(h("tr", { key: "b" + g.b, style: { background: "rgba(138,106,22,0.10)" } },
+            h("td", { colSpan: BP_N + 1, className: "pl-3 py-1", style: { fontSize: 11, color: "#7A5C10", fontWeight: 600, position: "sticky", left: 0 } }, g.b)));
+          g.itens.forEach(function (it) {
+            var id = it[0], rot = it[1], un = it[2], fn = it[3];
+            var linhaEditada = !!armazem.ov[id];
+            var serie = fn ? bpCalcSerie(projBase, fn) : projBase.S[id];
+            corpo.push(h("tr", { key: id, style: { borderTop: "1px solid " + COR.lineSoft } },
+              h("td", { className: "pl-5 pr-2 py-0.5", style: { fontSize: 11.5, color: fn ? COR.faint : COR.text, fontStyle: fn ? "italic" : "normal",
+                position: "sticky", left: 0, background: COR.surface, zIndex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, title: rot },
+                rot,
+                linhaEditada && h("button", { onClick: function () {
+                  var ov = JSON.parse(JSON.stringify(armazem.ov)); delete ov[id]; gravar({ ov: ov, pr: armazem.pr });
+                }, style: { marginLeft: 8, fontSize: 9.5, color: COR.brass, textDecoration: "underline" } }, "restaurar")),
+              BP_MESES.map(function (m, i) {
+                if (fn) return h("td", { key: i, className: "px-1 py-0.5 text-right", style: { fontSize: 11, color: COR.faint, fontStyle: "italic" } },
+                  bpFormatar(serie[i], un === "pct" ? "pct" : "num"));
+                return celulaEditavel(id, i, BP_SERIES_PADRAO[id][i], serie[i], un, proj.tipos[i] === "R");
+              })));
           });
-          return h("div", { key: grupo.vertical, className: "mb-8" },
-            h("div", {
-              className: "flex items-baseline gap-3 mb-3 pb-2",
-              style: { borderBottom: "2px solid " + COR.brass }
-            },
-              h("div", {
-                className: "uppercase",
-                style: { fontSize: 13, letterSpacing: "0.14em", color: COR.brass, fontWeight: 700 }
-              }, grupo.rotulo),
-              h("div", { style: { fontSize: 11, color: COR.faint } },
-                grupo.total + " premissas",
-                abertosNaVertical > 0 && h("span", { style: { color: COR.brass, fontWeight: 600 } },
-                  " · " + abertosNaVertical + " em aberto"),
-                propostasNaVertical > 0 && h("span", { style: { color: COR.dim } },
-                  " · " + propostasNaVertical + " proposta(s)")
-              )
-            ),
-            grupo.blocos.map(function (sub) {
-              return h("div", { key: sub.bloco, className: "mb-5" },
-                h("div", {
-                  className: "uppercase mb-1",
-                  style: { fontSize: 10, letterSpacing: "0.15em", color: COR.dim, fontWeight: 600 }
-                }, sub.bloco),
-                sub.itens.map(linhaPremissa)
-              );
-            })
-          );
-        })
+        });
+      });
+
+      var parametros = h("div", { className: "rounded p-4 mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("div", { className: "uppercase mb-3", style: { fontSize: 10, letterSpacing: "0.15em", color: COR.dim, fontWeight: 600 } }, "Parâmetros"),
+        h("div", { className: "grid gap-x-6 gap-y-2", style: { gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))" } },
+          BP_PARAMS_UI.map(function (p) {
+            var k = p[0], un = p[2], atual = proj.P[k], editado = armazem.pr.hasOwnProperty(k);
+            var campo;
+            if (un === "mes") {
+              campo = h("select", { value: atual, onChange: function (e) {
+                var v = Number(e.target.value); editarParam(k, v === BP_PARAMS_PADRAO[k] ? null : v);
+              }, className: "rounded px-1 py-0.5", style: { fontSize: 11, border: "1px solid " + (editado ? COR.brass : COR.line) } },
+                BP_MESES.map(function (m, i) { return h("option", { key: i, value: i }, rotuloMes(m)); }));
+            } else {
+              var mostrar = un === "pct" ? String(Math.round(atual * 100000) / 1000) : String(atual);
+              campo = h("input", { key: k + mostrar, defaultValue: mostrar,
+                onBlur: function (e) {
+                  var bruto = e.target.value.trim().replace(/\./g, "").replace(",", ".");
+                  if (bruto === "") { editarParam(k, null); return; }
+                  var num = Number(bruto); if (isNaN(num)) { e.target.value = mostrar; return; }
+                  if (un === "pct") num = num / 100;
+                  editarParam(k, Math.abs(num - BP_PARAMS_PADRAO[k]) < 1e-12 ? null : num);
+                },
+                onKeyDown: function (e) { if (e.key === "Enter") e.target.blur(); },
+                className: "rounded px-1 py-0.5 text-right", style: { width: 90, fontSize: 11, border: "1px solid " + (editado ? COR.brass : COR.line), background: editado ? COR.brassSoft : "transparent" } });
+            }
+            return h("div", { key: k, className: "flex items-center justify-between gap-3", style: { fontSize: 11.5, color: COR.text } },
+              h("div", null, p[1], p[3] && h("div", { style: { fontSize: 10, color: COR.faint } }, p[3])),
+              h("div", { className: "flex items-center gap-1 shrink-0" }, campo, h("span", { style: { fontSize: 10, color: COR.faint, width: 14 } }, un === "pct" ? "%" : "")));
+          }))
+      );
+
+      return h("div", null,
+        h("div", { className: "flex flex-wrap items-center gap-3 mb-4", style: { fontSize: 11, color: COR.dim } },
+          h("div", null, "Mesma estrutura da aba Premissas New. Clique numa célula, digite e saia dela para gravar; em branco volta ao valor da planilha. Linhas em itálico são calculadas. Meses em verde são realizados: vale a Omie, a premissa não entra."),
+          nEditadas > 0 && h("button", { onClick: function () {
+            if (window.confirm("Descarta as " + nEditadas + " célula(s) editada(s) e os parâmetros alterados, voltando tudo ao valor da planilha?")) gravar({ ov: {}, pr: {} });
+          }, style: { fontSize: 11, color: COR.coral, textDecoration: "underline" } }, "restaurar tudo (" + nEditadas + " editada" + (nEditadas > 1 ? "s" : "") + ")")),
+        parametros,
+        h("div", { className: "overflow-x-auto rounded", style: { border: "1px solid " + COR.line, background: COR.surface } },
+          h("table", { style: { borderCollapse: "collapse", tableLayout: "fixed", width: LR + BP_N * LC } },
+            h("colgroup", null, h("col", { style: { width: LR } }), BP_MESES.map(function (m, i) { return h("col", { key: i, style: { width: LC } }); })),
+            h("thead", null, cab),
+            h("tbody", null, corpo)))
       );
     }
 
     return h(Fragment, null,
-      barraAbasBP,
+      barraAbas,
       h("div", { className: "px-6 pb-16 pt-3" },
-        abaBP === "bp" && abaBPProjetada(),
-        abaBP === "comunidade" && abaVertical("comunidade"),
-        abaBP === "insights" && abaVertical("insights"),
-        abaBP === "review" && abaVertical("review"),
-        abaBP === "advisory" && abaVertical("advisory"),
-        abaBP === "premissas" && abaPremissas()
-      )
+        aba === "premissas" ? abaPremissas() : abaDRE(aba))
     );
   }
+
 
   /* ------------------------------------------------------------------ */
   /* 12. MONTAGEM                                                        */
