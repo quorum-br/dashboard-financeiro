@@ -17,7 +17,7 @@ legível dela, e precisa ser atualizado junto sempre que o mapa mudar.
 - Grupo que não estiver no mapa não desaparece: cai em **"Não classificado"**,
   visível no Fluxo de Caixa, como alerta de que falta decidir onde ele entra.
 
-## Tabela completa (30 grupos, conferida contra o catálogo real em 02/09/2026)
+## Tabela completa (34 grupos; os 30 originais conferidos contra o catálogo real em 02/09/2026, mais 1.12, 1.13, 2.21 e 2.22 incluídos em 24/09/2026 para acompanhar as linhas do BP)
 
 | Código | Nome do grupo na Omie | Seção | Rótulo na tela | Sinal |
 |---|---|---|---|---|
@@ -28,6 +28,8 @@ legível dela, e precisa ser atualizado junto sempre que o mapa mudar.
 | 1.05 | Receita de Assinaturas | `receita` | Receita Bruta | + |
 | 1.06 | Receita de Advisory | `receita` | Receita Bruta | + |
 | 1.07 | Receita de Comissões | `receita` | Receita Bruta | + |
+| 1.12 | Receita Membership | `receita` | Receita Bruta | + |
+| 1.13 | Receita Pesquisas | `receita` | Receita Bruta | + |
 | 1.08 | Receitas Financeiras | `finRec` | Receitas Financeiras | + |
 | 1.09 | Outras Receitas Operacionais | `outrasRec` | Outras Receitas e Não Operacional | + |
 | 1.10 | Resultado Não Operacional (Receitas) | `outrasRec` | Outras Receitas e Não Operacional | + |
@@ -38,6 +40,8 @@ legível dela, e precisa ser atualizado junto sempre que o mapa mudar.
 | 2.05 | Custo de Assinaturas | `custo` | Custo dos Serviços Prestados | − |
 | 2.06 | Custo de Advisory | `custo` | Custo dos Serviços Prestados | − |
 | 2.07 | Outros Custos dos Serviços | `custo` | Custo dos Serviços Prestados | − |
+| 2.21 | Custo Membership | `custo` | Custo dos Serviços Prestados | − |
+| 2.22 | Custo Pesquisas | `custo` | Custo dos Serviços Prestados | − |
 | 2.08 | Despesas com Pessoal | `despesas` | Despesas Fixas | − |
 | 2.09 | Despesas Administrativas | `despesas` | Despesas Fixas | − |
 | 2.10 | Despesas de Vendas e Marketing | `despesas` | Despesas Fixas | − |
