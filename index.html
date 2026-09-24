@@ -5191,6 +5191,7 @@
     var estGran = useState("ano");            var granularidade = estGran[0], setGranularidade = estGran[1];
     var estZeradas = useState(false);         var mostrarZeradas = estZeradas[0], setMostrarZeradas = estZeradas[1];
     var estArmazem = useState(bpLerArmazem);  var armazem = estArmazem[0], setArmazem = estArmazem[1];
+    var estExportando = useState(false);      var exportando = estExportando[0], setExportando = estExportando[1];
 
     function gravar(novo) {
       setArmazem(novo);
@@ -5239,6 +5240,22 @@
       return difs;
     }, [props.linhas, projBase]);
 
+    /* Exporta o BP em Excel, tudo em formula, sempre no cenario base.     */
+    /* O molde de formatacao so e baixado aqui, para nao pesar a pagina.   */
+    function exportarExcel() {
+      if (exportando) return;
+      setExportando(true);
+      fetch(BP_MODELO_URL, { cache: "no-store" })
+        .then(function (r) { if (!r.ok) throw new Error("molde indisponível (HTTP " + r.status + ")"); return r.json(); })
+        .then(function (modelo) {
+          var agora = new Date();
+          var bytes = bpGerarXlsx(modelo, projBase, props.linhas, agora.toLocaleDateString("pt-BR"));
+          bpBaixarXlsx(bytes, "BP_QUORUM_online_" + agora.toISOString().slice(0, 10) + ".xlsx");
+        })
+        .catch(function (erro) { window.alert("Não consegui gerar o Excel: " + erro.message); })
+        .then(function () { setExportando(false); });
+    }
+
     var mesesR = proj.tipos.map(function (t, i) { return t === "R" ? i : -1; }).filter(function (i) { return i >= 0; });
     var faixaTempo = (mesesR.length
       ? "Realizado (Omie, competência): " + rotuloMes(BP_MESES[mesesR[0]]) + " a " + rotuloMes(BP_MESES[mesesR[mesesR.length - 1]]) + " · "
@@ -5257,7 +5274,7 @@
     }
 
     var ABAS = [["cons", "Consolidado"], ["com", "Comunidade"], ["tech", "Tech"], ["premissas", "Premissas"]];
-    var barraAbas = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
+    var barraAbas = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap items-center" },
       ABAS.map(function (par) {
         var ativo = aba === par[0];
         return h("button", {
@@ -5265,7 +5282,12 @@
           style: { fontSize: 11, background: ativo ? COR.surface : "transparent", color: ativo ? COR.text : COR.faint,
                    fontWeight: ativo ? 600 : 400, borderBottom: "2px solid " + (ativo ? COR.brass : "transparent") }
         }, par[1]);
-      })
+      }),
+      h("button", {
+        onClick: exportarExcel, disabled: exportando, className: "ml-auto px-3 py-1.5 rounded",
+        title: "Baixa o BP em Excel no cenário base, com a formatação da BP_QUORUM_Oficial e tudo em fórmula (Premissas, Impostos e BD Omie inclusos).",
+        style: { fontSize: 11, border: "1px solid " + COR.brass, color: COR.brass, background: COR.surface, fontWeight: 600, opacity: exportando ? 0.6 : 1 }
+      }, exportando ? "Gerando Excel..." : "Exportar Excel")
     );
 
     /* ---------------- Tabela no formato da planilha ---------------- */
@@ -5530,6 +5552,747 @@
     );
   }
 
+
+
+  /* ------------------------------------------------------------------ */
+  /* 11-D. EXPORTACAO DO BP EM XLSX, TUDO EM FORMULA                     */
+  /* Gera um .xlsx com a mesma formatacao da BP_QUORUM_Oficial (estilos, */
+  /* alturas, larguras, agrupamentos, paineis congelados), lida de um    */
+  /* molde extraido da propria planilha (bp_modelo_xlsx.json, baixado so */
+  /* na hora de exportar). Nenhum numero do DRE e digitado: tudo e       */
+  /* formula sobre as abas Premissas, Impostos e BD Omie, espelhando o   */
+  /* motor do BP online. Os valores calculados pelo dashboard vao junto  */
+  /* como cache de cada celula; o Excel recalcula tudo ao abrir.         */
+  /* ------------------------------------------------------------------ */
+
+  var BP_MODELO_URL = "bp_modelo_xlsx.json";
+
+  /* Linha da planilha -> identificador do motor (inverso de           */
+  /* bpLinhaPlanilha). null = linha so de formatacao (espacador etc.). */
+  function bpIdDaLinhaPlanilha(r) {
+    var id;
+    if (r <= 139) id = r;
+    else if (r <= 201) id = r + 1;
+    else if (r <= 204) id = r + 2;
+    else if (r === 205) id = 203;
+    else if (r <= 208) id = null;
+    else id = r - 2;
+    return (id !== null && BP_LINHA[id]) ? id : null;
+  }
+
+  function bpX(c) { return colunaLetra(c); }
+  function bpNum(v) { return (typeof v === "number" && isFinite(v)) ? String(v) : null; }
+  function bpCelVazia(ref, s) { return '<c r="' + ref + '" s="' + s + '"/>'; }
+  function bpCelNum(ref, s, v) {
+    var n = bpNum(v);
+    return n === null ? bpCelVazia(ref, s) : '<c r="' + ref + '" s="' + s + '"><v>' + n + '</v></c>';
+  }
+  function bpCelTxt(ref, s, t) {
+    if (t === null || t === undefined || t === "") return bpCelVazia(ref, s);
+    return '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + escaparXml(t) + '</t></is></c>';
+  }
+  function bpCelForm(ref, s, f, cache, texto) {
+    var v = texto ? "" : (bpNum(cache) !== null ? '<v>' + bpNum(cache) + '</v>' : "");
+    return '<c r="' + ref + '" s="' + s + '"' + (texto ? ' t="str"' : "") + '><f>' + escaparXml(f) + '</f>' + v + '</c>';
+  }
+  function bpAtribLinha(a) {
+    var s = "";
+    ["ht", "customHeight", "outlineLevel", "hidden", "collapsed", "s", "customFormat"].forEach(function (k) {
+      if (a && a[k] !== undefined && a[k] !== null) s += ' ' + k + '="' + a[k] + '"';
+    });
+    return s;
+  }
+  function bpEstiloDaColuna(runs, c) {
+    for (var i = 0; i < runs.length; i++) if (c >= runs[i][0] && c <= runs[i][1]) return runs[i][2];
+    return 0;
+  }
+  function bpMontarLinha(r, a, celulas) {
+    return '<row r="' + r + '"' + bpAtribLinha(a) + '>' + celulas.join("") + '</row>';
+  }
+  function bpPlanilhaXml(m, linhasXml, selecionada, ultimaCol, ultimaLinha) {
+    var vistas = (m.sheetViews || "<sheetViews><sheetView workbookViewId=\"0\"/></sheetViews>")
+      .replace(/ tabSelected="1"/, "").replace("<sheetView ", "<sheetView " + (selecionada ? 'tabSelected="1" ' : ""));
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+      + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+      + 'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" '
+      + 'xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
+      + (m.sheetPr || "")
+      + '<dimension ref="A1:' + bpX(ultimaCol) + ultimaLinha + '"/>'
+      + vistas + (m.sheetFormatPr || "") + (m.cols || "")
+      + '<sheetData>' + linhasXml.join("") + '</sheetData>'
+      + '<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0" footer="0"/>'
+      + '</worksheet>';
+  }
+
+  /* Acrescenta a folha de estilos da planilha os poucos estilos que ela */
+  /* nao tem (percentual com duas casas, data na BD, parametro em %).    */
+  function bpEstilos(stylesXml) {
+    var m = stylesXml.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
+    var xfs = m[2].match(/<xf [^>]*\/>|<xf [^>]*>[\s\S]*?<\/xf>/g);
+    var extras = {}, novos = [];
+    function clonar(nome, base, numFmt) {
+      var xf = xfs[base].replace(/numFmtId="\d+"/, 'numFmtId="' + numFmt + '"');
+      if (!/applyNumberFormat=/.test(xf)) xf = xf.replace("<xf ", '<xf applyNumberFormat="1" ');
+      extras[nome] = xfs.length + novos.length;
+      novos.push(xf);
+    }
+    clonar("premPct2", 51, 169);
+    clonar("paramNum", 40, 166);
+    clonar("paramPct", 40, 169);
+    clonar("paramMes", 40, 164);
+    clonar("bdData", 112, 14);
+    clonar("bdValor", 112, 171);
+    clonar("calcNum2", 57, 171);
+    var novoBloco = '<cellXfs count="' + (xfs.length + novos.length) + '">' + m[2] + novos.join("") + '</cellXfs>';
+    return { xml: stylesXml.replace(m[0], novoBloco), extra: extras };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Aba Premissas: mesma formatacao da Premissas New.                   */
+  /* ------------------------------------------------------------------ */
+  var BP_EXPORT_PREMISSAS = [
+    { faixa: "VERTICAL COMUNIDADE" },
+    { bloco: "Membership", sub: "Receita", itens: [
+      ["membros_cto", "# CTOs / CIOs", "Quantidade de membros da comunidade principal, de CTOs e CIOs"],
+      ["membros_ciso", "# CISOs", "Quantidade de membros da segunda comunidade, de CISOs"],
+      ["membros_cdo", "# CDOs / CAIOs", "Quantidade de membros da terceira comunidade, de CDOs / CAIOs"],
+      ["=total_membros", "# Total Members", "Quantidade total de membros", "qtd"],
+      ["conversao_house", "% Conversão (Quorum House)", "Percentual dos membros que pagam membership", "pct"],
+      ["preco_membership", "R$ Membership", "Valor do membership"],
+      ["membros_por_evento", "# Membros / Evento", "Membros presentes por evento de patrocínio"] ] },
+    { bloco: "Patrocínios Recorrentes", sub: "Receita", itens: [
+      ["webpeak", "R$ Webpeak / Zoho CRM", "Contrato já assinado com a Webpeak / Zoho CRM"],
+      ["cota1", "R$ Total Cota Master 1", "Contrato de patrocínio, cota master 1"],
+      ["cota2", "R$ Total Cota Master 2", "Contrato de patrocínio, cota master 2"],
+      ["cota3", "R$ Total Cota Master 3", "Contrato de patrocínio, cota master 3"] ],
+      sub2: "Custos", itens2: [
+      ["ab_membro_quo", "R$ Alimentos e Bebidas / Membro (C.QUO)", "Custo de alimentos e bebidas por membro"],
+      ["=ab_total_quo", "R$ Alimentos e Bebidas Total (C.QUO)", "Membros por evento x custo por membro", "rs"],
+      ["video_evento_quo", "R$ Produção de Vídeos e Fotos / Evento (C.QUO)", "Custo da produção de vídeos e fotos por evento"],
+      ["equip_evento_quo", "R$ Locação de Equipamentos / Evento (C.QUO)", "Custo da locação de equipamentos por evento"],
+      ["eventos_recorrentes_custo", "# Eventos Recorrentes Custos QUORUM", "Eventos da Webpeak com custo arcado pela QUORUM"] ] },
+    { bloco: "Eventos Spot", sub: "Receita", itens: [
+      ["spot_qtd", "# Eventos Spot Receita (C.CLI)", "Quantidade de Eventos Spot patrocinados"],
+      ["spot_preco", "R$ Evento Spot Receita (C.CLI)", "Preço cobrado pela QUORUM por evento spot"] ],
+      sub2: "Custos", itens2: [
+      ["ab_membro_cli", "R$ Alimentos e Bebidas / Membro (C.CLI)", "Custo de alimentos e bebidas por membro"],
+      ["video_evento_cli", "R$ Produção de Vídeos e Fotos / Evento (C.CLI)", "Custo da produção de vídeos e fotos por evento"],
+      ["equip_evento_cli", "R$ Locação de Equipamentos / Evento (C.CLI)", "Custo da locação de equipamentos por evento"],
+      ["spot_eventos_custo_cli", "# Eventos Spot Custos CLIENTE", "Eventos com custo arcado pelo cliente"] ] },
+    { bloco: "QUORUM House", sub: "Receita", itens: [
+      ["tier1_qtd", "# Eventos Tier 1", "Eventos fechados Tier 1 no mês"], ["tier2_qtd", "# Eventos Tier 2", "Eventos fechados Tier 2 no mês"],
+      ["tier3_qtd", "# Eventos Tier 3", "Eventos fechados Tier 3 no mês"], ["tier1_preco", "R$ Eventos Tier 1", "Preço por evento Tier 1"],
+      ["tier2_preco", "R$ Eventos Tier 2", "Preço por evento Tier 2"], ["tier3_preco", "R$ Eventos Tier 3", "Preço por evento Tier 3"] ],
+      sub2: "Custos", itens2: [
+      ["house_aluguel_qtd", "# Aluguel QUORUM House", "Calendário de contratação da QUORUM House"],
+      ["house_aluguel_valor", "R$ Aluguel QUORUM House", "Valor do aluguel da QUORUM House"],
+      ["house_reforma_qtd", "# Reforma QUORUM House", "Calendário de reforma da QUORUM House"],
+      ["house_reforma_valor", "R$ Reforma QUORUM House", "Valor da reforma no mês"] ] },
+    { bloco: "Surveys", sub: "Receita", itens: [
+      ["surveys_qtd", "# Surveys", "Quantidade de pesquisas realizadas"], ["surveys_preco", "R$ Surveys", "Valor cobrado por pesquisa"] ] },
+    { bloco: "Eventos Abertos (Aniversário, QUORUM Day)", sub: "Receita", itens: [
+      ["qd_participantes", "# Participantes", "Participantes dos eventos abertos"], ["qd_ingresso", "R$ Ingresso", "Valor do ingresso"],
+      ["qd_cotas_qtd", "# Cotas de Patrocínio", "Cotas de patrocínio disponibilizadas"], ["qd_cota_valor", "R$ Cota de Patrocínio", "Valor médio das cotas"] ] },
+    { bloco: "Despesas lançadas mês a mês (Comunidade)", sub: "Despesas", itens: [
+      ["l_till", "Till", ""], ["l_alex", "Alex", ""], ["l_cl", "Community Leader", ""], ["l_video", "Videomaker", ""],
+      ["l_ferr_com", "Ferramentas Comunidade", ""], ["l_jur_com", "Jurídico Comunidade", ""], ["l_cont_com", "Contabilidade Comunidade", ""],
+      ["l_estudio", "Produção de Conteúdo | Aluguel de Estúdio", ""], ["l_pr", "Mídia | PR Agency", ""],
+      ["l_brindes", "Brindes e Materiais Promocionais", ""], ["l_comerciais", "Despesas Comerciais Diversas", ""] ] },
+    { faixa: "VERTICAL TECH" },
+    { bloco: "QR Review", sub: "Receita", itens: [
+      ["rv_avulso", "Vendor — módulo avulso (mensal)", ""], ["rv_pacote", "Vendor — pacote completo, 3 módulos (mensal)", ""],
+      ["rv_pct_pacote", "% de vendors pagantes que escolhem o pacote completo", "", "pct"],
+      ["rv_vendors_lanc", "Vendors cadastrados no lançamento (Fase 1)", ""], ["rv_vendors_novos", "Novos vendors cadastrados por mês", ""],
+      ["rv_reiv_m1", "% da base que reivindica o perfil — mês 1", "", "pct"], ["rv_reiv_m12", "% da base que reivindica o perfil — mês 12", "", "pct"],
+      ["rv_conv_m1", "% dos vendors 'claimed' que convertem a pagante — mês 1", "", "pct"],
+      ["rv_conv_m12", "% dos vendors 'claimed' que convertem a pagante — mês 12", "", "pct"],
+      ["rv_buyers_lanc", "Buyers registrados no lançamento (mês 1)", ""], ["rv_buyers_novos", "Novos buyers registrados por mês", ""],
+      ["rv_bconv_m1", "% de buyers registrados que convertem a pagante — mês 1", "", "pct"],
+      ["rv_bconv_m12", "% de buyers registrados que convertem a pagante — mês 12", "", "pct"],
+      ["rv_buyer_preco", "Assinatura Buyer (mensal)", ""],
+      ["=rv_mes", "Mês", "Mês de vida do produto (1 = lançamento)", "qtd"],
+      ["=rv_rampa", "Índice da rampa no mês (0 a 11, trava no mês 12)", "", "qtd"],
+      ["=rv_cad", "Vendors cadastrados (cum.)", "", "qtd"], ["=rv_reiv", "% reivindicado", "", "pct"],
+      ["=rv_claimed", "Vendors 'claimed' (cum.)", "", "qtd"], ["=rv_conv", "% claimed → pagante", "", "pct"],
+      ["=rv_pag", "Vendors pagantes", "", "qtd"], ["=rv_arpu", "ARPU Vendor (blend)", "", "rs"],
+      ["=rv_rec", "Review | Subscription Vendor", "Vendors pagantes x ARPU", "rs"],
+      ["=rv_breg", "Buyers registrados (cum.)", "", "qtd"], ["=rv_bconv", "% registrado → pagante", "", "pct"],
+      ["=rv_bpag", "Buyers pagantes", "", "qtd"], ["=rv_brec", "Review | Subscription Buyer", "Buyers pagantes x assinatura", "rs"] ] },
+    { bloco: "QR Advisory", sub: "Receita", itens: [
+      ["adv_advisors", "# Advisors", ""], ["=adv_horas", "# Horas de Advisory Disponibilizadas", "Advisors x horas por advisor", "qtd"],
+      ["adv_pct_vendidas", "% de Horas Vendidas", "", "pct"], ["=adv_hv", "# de Horas Vendidas", "", "qtd"],
+      ["adv_preco_hora", "R$ Average Pricing (Valor/Hora)", ""], ["=adv_full", "R$ Full Revenue", "", "rs"],
+      ["adv_share", "% QUORUM Share", "", "pct"] ] },
+    { bloco: "Despesas lançadas mês a mês (Tech)", sub: "Despesas", itens: [
+      ["l_roque", "Roque Ribeiro", ""], ["l_ferr_tech", "Ferramentas Tech", ""], ["l_jur_tech", "Jurídico Tech", ""],
+      ["l_cont_tech", "Contabilidade Tech", ""], ["l_apis", "APIs de fonte de notícia e conteúdo (Review)", ""],
+      ["l_cac_review", "Mídia | Aquisição QR Review", ""], ["l_criativos", "Criativos Para Mídia", ""],
+      ["l_backup", "Backup, réplica e ambiente de staging (Cloud)", ""],
+      ["l_infra", "Infraestrutura, orquestração e observabilidade", ""],
+      ["l_ia", "IA do pipeline (enriquecimentos, embeddings, etc)", ""] ] },
+    { faixa: "CÁLCULOS AUXILIARES" },
+    { bloco: "Renovação das cotas Master", sub: "Fator aplicado à cota em cada mês", itens: [
+      ["=cota1_ini", "Cota Master 1 — mês de início (índice)", "", "unico"], ["=cota1_fator", "Cota Master 1 — fator de renovação", "", "pct"],
+      ["=cota2_ini", "Cota Master 2 — mês de início (índice)", "", "unico"], ["=cota2_fator", "Cota Master 2 — fator de renovação", "", "pct"],
+      ["=cota3_ini", "Cota Master 3 — mês de início (índice)", "", "unico"], ["=cota3_fator", "Cota Master 3 — fator de renovação", "", "pct"] ] },
+    { bloco: "Mútuo conversível (contrato v07)", sub: "Carência, CDI com capitalização anual, parcela única", itens: [
+      ["=mut_entrada", "Mês de entrada do dinheiro (índice)", "", "unico"],
+      ["=mut_inicio", "Início dos juros (índice)", "", "unico"],
+      ["=mut_parcela", "Mês da parcela única (índice)", "", "unico"],
+      ["=mut_base", "Base de cálculo", "Capitaliza os juros do ano a cada 12 meses", "rs"],
+      ["=mut_juros", "Juros do mês", "Despesa financeira reconhecida", "rs2"],
+      ["=mut_ano", "Juros do ano corrente", "", "rs2"],
+      ["=mut_acum", "Juros acumulados", "", "rs2"],
+      ["=mut_saldo", "Saldo devedor (principal + juros)", "", "rs"] ] },
+    { bloco: "Distribuição de lucros", sub: "Percentual do lucro acumulado não distribuído, na periodicidade", itens: [
+      ["=dist_primeiro", "Primeiro mês projetado (índice)", "", "unico"],
+      ["=dist_ll", "Lucro líquido consolidado", "", "rs"],
+      ["=dist_antes", "Acumulado não distribuído, antes da distribuição", "", "rs"],
+      ["=dist_valor", "Distribuição do mês", "", "rs"],
+      ["=dist_depois", "Acumulado não distribuído, depois da distribuição", "", "rs"] ] }
+  ];
+
+  /* ------------------------------------------------------------------ */
+  /* Montagem do arquivo inteiro.                                        */
+  /* ------------------------------------------------------------------ */
+  function bpGerarXlsx(modelo, proj, linhas, hojeTexto) {
+    var est = bpEstilos(modelo.styles);
+    var X = est.extra;
+    var P = proj.P;
+    var N = BP_N;
+    var tipos = proj.tipos;
+    var SHEET = { cons: "Consolidado", com: "Comunidade", tech: "Tech", prem: "Premissas",
+                  impCom: "'Impostos Comun.'", impTech: "'Impostos Tech'", bd: "'BD Omie'" };
+
+    /* ---------- BD Omie ---------- */
+    var bdLinhas = (linhas || []).filter(function (l) { return l.dEmi || l.dPag; });
+    var BD = { P: "'BD Omie'!$P:$P", N: "'BD Omie'!$N:$N", Q: "'BD Omie'!$Q:$Q", R: "'BD Omie'!$R:$R", D: "'BD Omie'!$D:$D", B: "'BD Omie'!$B:$B" };
+
+    /* ---------- Premissas: ordem das linhas ---------- */
+    var premRow = {}, premLinhas = [], parRow = {};
+    var mPrem = modelo.premissas;
+    function vetor(r) { for (var i = 0; i < mPrem.rows.length; i++) if (mPrem.rows[i].r === r) return mPrem.rows[i]; return null; }
+    var LP = 4 + N;                          /* ultima coluna da aba Premissas */
+    var cursor = 6;
+    function addPrem(spec) { spec.r = cursor++; premLinhas.push(spec); return spec.r; }
+    addPrem({ tipo: "faixa", texto: "PARÂMETROS" });
+    addPrem({ tipo: "branco" });
+    addPrem({ tipo: "cab", colE: "Valor" });
+    addPrem({ tipo: "espaco" });
+    BP_PARAMS_UI.forEach(function (p) { parRow[p[0]] = addPrem({ tipo: "param", k: p[0], texto: p[1], nota: p[3], un: p[2] }); });
+    addPrem({ tipo: "branco" });
+    BP_EXPORT_PREMISSAS.forEach(function (g) {
+      if (g.faixa) { addPrem({ tipo: "faixa", texto: g.faixa }); addPrem({ tipo: "branco" }); return; }
+      addPrem({ tipo: "bloco", texto: g.bloco }); addPrem({ tipo: "branco" });
+      [[g.sub, g.itens], [g.sub2, g.itens2]].forEach(function (par) {
+        if (!par[1]) return;
+        addPrem({ tipo: "sub", texto: par[0] }); addPrem({ tipo: "branco" });
+        addPrem({ tipo: "cab" }); addPrem({ tipo: "espaco" });
+        par[1].forEach(function (it) {
+          var calc = it[0].charAt(0) === "=";
+          var id = calc ? it[0].slice(1) : it[0];
+          premRow[id] = addPrem({ tipo: calc ? "calc" : "serie", id: id, texto: it[1], desc: it[2], un: it[3] || (calc ? "rs" : "rs") });
+        });
+        addPrem({ tipo: "branco" });
+      });
+      addPrem({ tipo: "branco" });
+    });
+    var ultimaPrem = cursor - 1;
+    function PAR(k) { return SHEET.prem + "!$E$" + parRow[k]; }
+    function mesIdx(expr) { return "((YEAR(" + expr + ")-2026)*12+MONTH(" + expr + ")-6)"; }
+
+    /* ---------- DRE: ordem das linhas em cada aba ---------- */
+    function residuosAtivos() {
+      var ativos = {};
+      Object.keys(BP_RESIDUO).forEach(function (k) {
+        var n = Number(k);
+        [proj.com.v[n], proj.tech.v[n]].forEach(function (arr) {
+          (arr || []).forEach(function (v, i) { if (tipos[i] === "R" && Math.abs(v || 0) >= 0.005) ativos[n] = true; });
+        });
+      });
+      return ativos;
+    }
+    var RES = residuosAtivos();
+    var ANCORA_RES = { 82: 82.5, 148: 148.5, 227: 227.5, 237: 237.5, 246: 246.5 };
+    var MOLDE_RES = { 82.5: 81, 148.5: 146, 227.5: 227, 237.5: 236, 246.5: 248 };   /* linha de planilha que empresta o estilo */
+    function montarOrdem(maxLinha) {
+      var specs = [], rowOf = {}, r = 0;
+      var porNumero = {};
+      modelo.dre.rows.forEach(function (row) { porNumero[row.r] = row; });
+      modelo.dre.rows.forEach(function (row) {
+        if (row.r > maxLinha) return;
+        var id = bpIdDaLinhaPlanilha(row.r);
+        specs.push({ molde: row, id: id }); r++;
+        if (id !== null) rowOf[id] = r;
+        if (id !== null && ANCORA_RES[id] && RES[ANCORA_RES[id]]) {
+          var rid = ANCORA_RES[id], base = porNumero[MOLDE_RES[rid]];
+          specs.push({ molde: base, id: rid, residuo: true }); r++;
+          rowOf[rid] = r;
+        }
+      });
+      return { specs: specs, rowOf: rowOf };
+    }
+    var ORD = { cons: montarOrdem(322), com: montarOrdem(271), tech: montarOrdem(271) };
+
+    function colMes(i) { return bpX(6 + i); }
+    function refPrem(id, i, dono) {
+      if (!premRow[id]) return "0";
+      if (dono && BP_SERIE_VERTICAL[id] && BP_SERIE_VERTICAL[id] !== dono) return "0";
+      return SHEET.prem + "!" + bpX(5 + i) + premRow[id];
+    }
+
+    /* Formula de um mes projetado numa vertical. */
+    function formulaProjetada(vk, n, i, R) {
+      var c = colMes(i);
+      function L(m) { return c + R[m]; }
+      function pr(id) { return refPrem(id, i, vk); }
+      var imp = vk === "com" ? SHEET.impCom : SHEET.impTech;
+      function impCol(col) { return "-INDEX(" + imp + "!$" + col + "$4:$" + col + "$99,MATCH(" + c + "$5," + imp + "!$C$4:$C$99,0))"; }
+      var lanc = {};
+      Object.keys(BP_LANCAMENTOS).forEach(function (id) { lanc[BP_LANCAMENTOS[id]] = id; });
+      switch (n) {
+        case 10: return pr("membros_cto"); case 11: return pr("membros_ciso"); case 12: return pr("membros_cdo");
+        case 13: return pr("conversao_house"); case 15: return pr("preco_membership");
+        case 14: return "ROUND(" + L(10) + "+" + L(11) + "+" + L(12) + ",0)*" + L(13);
+        case 9: return L(14) + "*" + L(15);
+        case 19: return pr("webpeak");
+        case 20: case 21: case 22:
+          var k = n - 19, idc = "cota" + k;
+          return vk === "com" ? pr(idc) + "*" + SHEET.prem + "!" + bpX(5 + i) + premRow[idc + "_fator"] : "0";
+        case 26: return pr("spot_qtd"); case 27: return pr("spot_preco"); case 25: return L(26) + "*" + L(27);
+        case 31: return pr("tier1_qtd"); case 32: return pr("tier2_qtd"); case 33: return pr("tier3_qtd");
+        case 34: return pr("tier1_preco"); case 35: return pr("tier2_preco"); case 36: return pr("tier3_preco");
+        case 30: return L(31) + "*" + L(34) + "+" + L(32) + "*" + L(35) + "+" + L(33) + "*" + L(36);
+        case 41: return pr("surveys_qtd"); case 42: return pr("surveys_preco"); case 40: return L(41) + "*" + L(42);
+        case 46: return pr("qd_participantes"); case 47: return pr("qd_ingresso"); case 45: return L(46) + "*" + L(47);
+        case 49: return pr("qd_cotas_qtd"); case 50: return pr("qd_cota_valor"); case 48: return L(49) + "*" + L(50);
+        case 67: return vk === "tech" ? SHEET.prem + "!" + bpX(5 + i) + premRow.rv_brec : "0";
+        case 69: return vk === "tech" ? SHEET.prem + "!" + bpX(5 + i) + premRow.rv_rec : "0";
+        case 73: return pr("adv_advisors"); case 74: return L(73) + "*" + PAR("horas_advisor");
+        case 75: return pr("adv_pct_vendidas"); case 76: return L(74) + "*" + L(75);
+        case 77: return pr("adv_preco_hora"); case 78: return L(76) + "*" + L(77);
+        case 79: return pr("adv_share"); case 72: return L(78) + "*" + L(79);
+        case 87: return impCol("H"); case 88: return impCol("I"); case 89: return impCol("J");
+        case 90: return impCol("K"); case 91: return impCol("L"); case 92: return impCol("M");
+        case 104: return "-" + pr("membros_por_evento") + "*" + pr("ab_membro_quo");
+        case 105: return "-" + pr("video_evento_quo"); case 106: return "-" + pr("equip_evento_quo");
+        case 107: return pr("eventos_recorrentes_custo");
+        case 103: return L(107) + "*(" + L(104) + "+" + L(105) + "+" + L(106) + ")";
+        case 110: return "-" + pr("membros_por_evento") + "*" + pr("ab_membro_cli");
+        case 111: return "-" + pr("video_evento_cli"); case 112: return "-" + pr("equip_evento_cli");
+        case 113: return pr("spot_eventos_custo_cli");
+        case 109: return L(113) + "*(" + L(110) + "+" + L(111) + "+" + L(112) + ")";
+        case 117: return pr("house_aluguel_qtd"); case 116: return "-" + L(117) + "*" + pr("house_aluguel_valor");
+        case 119: return pr("house_reforma_qtd"); case 118: return "-" + L(119) + "*" + pr("house_reforma_valor");
+        case 129: return PAR("qd_custo_pct");
+        case 128: return "-" + L(44) + "*(1-IFERROR(-" + L(85) + "/" + L(7) + ",0))*" + L(129);
+        case 208: return vk === "com" ? "-" + L(7) + "*" + PAR("midia_pct") : "0";
+        case 226: return "-" + L(94) + "*" + PAR("comissao_pct");
+        case 242: return vk === "com" ? "-" + L(7) + "*" + PAR("taxa_com") : "0";
+        case 243: return vk === "tech" ? "-" + L(7) + "*" + PAR("taxa_tech") : "0";
+        case 245: return vk === "com" ? "-" + SHEET.prem + "!" + bpX(5 + i) + premRow.mut_juros : "0";
+      }
+      if (lanc[n]) return pr(lanc[n]);
+      return null;
+    }
+
+    function somaFilhos(n, c, R) {
+      var f = BP_FILHOS[n].filter(function (x) { return R[x]; });
+      return f.length ? "SUM(" + f.map(function (x) { return c + R[x]; }).join(",") + ")" : "0";
+    }
+
+    /* Formula de um mes realizado (vk = "com" | "tech" | null para o total). */
+    function formulaRealizada(vk, n, i, R) {
+      var c = colMes(i), linha = BP_LINHA[n];
+      var filtro = vk ? "," + BD.Q + ",\"" + (vk === "com" ? "Comunidade" : "Tech") + "\"" : "";
+      function sumifs(critCol, crit) { return "SUMIFS(" + BD.P + "," + critCol + "," + crit + "," + BD.N + "," + c + "$5" + filtro + ")"; }
+      if (BP_DRIVERS[n]) return undefined;
+      if (BP_SECAO_REALIZADA[n]) return BP_SECAO_REALIZADA[n].map(function (s) { return sumifs(BD.R, "\"" + s + "\""); }).join("+");
+      if (BP_RESIDUO[n] !== undefined) {
+        var pai = BP_RESIDUO[n];
+        return c + R[pai] + "-" + somaFilhos(pai, c, R);
+      }
+      if (BP_SUB_VERTICAL[n]) {
+        var mae = n <= 178 ? 176 : n <= 183 ? 181 : n <= 186 ? 184 : 241;
+        return (!vk || BP_SUB_VERTICAL[n] === vk) ? c + R[mae] : "0";
+      }
+      if (linha && linha.c && !BP_CODIGO_IGNORADO_NO_REALIZADO[n]) {
+        var partes = linha.c.split(".").length;
+        return sumifs(partes >= 3 ? BD.D : BD.B, "$B" + R[n]);
+      }
+      if (BP_FILHOS[n]) return somaFilhos(n, c, R);
+      return "0";
+    }
+
+    function formulaAno(n, a, r, R) {
+      var col = bpX(43 + a);
+      if (BP_DRIVERS[n]) return undefined;
+      if (BP_RAZOES[n]) return "IFERROR(" + col + R[BP_RAZOES[n][0]] + "/" + col + R[BP_RAZOES[n][1]] + ",0)";
+      if (n === 268) return "SUM($AQ" + R[266] + ":" + col + R[266] + ")";
+      if (n === 319) return "INDEX($F" + r + ":$AO" + r + "," + col + "$2+1)";
+      if (n === 320) return col + R[317] + "+" + col + R[319];
+      return "SUM(OFFSET($F" + r + ",," + col + "$2,," + col + "$4-" + col + "$2+1))";
+    }
+
+    function valorMotor(vk, n, i) {
+      var arr = vk === "cons" ? proj.cons[n] : (proj[vk].v[n]);
+      return arr ? arr[i] : null;
+    }
+
+    function abaDRE(vk) {
+      var ord = ORD[vk], R = ord.rowOf, rowsXml = [];
+      var cOut = vk === "cons" ? null : vk;
+      ord.specs.forEach(function (spec, k) {
+        var r = k + 1, m = spec.molde, n = spec.id, cel = [];
+        var atrib = JSON.parse(JSON.stringify(m.a || {}));
+        if (spec.residuo) { delete atrib.collapsed; }
+        for (var col = 1; col <= 47; col++) {
+          var s = bpEstiloDaColuna(m.s, col), ref = bpX(col) + r;
+          var txt = m.t && m.t[col];
+          /* Cabecalho */
+          if (m.r <= 5 && !spec.residuo) {
+            if (m.r === 1 && col === 5) { cel.push(bpCelTxt(ref, s, "Exportado do BP online em " + hojeTexto + " · Cenário base · formato e fórmulas espelhando a BP_QUORUM_Oficial")); continue; }
+            if (m.r === 2 && col >= 6 && col <= 41) { var real = tipos[col - 6] === "R"; cel.push(bpCelTxt(ref, real ? 6 : 7, real ? "Realizado" : "Projetado")); continue; }
+            if (m.r === 2 && col >= 43 && col <= 45) { cel.push(bpCelNum(ref, s, (col - 43) * 12)); continue; }
+            if (m.r === 4 && col === 6) { cel.push(bpCelNum(ref, s, 1)); continue; }
+            if (m.r === 4 && col >= 7 && col <= 41) { cel.push(bpCelForm(ref, s, bpX(col - 1) + "4+1", col - 5)); continue; }
+            if (m.r === 4 && col >= 43 && col <= 45) { cel.push(bpCelNum(ref, s, (col - 43) * 12 + 11)); continue; }
+            if (m.r === 5 && col === 6) { cel.push(bpCelNum(ref, s, 46174)); continue; }
+            if (m.r === 5 && col >= 7 && col <= 41) { cel.push(bpCelForm(ref, s, "EDATE(" + bpX(col - 1) + "5,1)")); continue; }
+            if (m.r === 5 && col === 5) { cel.push(bpCelTxt(ref, s, "Novo BP + Realizado QUORUM" + (vk === "cons" ? "" : " · " + (vk === "com" ? "Comunidade" : "Tech")))); continue; }
+            cel.push(txt ? bpCelTxt(ref, s, txt) : bpCelVazia(ref, s));
+            continue;
+          }
+          if (n === null) {
+            if (m.r === 274 && col === 5) { cel.push(bpCelTxt(ref, s, txt)); continue; }
+            cel.push(txt && (col === 5 || col === 2 || col === 3 || col === 47) ? bpCelTxt(ref, s, txt) : bpCelVazia(ref, s));
+            continue;
+          }
+          var linha = BP_LINHA[n];
+          if (n === 272) { cel.push(col === 5 ? bpCelTxt(ref, s, linha.r) : bpCelVazia(ref, s)); continue; }
+          if (col === 2) { cel.push(bpCelTxt(ref, s, linha.c || "")); continue; }
+          if (col === 3) { cel.push(bpCelTxt(ref, s, spec.residuo ? "" : (txt || ""))); continue; }
+          if (col === 5) { cel.push(bpCelTxt(ref, s, linha.r)); continue; }
+          if (col === 47) { cel.push(bpCelTxt(ref, s, spec.residuo ? "" : (txt || ""))); continue; }
+          if (col >= 6 && col <= 41) {
+            var i = col - 6, f, cache = valorMotor(vk, n, i);
+            if (BP_RAZOES[n]) f = "IFERROR(" + colMes(i) + R[BP_RAZOES[n][0]] + "/" + colMes(i) + R[BP_RAZOES[n][1]] + ",0)";
+            else if (n === 268) f = "SUM($F" + R[266] + ":" + colMes(i) + R[266] + ")";
+            else if (vk === "cons" && n <= 269) {
+              f = (BP_DRIVERS[n] && tipos[i] === "R") ? undefined : ("Comunidade!" + colMes(i) + ORD.com.rowOf[n] + "+Tech!" + colMes(i) + ORD.tech.rowOf[n]);
+            } else if (vk === "cons") f = fluxo(n, i, R);
+            else if (tipos[i] === "R") f = formulaRealizada(cOut, n, i, R);
+            else {
+              f = formulaProjetada(vk, n, i, R);
+              if (f === null) f = BP_FILHOS[n] ? somaFilhos(n, colMes(i), R) : "0";
+            }
+            if (f === undefined) cel.push(bpCelVazia(ref, s));
+            else cel.push(bpCelForm(ref, s, f, cache));
+            continue;
+          }
+          if (col >= 43 && col <= 45) {
+            var fa = formulaAno(n, col - 43, r, R);
+            cel.push(fa === undefined ? bpCelVazia(ref, s) : bpCelForm(ref, s, fa));
+            continue;
+          }
+          cel.push(bpCelVazia(ref, s));
+        }
+        rowsXml.push(bpMontarLinha(r, atrib, cel));
+      });
+      return bpPlanilhaXml(modelo.dre, rowsXml, vk === "cons", 47, ord.specs.length);
+    }
+
+    /* Fluxo de caixa (so no Consolidado). */
+    function fluxo(n, i, R) {
+      var c = colMes(i);
+      if (n === 319) return i === 0 ? "0" : colMes(i - 1) + R[320];
+      if (n === 320) return c + R[319] + "+" + c + R[317];
+      if (tipos[i] === "R") return formulaRealizada(null, n, i, R);
+      switch (n) {
+        case 274: return c + R[266];
+        case 282: return "IF(" + c + "$4-1=" + SHEET.prem + "!$E$" + premRow.mut_entrada + "," + PAR("mutuo_valor") + ",0)";
+        case 292: return "IF(" + c + "$4-1=" + SHEET.prem + "!$E$" + premRow.mut_parcela + ",-" + SHEET.prem + "!" + bpX(5 + i) + premRow.mut_saldo + ",0)";
+        case 293: return "-" + SHEET.prem + "!" + bpX(5 + i) + premRow.dist_valor;
+        case 276: case 277: case 284: case 285: case 300: case 301: case 308: case 309: case 317:
+          return somaFilhos(n, c, R);
+      }
+      return "0";
+    }
+
+    /* ---------- Aba Premissas ---------- */
+    function abaPremissas() {
+      var rows = [];
+      function copiaMolde(rm, rNovo, conteudo) {
+        var mr = vetor(rm), cel = [];
+        for (var col = 1; col <= LP; col++) {
+          var s = bpEstiloDaColuna(mr.s, col), ref = bpX(col) + rNovo;
+          var v = conteudo ? conteudo(col, s, ref) : undefined;
+          cel.push(v !== undefined ? v : bpCelVazia(ref, s));
+        }
+        return bpMontarLinha(rNovo, mr.a, cel);
+      }
+      rows.push(copiaMolde(1, 1));
+      rows.push(copiaMolde(2, 2));
+      rows.push(copiaMolde(3, 3, function (col, s, ref) {
+        if (col === 5) return bpCelNum(ref, s, 1);
+        if (col > 5) return bpCelForm(ref, s, bpX(col - 1) + "3+1", col - 4);
+      }));
+      rows.push(copiaMolde(4, 4, function (col, s, ref) {
+        if (col === 3) return bpCelTxt(ref, s, "Premissas do BP online (exportado do dashboard em " + hojeTexto + ")");
+        if (col === 5) return bpCelNum(ref, s, 46174);
+        if (col > 5) return bpCelForm(ref, s, "EDATE(" + bpX(col - 1) + "4,1)");
+      }));
+      rows.push(copiaMolde(5, 5));
+      var S = proj.S;
+      premLinhas.forEach(function (sp) {
+        var r = sp.r;
+        if (sp.tipo === "faixa") { rows.push(copiaMolde(6, r, function (col, s, ref) { if (col === 3) return bpCelTxt(ref, s, sp.texto); })); return; }
+        if (sp.tipo === "branco") { rows.push(copiaMolde(7, r)); return; }
+        if (sp.tipo === "espaco") { rows.push(copiaMolde(13, r)); return; }
+        if (sp.tipo === "bloco") { rows.push(copiaMolde(8, r, function (col, s, ref) { if (col === 3) return bpCelTxt(ref, s, sp.texto); })); return; }
+        if (sp.tipo === "sub") { rows.push(copiaMolde(10, r, function (col, s, ref) { if (col === 3) return bpCelTxt(ref, s, sp.texto); })); return; }
+        if (sp.tipo === "cab") { rows.push(copiaMolde(12, r, function (col, s, ref) {
+          if (col === 2) return bpCelVazia(ref, s);
+          if (col === 3) return bpCelTxt(ref, s, "Item"); if (col === 4) return bpCelTxt(ref, s, "Descrição");
+          if (col === 5 && sp.colE) return bpCelTxt(ref, s, sp.colE);
+        })); return; }
+        var cel = [];
+        for (var col = 1; col <= LP; col++) {
+          var ref = bpX(col) + r;
+          if (sp.tipo === "param") {
+            if (col === 3) { cel.push(bpCelTxt(ref, 39, sp.texto)); continue; }
+            if (col === 4) { cel.push(bpCelTxt(ref, 39, sp.nota || "")); continue; }
+            if (col === 5) {
+              var v = P[sp.k];
+              if (sp.un === "mes") cel.push(bpCelNum(ref, X.paramMes, serialMes(v)));
+              else if (sp.un === "pct") cel.push(bpCelNum(ref, X.paramPct, v));
+              else cel.push(bpCelNum(ref, X.paramNum, v));
+              continue;
+            }
+            cel.push(bpCelVazia(ref, 4)); continue;
+          }
+          var calc = sp.tipo === "calc";
+          if (col === 3) { cel.push(bpCelTxt(ref, calc ? 55 : 4, sp.texto)); continue; }
+          if (col === 4) { cel.push(bpCelTxt(ref, 4, sp.desc || "")); continue; }
+          if (col < 5) { cel.push(bpCelVazia(ref, 4)); continue; }
+          var i = col - 5;
+          var sNum = calc ? (sp.un === "pct" ? 59 : sp.un === "rs2" ? X.calcNum2 : 57) : (sp.un === "pct" ? 51 : 43);
+          if (!calc) { cel.push(bpCelNum(ref, sNum, (S[sp.id] || [])[i] || 0)); continue; }
+          var f = formulaPremissa(sp.id, i, col);
+          if (f === undefined) { cel.push(bpCelVazia(ref, 4)); continue; }
+          cel.push(bpCelForm(ref, sNum, f));
+        }
+        rows.push(bpMontarLinha(r, null, cel));
+      });
+      var mCols = '<cols><col min="1" max="1" width="3.5" customWidth="1"/><col min="2" max="2" width="19" hidden="1" customWidth="1" outlineLevel="1"/>'
+        + '<col min="3" max="3" width="46.83203125" customWidth="1" collapsed="1"/><col min="4" max="4" width="56" customWidth="1"/>'
+        + '<col min="5" max="' + LP + '" width="10.5" customWidth="1"/></cols>';
+      return bpPlanilhaXml({ sheetPr: mPrem.sheetPr, sheetViews: mPrem.sheetViews, sheetFormatPr: mPrem.sheetFormatPr, cols: mCols }, rows, false, LP, ultimaPrem);
+    }
+    function serialMes(idx) {
+      var t = 5 + idx, ano = 2026 + Math.floor(t / 12), mes = t % 12;
+      return Math.round((Date.UTC(ano, mes, 1) - Date.UTC(1899, 11, 30)) / 86400000);
+    }
+
+    function formulaPremissa(id, i, col) {
+      var c = bpX(col), cAnt = bpX(col - 1), prim = col === 5;
+      function PR(k) { return c + premRow[k]; }
+      function PA(k) { return cAnt + premRow[k]; }
+      var idx = "(" + c + "$3-1)";
+      var lanc = mesIdx(PAR("review_lancamento"));
+      var k = "(" + idx + "-" + lanc + "+1)";
+      function unico(expr) { return prim ? expr : undefined; }
+      switch (id) {
+        case "total_membros": return PR("membros_cto") + "+" + PR("membros_ciso") + "+" + PR("membros_cdo");
+        case "ab_total_quo": return PR("membros_por_evento") + "*" + PR("ab_membro_quo");
+        case "rv_mes": return "MAX(0," + k + ")";
+        case "rv_rampa": return "IF(" + PR("rv_mes") + ">=1,MIN(" + PR("rv_mes") + "-1,11),0)";
+        case "rv_cad": return "IF(" + PR("rv_mes") + "<1,0,IF(" + PR("rv_mes") + "=1," + PR("rv_vendors_lanc") + "," + (prim ? "0" : PA("rv_cad")) + "+" + PR("rv_vendors_novos") + "))";
+        case "rv_reiv": return "IF(" + PR("rv_mes") + "<1,0," + PR("rv_reiv_m1") + "+(" + PR("rv_reiv_m12") + "-" + PR("rv_reiv_m1") + ")*" + PR("rv_rampa") + "/11)";
+        case "rv_claimed": return PR("rv_cad") + "*" + PR("rv_reiv");
+        case "rv_conv": return "IF(" + PR("rv_mes") + "<1,0," + PR("rv_conv_m1") + "+(" + PR("rv_conv_m12") + "-" + PR("rv_conv_m1") + ")*" + PR("rv_rampa") + "/11)";
+        case "rv_pag": return PR("rv_claimed") + "*" + PR("rv_conv");
+        case "rv_arpu": return "IF(" + PR("rv_mes") + "<1,0," + PR("rv_avulso") + "*(1-" + PR("rv_pct_pacote") + ")+" + PR("rv_pacote") + "*" + PR("rv_pct_pacote") + ")";
+        case "rv_rec": return PR("rv_pag") + "*" + PR("rv_arpu");
+        case "rv_breg": return "IF(" + PR("rv_mes") + "<1,0,IF(" + PR("rv_mes") + "=1," + PR("rv_buyers_lanc") + "," + (prim ? "0" : PA("rv_breg")) + "+" + PR("rv_buyers_novos") + "))";
+        case "rv_bconv": return "IF(" + PR("rv_mes") + "<1,0," + PR("rv_bconv_m1") + "+(" + PR("rv_bconv_m12") + "-" + PR("rv_bconv_m1") + ")*" + PR("rv_rampa") + "/11)";
+        case "rv_bpag": return PR("rv_breg") + "*" + PR("rv_bconv");
+        case "rv_brec": return PR("rv_bpag") + "*" + PR("rv_buyer_preco");
+        case "adv_horas": return PR("adv_advisors") + "*" + PAR("horas_advisor");
+        case "adv_hv": return PR("adv_horas") + "*" + PR("adv_pct_vendidas");
+        case "adv_full": return PR("adv_hv") + "*" + PR("adv_preco_hora");
+        case "cota1_ini": case "cota2_ini": case "cota3_ini":
+          var cr = premRow[id.slice(0, 5)];
+          return unico("IFERROR(MATCH(TRUE,INDEX($E$" + cr + ":$" + bpX(LP) + "$" + cr + ">0,0),0)-1,-1)");
+        case "cota1_fator": case "cota2_fator": case "cota3_fator":
+          var ini = "$E$" + premRow[id.slice(0, 5) + "_ini"];
+          return "IF(OR(" + ini + "<0," + idx + "<" + ini + "," + PAR("renovacao_prazo") + "<=0),1," + PAR("renovacao_prob") + "^INT((" + idx + "-" + ini + ")/" + PAR("renovacao_prazo") + "))";
+        case "mut_entrada": return unico(mesIdx(PAR("mutuo_mes")));
+        case "mut_inicio": return unico("$E$" + premRow.mut_entrada + "+" + PAR("mutuo_carencia"));
+        case "mut_parcela": return unico("$E$" + premRow.mut_entrada + "+" + PAR("mutuo_prazo"));
+        case "mut_base":
+          if (prim) return PAR("mutuo_valor");
+          var dd = "(" + idx + "-$E$" + premRow.mut_inicio + ")";
+          return "IF(AND(" + dd + ">0,MOD(" + dd + ",12)=0)," + PA("mut_base") + "+" + PA("mut_ano") + "," + PA("mut_base") + ")";
+        case "mut_juros": return "IF(AND(" + PAR("mutuo_valor") + ">0," + idx + ">=$E$" + premRow.mut_inicio + ")," + PR("mut_base") + "*" + PAR("mutuo_cdi") + "/12,0)";
+        case "mut_ano":
+          var d2 = "(" + idx + "-$E$" + premRow.mut_inicio + ")";
+          return "IF(" + d2 + "<0,0,IF(AND(" + d2 + ">0,MOD(" + d2 + ",12)=0)," + PR("mut_juros") + "," + (prim ? "0" : PA("mut_ano")) + "+" + PR("mut_juros") + "))";
+        case "mut_acum": return (prim ? "" : PA("mut_acum") + "+") + PR("mut_juros");
+        case "mut_saldo": return "IF(AND(" + PAR("mutuo_valor") + ">0," + idx + ">=$E$" + premRow.mut_entrada + ")," + PAR("mutuo_valor") + "+" + PR("mut_acum") + ",0)";
+        case "dist_primeiro": return unico("MATCH(\"Projetado\",Consolidado!$F$2:$AO$2,0)-1");
+        case "dist_ll": return "Consolidado!" + bpX(6 + i) + ORD.cons.rowOf[266];
+        case "dist_antes": return "IF(Consolidado!" + bpX(6 + i) + "$2=\"Projetado\"," + (prim ? "0" : PA("dist_depois")) + "+" + PR("dist_ll") + ",0)";
+        case "dist_valor":
+          return "IF(AND(Consolidado!" + bpX(6 + i) + "$2=\"Projetado\"," + PAR("dist_periodo") + ">0,MOD(" + idx + "-$E$" + premRow.dist_primeiro + "+1," + PAR("dist_periodo") + ")=0," + PR("dist_antes") + ">0)," + PR("dist_antes") + "*" + PAR("dist_pct") + ",0)";
+        case "dist_depois": return PR("dist_antes") + "-" + PR("dist_valor");
+      }
+      return "0";
+    }
+
+    /* ---------- Abas de impostos ---------- */
+    function abaImpostos(vk) {
+      var m = vk === "com" ? modelo.impCom : modelo.impTech;
+      var aba = vk === "com" ? "Comunidade" : "Tech";
+      var Rv = ORD[vk].rowOf, rows = [];
+      m.rows.forEach(function (row) {
+        var r = row.r, cel = [];
+        for (var col = 1; col <= 24; col++) {
+          var s = bpEstiloDaColuna(row.s, col), ref = bpX(col) + r;
+          var txt = row.t && row.t[col], num = row.n && row.n[col];
+          if (col >= 21) {
+            if (r >= 39) { cel.push(bpCelVazia(ref, s)); continue; }
+            if (txt) { cel.push(bpCelTxt(ref, s, txt)); continue; }
+            if (num !== undefined) { cel.push(bpCelNum(ref, s, num)); continue; }
+            cel.push(bpCelVazia(ref, s)); continue;
+          }
+          if (r <= 3 || r > 99) { cel.push(txt ? bpCelTxt(ref, s, txt) : bpCelVazia(ref, s)); continue; }
+          var C = "C" + r, prev = r - 1;
+          var f = null;
+          switch (col) {
+            case 2: f = "YEAR(" + C + ")-2025"; break;
+            case 3: if (r === 4) { cel.push(bpCelNum(ref, s, 46023)); continue; } f = "EDATE(C" + prev + ",1)"; break;
+            case 4: f = "IFERROR(INDEX(" + aba + "!$F$" + Rv[7] + ":$AO$" + Rv[7] + ",MATCH(" + C + "," + aba + "!$F$5:$AO$5,0)),0)"; break;
+            case 5: f = "SUMIFS($D$4:$D$99,$B$4:$B$99,B" + r + ",$C$4:$C$99,\"<=\"&" + C + ")"; break;
+            case 6:
+              var nAt = "((YEAR(" + C + ")-2026)*12+MONTH(" + C + ")-5)";
+              f = "IF(" + nAt + "<1,0,IF(" + nAt + "<12,SUMIFS($D$4:$D$99,$C$4:$C$99,\">=\"&DATE(2026,6,1),$C$4:$C$99,\"<=\"&" + C + ")*12/" + nAt
+                + ",SUMIFS($D$4:$D$99,$C$4:$C$99,\">\"&EDATE(" + C + ",-12),$C$4:$C$99,\"<=\"&" + C + ")))"; break;
+            case 7: f = "SUMIFS($D$4:$D$99,$B$4:$B$99,B" + r + "-1)"; break;
+            case 8:
+              var faixa = "IFERROR(MATCH(TRUE,INDEX(F" + r + "<=$U$24:$U$29,0),0),6)";
+              f = "IF(LEFT(P" + r + ",7)=\"Simples\",D" + r + "*IF(F" + r + ">0,MAX(0,(F" + r + "*INDEX($V$24:$V$29," + faixa + ")-INDEX($W$24:$W$29," + faixa + "))/F" + r + "),$V$24),0)"; break;
+            case 9: f = "IF(OR(P" + r + "=\"Lucro Presumido\",P" + r + "=\"Lucro Real\"),D" + r + "*$V$11,0)"; break;
+            case 10: f = "IF(P" + r + "=\"Lucro Presumido\",D" + r + "*$V$12,0)"; break;
+            case 11: f = "IF(P" + r + "=\"Lucro Presumido\",D" + r + "*$V$13,0)"; break;
+            case 12: f = "IF(P" + r + "=\"Lucro Presumido\",D" + r + "*$V$10*$V$19,0)"; break;
+            case 13:
+              var ini = "DATE(YEAR(" + C + "),INT((MONTH(" + C + ")-1)/3)*3+1,1)";
+              f = "IF(P" + r + "=\"Lucro Presumido\",D" + r + "*$V$9*$V$16+MAX(0,SUMIFS($D$4:$D$99,$C$4:$C$99,\">=\"&" + ini + ",$C$4:$C$99,\"<=\"&" + C + ")*$V$9-$V$18)*$V$17"
+                + "-MAX(0,SUMIFS($D$4:$D$99,$C$4:$C$99,\">=\"&" + ini + ",$C$4:$C$99,\"<\"&" + C + ")*$V$9-$V$18)*$V$17,0)"; break;
+            case 14: case 15: f = "0"; break;
+            case 16:
+              var fAnt = r === 4 ? "0" : "F" + prev;
+              f = "IF(G" + r + ">$V$22,\"Lucro Real\",IF(G" + r + ">$V$4,\"Lucro Presumido\",IF(" + fAnt + ">$V$4*$V$5,\"Lucro Presumido\",IF(" + fAnt + ">$V$6,\"Simples Nacional (ISS por fora do DAS)\",\"Simples Nacional\"))))";
+              cel.push(bpCelForm(ref, s, f, null, true)); continue;
+            case 17:
+              f = vk === "com" ? "-IFERROR(INDEX(Comunidade!$F$" + Rv[156] + ":$AO$" + Rv[156] + ",MATCH(" + C + ",Comunidade!$F$5:$AO$5,0))+INDEX(Comunidade!$F$" + Rv[157] + ":$AO$" + Rv[157] + ",MATCH(" + C + ",Comunidade!$F$5:$AO$5,0)),0)" : "0"; break;
+            case 18: f = "IFERROR(Q" + r + "/F" + r + ",0)"; break;
+            case 19: cel.push(bpCelTxt(ref, s, "V")); continue;
+            default: cel.push(bpCelVazia(ref, s)); continue;
+          }
+          cel.push(bpCelForm(ref, s, f));
+        }
+        rows.push(bpMontarLinha(r, row.a, cel));
+      });
+      return bpPlanilhaXml(m, rows, false, 24, 99);
+    }
+
+    /* ---------- Aba BD Omie ---------- */
+    function abaBD() {
+      var cab = ["id_lancamento", "codigo_grupo", "grupo", "cCodCateg", "categoria", "centro_custo", "projeto", "conta",
+                 "data_emissao", "data_pagamento", "documento", "contraparte", "valor", "mes_competencia", "entra_na_soma",
+                 "valor_dre", "vertical", "secao_dre"];
+      var rows = [];
+      var c0 = cab.map(function (t, k) { return bpCelTxt(bpX(k + 1) + 1, 112, t); });
+      c0.push(bpCelVazia("S1", 112), bpCelTxt("T1", 112, "codigo_grupo"), bpCelTxt("U1", 112, "secao_dre"));
+      rows.push(bpMontarLinha(1, null, c0));
+      var mapa = Object.keys(SECAO_POR_CODIGO_GRUPO).sort();
+      function serial(d) { return d ? dataParaSerial(d) : null; }
+      var total = Math.max(bdLinhas.length, mapa.length);
+      for (var k = 0; k < total; k++) {
+        var r = k + 2, l = bdLinhas[k], cel = [];
+        if (l) {
+          var g = l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || "";
+          cel.push(bpCelTxt("A" + r, 112, String(l.id || "")), bpCelTxt("B" + r, 113, String(g)), bpCelTxt("C" + r, 112, l.grupo || ""),
+            bpCelTxt("D" + r, 113, String(l.codigoCategoria || "")), bpCelTxt("E" + r, 112, l.categoria || ""),
+            bpCelTxt("F" + r, 112, l.centro || ""), bpCelTxt("G" + r, 112, l.projeto || ""), bpCelTxt("H" + r, 112, l.conta || ""),
+            bpCelNum("I" + r, X.bdData, serial(l.dEmi)), bpCelNum("J" + r, X.bdData, serial(l.dPag)),
+            bpCelTxt("K" + r, 112, l.documento || ""), bpCelTxt("L" + r, 112, l.contraparte || ""),
+            bpCelNum("M" + r, X.bdValor, l.valor),
+            bpCelForm("N" + r, X.bdData, "DATE(YEAR(IF(I" + r + "<>\"\",I" + r + ",J" + r + ")),MONTH(IF(I" + r + "<>\"\",I" + r + ",J" + r + ")),1)"),
+            bpCelNum("O" + r, 112, 1),
+            bpCelForm("P" + r, X.bdValor, "IF(O" + r + "=1,M" + r + ",0)"),
+            bpCelForm("Q" + r, 112, "IF(OR(TRIM(F" + r + ")=\"QR Advisory\",TRIM(F" + r + ")=\"QR Insights\",TRIM(F" + r + ")=\"QR Review\"),\"Tech\",\"Comunidade\")", null, true),
+            bpCelForm("R" + r, 112, "IFERROR(VLOOKUP(B" + r + ",$T:$U,2,FALSE),\"naoClassificado\")", null, true),
+            bpCelVazia("S" + r, 112));
+        } else {
+          for (var q = 1; q <= 19; q++) cel.push(bpCelVazia(bpX(q) + r, 112));
+        }
+        if (mapa[k]) cel.push(bpCelTxt("T" + r, 113, mapa[k]), bpCelTxt("U" + r, 112, SECAO_POR_CODIGO_GRUPO[mapa[k]]));
+        rows.push(bpMontarLinha(r, null, cel));
+      }
+      var mBd = modelo.bd;
+      var cols = '<cols><col min="1" max="8" width="16" customWidth="1"/><col min="9" max="10" width="12" customWidth="1"/>'
+        + '<col min="11" max="12" width="24" customWidth="1"/><col min="13" max="18" width="14" customWidth="1"/>'
+        + '<col min="19" max="19" width="3" customWidth="1"/><col min="20" max="21" width="16" customWidth="1"/></cols>';
+      return bpPlanilhaXml({ sheetPr: mBd.sheetPr, sheetViews: '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>',
+        sheetFormatPr: mBd.sheetFormatPr, cols: cols }, rows, false, 21, total + 1);
+    }
+
+    var abas = [
+      { nome: "Consolidado", xml: abaDRE("cons") },
+      { nome: "Comunidade", xml: abaDRE("com") },
+      { nome: "Tech", xml: abaDRE("tech") },
+      { nome: "Premissas", xml: abaPremissas() },
+      { nome: "Impostos Comun.", xml: abaImpostos("com") },
+      { nome: "Impostos Tech", xml: abaImpostos("tech") },
+      { nome: "BD Omie", xml: abaBD() }
+    ];
+    var arquivos = [
+      { nome: "[Content_Types].xml", conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        + '<Default Extension="xml" ContentType="application/xml"/>'
+        + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        + abas.map(function (a, i) { return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join("")
+        + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+      { nome: "_rels/.rels", conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+      { nome: "xl/workbook.xml", conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        + '<bookViews><workbookView activeTab="0"/></bookViews><sheets>'
+        + abas.map(function (a, i) { return '<sheet name="' + escaparXml(a.nome) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join("")
+        + '</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>' },
+      { nome: "xl/_rels/workbook.xml.rels", conteudo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + abas.map(function (a, i) { return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join("")
+        + '<Relationship Id="rId' + (abas.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+      { nome: "xl/styles.xml", conteudo: est.xml }
+    ].concat(abas.map(function (a, i) { return { nome: "xl/worksheets/sheet" + (i + 1) + ".xml", conteudo: a.xml }; }));
+    return criarZip(arquivos);
+  }
+
+  function bpBaixarXlsx(bytes, nomeArquivo) {
+    var blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url; link.download = nomeArquivo;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
 
   /* ------------------------------------------------------------------ */
   /* 12. MONTAGEM                                                        */
