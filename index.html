@@ -4183,7 +4183,7 @@
                   )
             )
           )
-        : h(PainelBP, { linhas: linhas })
+        : h(PainelBP, { linhas: linhas, abertos: emAberto })
     );
   }
 
@@ -5217,7 +5217,18 @@
     }
 
     var hoje = chaveMes(new Date());
-    var realiz = useMemo(function () { return bpRealizado(props.linhas); }, [props.linhas]);
+    /* DRE do BP e por competencia, como a planilha: titulo emitido e ainda */
+    /* nao pago entra pelo valor cheio no mes de emissao. A tela Financeiro */
+    /* continua so com o que foi pago (referencia de caixa) e nao muda; a   */
+    /* diferenca entre as duas e, por definicao, o valor dos titulos em     */
+    /* aberto nos meses realizados.                                         */
+    var abertosBP = useMemo(function () {
+      return (props.abertos || []).map(normalizarLinha).filter(function (l) { return !l.dPag && l.dEmi; });
+    }, [props.abertos]);
+    var linhasBP = useMemo(function () {
+      return props.linhas ? props.linhas.concat(abertosBP) : null;
+    }, [props.linhas, abertosBP]);
+    var realiz = useMemo(function () { return bpRealizado(linhasBP); }, [linhasBP]);
     var fracaoConservador = armazem.pr.conservador !== undefined ? armazem.pr.conservador : BP_PARAMS_PADRAO.conservador;
     var projBase = useMemo(function () {
       return bpProjetar(armazem.ov, armazem.pr, realiz, 1, hoje);
@@ -5230,21 +5241,28 @@
     /* calcular, em competencia, sobre copia dos lancamentos (calcular     */
     /* escreve a data do regime em cada linha, e a tela Financeiro pode    */
     /* estar em caixa).                                                    */
+    /* O BP tem que bater com a tela Financeiro somada aos titulos em      */
+    /* aberto emitidos nos meses fechados; a faixa mostra essa diferenca.  */
     var conferencia = useMemo(function () {
       if (!props.linhas) return null;
-      var fin = calcular(props.linhas.map(function (l) { return Object.assign({}, l); }), "competencia");
-      var difs = [];
+      function copia(ls) { return ls.map(function (l) { return Object.assign({}, l); }); }
+      var fin = calcular(copia(props.linhas), "competencia");
+      var comp = calcular(copia(linhasBP), "competencia");
+      var difs = [], abertoRec = 0, abertoLL = 0, abertoQtd = 0;
       proj.tipos.forEach(function (t, i) {
         if (t !== "R") return;
         var mk = BP_MESES[i];
-        [["Receita Bruta", 7, fin.S.receita[mk]], ["Lucro Líquido", 266, fin.lucroLiquido[mk]], ["Fluxo de Caixa Livre", 317, fin.fcl[mk]]]
+        abertoRec += (comp.S.receita[mk] || 0) - (fin.S.receita[mk] || 0);
+        abertoLL += (comp.lucroLiquido[mk] || 0) - (fin.lucroLiquido[mk] || 0);
+        abertoQtd += abertosBP.filter(function (l) { return chaveMes(l.dEmi) === mk; }).length;
+        [["Receita Bruta", 7, comp.S.receita[mk]], ["Lucro Líquido", 266, comp.lucroLiquido[mk]], ["Fluxo de Caixa Livre", 317, comp.fcl[mk]]]
           .forEach(function (c) {
             var bp = projBase.cons[c[1]][i] || 0, f = c[2] || 0;
-            if (Math.abs(bp - f) >= 0.01) difs.push(rotuloMes(mk) + " · " + c[0] + ": BP " + formatarNumero(bp, 2) + " × Financeiro " + formatarNumero(f, 2));
+            if (Math.abs(bp - f) >= 0.01) difs.push(rotuloMes(mk) + " · " + c[0] + ": BP " + formatarNumero(bp, 2) + " × Financeiro + em aberto " + formatarNumero(f, 2));
           });
       });
-      return difs;
-    }, [props.linhas, projBase]);
+      return { difs: difs, abertoQtd: abertoQtd, abertoRec: abertoRec, abertoLL: abertoLL };
+    }, [props.linhas, linhasBP, abertosBP, projBase]);
 
     /* Exporta o BP em Excel, tudo em formula, sempre no cenario base.     */
     /* O molde de formatacao so e baixado aqui, para nao pesar a pagina.   */
@@ -5255,7 +5273,7 @@
         .then(function (r) { if (!r.ok) throw new Error("molde indisponível (HTTP " + r.status + ")"); return r.json(); })
         .then(function (modelo) {
           var agora = new Date();
-          var bytes = bpGerarXlsx(modelo, projBase, props.linhas, agora.toLocaleDateString("pt-BR"));
+          var bytes = bpGerarXlsx(modelo, projBase, linhasBP, agora.toLocaleDateString("pt-BR"));
           bpBaixarXlsx(bytes, "BP_QUORUM_online_" + agora.toISOString().slice(0, 10) + ".xlsx");
         })
         .catch(function (erro) { window.alert("Não consegui gerar o Excel: " + erro.message); })
@@ -5428,11 +5446,15 @@
         h("div", { className: "grid gap-3 mb-4", style: { gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" } }, cartoes),
         chave === "cons" && conferencia && mesesR.length > 0 && h("div", {
           className: "rounded px-4 py-2 mb-4",
-          style: { fontSize: 11, lineHeight: 1.6, color: conferencia.length ? COR.coral : COR.mint,
-                   background: conferencia.length ? COR.coralSoft : COR.mintSoft }
-        }, conferencia.length
-          ? ["O realizado do BP não bate com a tela Financeiro (competência): "].concat(conferencia.join(" · "))
-          : "Realizado conferido com a tela Financeiro em competência: receita bruta, lucro líquido e fluxo de caixa livre idênticos nos " + mesesR.length + " meses fechados."),
+          style: { fontSize: 11, lineHeight: 1.6, color: conferencia.difs.length ? COR.coral : COR.mint,
+                   background: conferencia.difs.length ? COR.coralSoft : COR.mintSoft }
+        }, conferencia.difs.length
+          ? ["O realizado do BP não bate com a tela Financeiro somada aos títulos em aberto (competência): "].concat(conferencia.difs.join(" · "))
+          : "Realizado conferido com a tela Financeiro em competência: receita bruta, lucro líquido e fluxo de caixa livre batem nos " + mesesR.length + " meses fechados. "
+            + (conferencia.abertoQtd
+              ? "A diferença para a tela Financeiro são " + conferencia.abertoQtd + " título(s) emitido(s) e ainda não pago(s), que o BP reconhece por competência: receita bruta "
+                + formatarNumero(conferencia.abertoRec, 2) + ", lucro líquido " + formatarNumero(conferencia.abertoLL, 2) + "."
+              : "Nenhum título em aberto nesses meses: BP e tela Financeiro idênticos.")),
         tabelaDRE(valores, chave === "cons")
       );
     }
