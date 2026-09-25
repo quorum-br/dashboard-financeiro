@@ -4678,11 +4678,11 @@
   /* Parametros escalares. Os marcados "online" nao existem na planilha:  */
   /* sao decisoes de Alex so para o BP online.                           */
   var BP_PARAMS_PADRAO = {
-    renovacao_prob: 0.80,      /* online: probabilidade de renovar cada cota a cada ciclo */
+    renovacao_prob: 1,         /* probabilidade de renovar cada cota a cada ciclo; 100%, igual a planilha (25/09/2026) */
     renovacao_prazo: 12,       /* meses de cada ciclo de contrato de cota                 */
     comissao_pct: 0.025,       /* comissao de socios advisors sobre receita liquida         */
     comissao_inicio: 7,        /* mes em que a comissao comeca (indice 7 = jan/27), igual a planilha */
-    midia_pct: 0.0077,         /* online: impulsionamento = % da receita bruta da Comunidade */
+    midia_pct: 0.0077,         /* impulsionamento = % da receita bruta da Comunidade */
     qd_custo_pct: 0.70,        /* custo do evento aberto = % da receita liquida dele */
     taxa_com: 0.002,           /* planilha: taxas bancarias, % da receita da Comunidade    */
     taxa_tech: 0.03,           /* planilha: meios de pagamento, % da receita da Tech       */
@@ -5150,11 +5150,11 @@
   ];
 
   var BP_PARAMS_UI = [
-    ["renovacao_prob", "Probabilidade de renovação de cada cota Master, por ciclo", "pct", "Só no online. Com 100% o resultado é o da planilha."],
+    ["renovacao_prob", "Probabilidade de renovação de cada cota Master, por ciclo", "pct", "100%, igual à planilha."],
     ["renovacao_prazo", "Duração do ciclo de contrato de cota (meses)", "qtd", ""],
     ["comissao_pct", "Comissão de sócios advisors, % da receita líquida", "pct", "Linha 2.12.98, nas duas verticais, igual à planilha."],
     ["comissao_inicio", "Comissão de sócios advisors: mês de início", "mes", "Igual à planilha."],
-    ["midia_pct", "Mídia | Impulsionamento, % da receita bruta da Comunidade", "pct", "Só no online. A planilha usa R$2.000/mês fixos."],
+    ["midia_pct", "Mídia | Impulsionamento, % da receita bruta da Comunidade", "pct", "Igual à planilha (linha 210)."],
     ["qd_custo_pct", "Custo dos eventos abertos, % da receita líquida do evento", "pct", "Igual à planilha (70% desde 25/09/2026)."],
     ["taxa_com", "Taxas bancárias, % da receita da Comunidade", "pct", "Da planilha."],
     ["taxa_tech", "Meios de pagamento, % da receita da Tech", "pct", "Da planilha."],
