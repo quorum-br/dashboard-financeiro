@@ -2674,7 +2674,8 @@
       centro: linha.centro || "Sem centro de custo",
       valor: Number(linha.valor_pago || linha.valor_titulo || 0),
       dPag: paraData(linha.pagamento),
-      dEmi: paraData(linha.emissao)
+      dEmi: paraData(linha.emissao),
+      dVenc: paraData(linha.vencimento)
     };
   }
 
@@ -4199,8 +4200,8 @@
   /*                                                                     */
   /* Meses fechados usam o realizado da Omie, os mesmos lancamentos e a  */
   /* mesma regra de data (competencia) da tela Financeiro, separados por */
-  /* centro de custo: QR Advisory, QR Insights e QR Review sao Tech, o   */
-  /* resto e Comunidade. Do mes corrente em diante, projecao.            */
+  /* centro de custo: centro que contenha insights, review ou advisory e */
+  /* Tech, o resto e Comunidade. Do mes corrente em diante, projecao.    */
   /* ------------------------------------------------------------------ */
 
   var BP_INICIO = { ano: 2026, mes: 6 };   /* jun/26 = mes 1 da planilha */
@@ -4762,7 +4763,10 @@
   /* regra de data da tela Financeiro em competencia: data de emissao, e  */
   /* na falta dela a de pagamento. Nao altera os lancamentos recebidos.   */
   function bpVerticalDoCentro(centro) {
-    return /^\s*qr\s+(advisory|insights|review)\s*$/i.test(centro || "") ? "tech" : "com";
+    /* regra de Alex (25/09/2026), igual a BD Omie da planilha: centro que */
+    /* contenha insights, review ou advisory e Tech; o resto, inclusive    */
+    /* lancamento sem centro de custo, e Comunidade.                       */
+    return /insights|review|advisory/i.test(centro || "") ? "tech" : "com";
   }
   function bpRealizado(linhas) {
     function novo() { return { cat: {}, grp: {}, sec: {} }; }
@@ -5770,7 +5774,12 @@
 
     /* ---------- BD Omie ---------- */
     var bdLinhas = (linhas || []).filter(function (l) { return l.dEmi || l.dPag; });
-    var BD = { P: "'BD Omie'!$P:$P", N: "'BD Omie'!$N:$N", Q: "'BD Omie'!$Q:$Q", R: "'BD Omie'!$R:$R", D: "'BD Omie'!$D:$D", B: "'BD Omie'!$B:$B" };
+    /* Colunas A a V no mesmo layout da BD Omie da planilha (sincronizada  */
+    /* pelo n8n desde 25/09/2026): categoria em C, mes em N, valor em P,    */
+    /* vertical em V. W e X (codigo do grupo e secao do DRE) so existem no  */
+    /* export, para as linhas de residuo e de secao.                        */
+    var BD = { valor: "'BD Omie'!$P:$P", mes: "'BD Omie'!$N:$N", vert: "'BD Omie'!$V:$V", secao: "'BD Omie'!$X:$X",
+               cat: "'BD Omie'!$C:$C", grupo: "'BD Omie'!$W:$W" };
 
     /* ---------- Premissas: ordem das linhas ---------- */
     var premRow = {}, premLinhas = [], parRow = {};
@@ -5926,10 +5935,10 @@
     /* Formula de um mes realizado (vk = "com" | "tech" | null para o total). */
     function formulaRealizada(vk, n, i, R) {
       var c = colMes(i), linha = BP_LINHA[n];
-      var filtro = vk ? "," + BD.Q + ",\"" + (vk === "com" ? "Comunidade" : "Tech") + "\"" : "";
-      function sumifs(critCol, crit) { return "SUMIFS(" + BD.P + "," + critCol + "," + crit + "," + BD.N + "," + c + "$5" + filtro + ")"; }
+      var filtro = vk ? "," + BD.vert + ",\"" + (vk === "com" ? "Comunidade" : "Tech") + "\"" : "";
+      function sumifs(critCol, crit) { return "SUMIFS(" + BD.valor + "," + critCol + "," + crit + "," + BD.mes + "," + c + "$5" + filtro + ")"; }
       if (BP_DRIVERS[n]) return undefined;
-      if (BP_SECAO_REALIZADA[n]) return BP_SECAO_REALIZADA[n].map(function (s) { return sumifs(BD.R, "\"" + s + "\""); }).join("+");
+      if (BP_SECAO_REALIZADA[n]) return BP_SECAO_REALIZADA[n].map(function (s) { return sumifs(BD.secao, "\"" + s + "\""); }).join("+");
       if (BP_RESIDUO[n] !== undefined) {
         var pai = BP_RESIDUO[n];
         return c + R[pai] + "-" + somaFilhos(pai, c, R);
@@ -5940,7 +5949,7 @@
       }
       if (linha && linha.c && !BP_CODIGO_IGNORADO_NO_REALIZADO[n]) {
         var partes = linha.c.split(".").length;
-        return sumifs(partes >= 3 ? BD.D : BD.B, "$B" + R[n]);
+        return sumifs(partes >= 3 ? BD.cat : BD.grupo, "$B" + R[n]);
       }
       if (BP_FILHOS[n]) return somaFilhos(n, c, R);
       return "0";
@@ -6231,13 +6240,18 @@
     }
 
     /* ---------- Aba BD Omie ---------- */
+    /* A a V: layout da BD Omie da planilha. O online so traz o valor       */
+    /* efetivo de cada lancamento, entao valor_titulo e valor_dre saem      */
+    /* iguais e juros, multa, desconto e rateio ficam em branco.            */
+    /* entra_na_soma e 1 em todas: transferencias entram na linha propria  */
+    /* do fluxo de caixa pela secao (coluna X), como no painel.             */
     function abaBD() {
-      var cab = ["id_lancamento", "codigo_grupo", "grupo", "cCodCateg", "categoria", "centro_custo", "projeto", "conta",
-                 "data_emissao", "data_pagamento", "documento", "contraparte", "valor", "mes_competencia", "entra_na_soma",
-                 "valor_dre", "vertical", "secao_dre"];
+      var cab = ["id_lancamento", "tipo", "cCodCateg", "categoria", "grupo", "centro_custo", "rateio_pct", "projeto",
+                 "contraparte", "documento", "emissao", "vencimento", "pagamento", "mes_competencia", "valor_titulo",
+                 "valor_dre", "juros", "multa", "desconto", "situacao", "entra_na_soma", "vertical", "codigo_grupo", "secao_dre"];
       var rows = [];
       var c0 = cab.map(function (t, k) { return bpCelTxt(bpX(k + 1) + 1, 112, t); });
-      c0.push(bpCelVazia("S1", 112), bpCelTxt("T1", 112, "codigo_grupo"), bpCelTxt("U1", 112, "secao_dre"));
+      c0.push(bpCelVazia("Y1", 112), bpCelTxt("Z1", 112, "codigo_grupo"), bpCelTxt("AA1", 112, "secao_dre"));
       rows.push(bpMontarLinha(1, null, c0));
       var mapa = Object.keys(SECAO_POR_CODIGO_GRUPO).sort();
       function serial(d) { return d ? dataParaSerial(d) : null; }
@@ -6246,30 +6260,42 @@
         var r = k + 2, l = bdLinhas[k], cel = [];
         if (l) {
           var g = l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || "";
-          cel.push(bpCelTxt("A" + r, 112, String(l.id || "")), bpCelTxt("B" + r, 113, String(g)), bpCelTxt("C" + r, 112, l.grupo || ""),
-            bpCelTxt("D" + r, 113, String(l.codigoCategoria || "")), bpCelTxt("E" + r, 112, l.categoria || ""),
-            bpCelTxt("F" + r, 112, l.centro || ""), bpCelTxt("G" + r, 112, l.projeto || ""), bpCelTxt("H" + r, 112, l.conta || ""),
-            bpCelNum("I" + r, X.bdData, serial(l.dEmi)), bpCelNum("J" + r, X.bdData, serial(l.dPag)),
-            bpCelTxt("K" + r, 112, l.documento || ""), bpCelTxt("L" + r, 112, l.contraparte || ""),
-            bpCelNum("M" + r, X.bdValor, l.valor),
-            bpCelForm("N" + r, X.bdData, "DATE(YEAR(IF(I" + r + "<>\"\",I" + r + ",J" + r + ")),MONTH(IF(I" + r + "<>\"\",I" + r + ",J" + r + ")),1)"),
-            bpCelNum("O" + r, 112, 1),
-            bpCelForm("P" + r, X.bdValor, "IF(O" + r + "=1,M" + r + ",0)"),
-            bpCelForm("Q" + r, 112, "IF(OR(TRIM(F" + r + ")=\"QR Advisory\",TRIM(F" + r + ")=\"QR Insights\",TRIM(F" + r + ")=\"QR Review\"),\"Tech\",\"Comunidade\")", null, true),
-            bpCelForm("R" + r, 112, "IFERROR(VLOOKUP(B" + r + ",$T:$U,2,FALSE),\"naoClassificado\")", null, true),
-            bpCelVazia("S" + r, 112));
+          var F = "F" + r;
+          cel.push(bpCelTxt("A" + r, 112, String(l.id || "")), bpCelTxt("B" + r, 112, l.valor >= 0 ? "receber" : "pagar"),
+            bpCelTxt("C" + r, 113, String(l.codigoCategoria || "")), bpCelTxt("D" + r, 112, l.categoria || ""),
+            bpCelTxt("E" + r, 112, l.grupo || ""), bpCelTxt(F, 112, l.centro || ""), bpCelVazia("G" + r, 112),
+            bpCelTxt("H" + r, 112, l.projeto || ""), bpCelTxt("I" + r, 112, l.contraparte || ""),
+            bpCelTxt("J" + r, 112, l.documento || ""),
+            bpCelNum("K" + r, X.bdData, serial(l.dEmi)), bpCelNum("L" + r, X.bdData, serial(l.dVenc)),
+            bpCelNum("M" + r, X.bdData, serial(l.dPag)),
+            bpCelForm("N" + r, X.bdData, "DATE(YEAR(IF(K" + r + "<>\"\",K" + r + ",IF(M" + r + "<>\"\",M" + r + ",L" + r + "))),"
+              + "MONTH(IF(K" + r + "<>\"\",K" + r + ",IF(M" + r + "<>\"\",M" + r + ",L" + r + "))),1)"),
+            bpCelNum("O" + r, X.bdValor, l.valor),
+            bpCelForm("P" + r, X.bdValor, "IF(U" + r + "=1,O" + r + ",0)"),
+            bpCelVazia("Q" + r, 112), bpCelVazia("R" + r, 112), bpCelVazia("S" + r, 112),
+            bpCelTxt("T" + r, 112, l.situacao || ""),
+            bpCelNum("U" + r, 112, 1),
+            bpCelForm("V" + r, 112, "IF(OR(ISNUMBER(SEARCH(\"insights\"," + F + ")),ISNUMBER(SEARCH(\"review\"," + F + ")),"
+              + "ISNUMBER(SEARCH(\"advisory\"," + F + "))),\"Tech\",\"Comunidade\")", null, true),
+            bpCelTxt("W" + r, 113, String(g)),
+            bpCelForm("X" + r, 112, "IFERROR(VLOOKUP(W" + r + ",$Z:$AA,2,FALSE),\"naoClassificado\")", null, true),
+            bpCelVazia("Y" + r, 112));
         } else {
-          for (var q = 1; q <= 19; q++) cel.push(bpCelVazia(bpX(q) + r, 112));
+          for (var q = 1; q <= 25; q++) cel.push(bpCelVazia(bpX(q) + r, 112));
         }
-        if (mapa[k]) cel.push(bpCelTxt("T" + r, 113, mapa[k]), bpCelTxt("U" + r, 112, SECAO_POR_CODIGO_GRUPO[mapa[k]]));
+        if (mapa[k]) cel.push(bpCelTxt("Z" + r, 113, mapa[k]), bpCelTxt("AA" + r, 112, SECAO_POR_CODIGO_GRUPO[mapa[k]]));
         rows.push(bpMontarLinha(r, null, cel));
       }
       var mBd = modelo.bd;
-      var cols = '<cols><col min="1" max="8" width="16" customWidth="1"/><col min="9" max="10" width="12" customWidth="1"/>'
-        + '<col min="11" max="12" width="24" customWidth="1"/><col min="13" max="18" width="14" customWidth="1"/>'
-        + '<col min="19" max="19" width="3" customWidth="1"/><col min="20" max="21" width="16" customWidth="1"/></cols>';
+      var cols = '<cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="3" width="10" customWidth="1"/>'
+        + '<col min="4" max="5" width="24" customWidth="1"/><col min="6" max="6" width="16" customWidth="1"/>'
+        + '<col min="7" max="7" width="9" customWidth="1"/><col min="8" max="10" width="18" customWidth="1"/>'
+        + '<col min="11" max="14" width="12" customWidth="1"/><col min="15" max="16" width="14" customWidth="1"/>'
+        + '<col min="17" max="19" width="9" customWidth="1"/><col min="20" max="20" width="12" customWidth="1"/>'
+        + '<col min="21" max="21" width="9" customWidth="1"/><col min="22" max="24" width="14" customWidth="1"/>'
+        + '<col min="25" max="25" width="3" customWidth="1"/><col min="26" max="27" width="16" customWidth="1"/></cols>';
       return bpPlanilhaXml({ sheetPr: mBd.sheetPr, sheetViews: '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>',
-        sheetFormatPr: mBd.sheetFormatPr, cols: cols }, rows, false, 21, total + 1);
+        sheetFormatPr: mBd.sheetFormatPr, cols: cols }, rows, false, 27, total + 1);
     }
 
     var abas = [
