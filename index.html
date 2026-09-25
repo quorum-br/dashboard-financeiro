@@ -4679,9 +4679,10 @@
   var BP_PARAMS_PADRAO = {
     renovacao_prob: 0.80,      /* online: probabilidade de renovar cada cota a cada ciclo */
     renovacao_prazo: 12,       /* meses de cada ciclo de contrato de cota                 */
-    comissao_pct: 0.025,       /* online: comissao de socios advisors sobre receita liquida */
+    comissao_pct: 0.025,       /* comissao de socios advisors sobre receita liquida         */
+    comissao_inicio: 7,        /* mes em que a comissao comeca (indice 7 = jan/27), igual a planilha */
     midia_pct: 0.0077,         /* online: impulsionamento = % da receita bruta da Comunidade */
-    qd_custo_pct: 0.70,        /* online: custo do evento aberto = % da receita liquida dele */
+    qd_custo_pct: 0.70,        /* custo do evento aberto = % da receita liquida dele */
     taxa_com: 0.002,           /* planilha: taxas bancarias, % da receita da Comunidade    */
     taxa_tech: 0.03,           /* planilha: meios de pagamento, % da receita da Tech       */
     horas_advisor: 8,          /* planilha: horas disponibilizadas por advisor no mes      */
@@ -4934,7 +4935,7 @@
 
       /* ---------- Despesas calculadas ---------- */
       t(208, vert === "com" ? (P.modo_midia === "lanc" ? ser("l_impuls", i) : -rb * P.midia_pct) : 0);
-      t(226, -rl * P.comissao_pct);
+      t(226, i >= P.comissao_inicio ? -rl * P.comissao_pct : 0);
       somaArvore(229, i);
 
       /* ---------- Resultado financeiro ---------- */
@@ -5147,9 +5148,10 @@
   var BP_PARAMS_UI = [
     ["renovacao_prob", "Probabilidade de renovação de cada cota Master, por ciclo", "pct", "Só no online. Com 100% o resultado é o da planilha."],
     ["renovacao_prazo", "Duração do ciclo de contrato de cota (meses)", "qtd", ""],
-    ["comissao_pct", "Comissão de sócios advisors, % da receita líquida", "pct", "Só no online. Linha 2.12.98, nas duas verticais."],
+    ["comissao_pct", "Comissão de sócios advisors, % da receita líquida", "pct", "Linha 2.12.98, nas duas verticais, igual à planilha."],
+    ["comissao_inicio", "Comissão de sócios advisors: mês de início", "mes", "Igual à planilha."],
     ["midia_pct", "Mídia | Impulsionamento, % da receita bruta da Comunidade", "pct", "Só no online. A planilha usa R$2.000/mês fixos."],
-    ["qd_custo_pct", "Custo dos eventos abertos, % da receita líquida do evento", "pct", "Só no online. A planilha usa 50% da receita bruta."],
+    ["qd_custo_pct", "Custo dos eventos abertos, % da receita líquida do evento", "pct", "Igual à planilha (70% desde 25/09/2026)."],
     ["taxa_com", "Taxas bancárias, % da receita da Comunidade", "pct", "Da planilha."],
     ["taxa_tech", "Meios de pagamento, % da receita da Tech", "pct", "Da planilha."],
     ["horas_advisor", "Horas disponibilizadas por advisor no mês", "qtd", "Da planilha."],
@@ -5907,7 +5909,7 @@
         case 129: return PAR("qd_custo_pct");
         case 128: return "-" + L(44) + "*(1-IFERROR(-" + L(85) + "/" + L(7) + ",0))*" + L(129);
         case 208: return vk === "com" ? "-" + L(7) + "*" + PAR("midia_pct") : "0";
-        case 226: return "-" + L(94) + "*" + PAR("comissao_pct");
+        case 226: return "IF(" + c + "$4-1>=" + mesIdx(PAR("comissao_inicio")) + ",-" + L(94) + "*" + PAR("comissao_pct") + ",0)";
         case 242: return vk === "com" ? "-" + L(7) + "*" + PAR("taxa_com") : "0";
         case 243: return vk === "tech" ? "-" + L(7) + "*" + PAR("taxa_tech") : "0";
         case 245: return vk === "com" ? "-" + SHEET.prem + "!" + bpX(5 + i) + premRow.mut_juros : "0";
