@@ -5391,7 +5391,11 @@
               var st = { color: e.cor, fontWeight: e.peso, fontSize: e.fs, fontStyle: e.italico ? "italic" : "normal", fontVariantNumeric: "tabular-nums" };
               return h("tr", { key: n, style: { background: e.bg, borderTop: "1px solid " + COR.lineSoft } },
                 h("td", { className: "py-1 pr-2", style: Object.assign({ paddingLeft: e.pad, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  position: "sticky", left: 0, zIndex: 1, background: e.bg === "transparent" ? COR.surface : e.bg }, st),
+                  /* Celula congelada da coluna de rotulo: precisa ficar opaca mesmo   */
+                  /* quando e.bg e translucido (rgba), senao o texto e o numero das     */
+                  /* colunas que rolam por baixo aparecem por tras dela.                 */
+                  position: "sticky", left: 0, zIndex: 1,
+                  background: e.bg === "transparent" ? COR.surface : "linear-gradient(" + e.bg + "," + e.bg + ")," + COR.surface }, st),
                   title: l[1] + (l[2] ? " · " + l[2] : "") + " · linha " + bpLinhaPlanilha(n) + " da planilha" },
                   l[2] && e.pad > 12 && !BP_DRIVERS[n] ? h("span", { style: { color: COR.faint, fontWeight: 400, marginRight: 6, fontSize: 10 } }, l[2]) : null,
                   l[1]),
@@ -5503,11 +5507,14 @@
       var corpo = [];
       ["com", "tech"].forEach(function (vert) {
         corpo.push(h("tr", { key: "v" + vert, style: { background: "#3E4A5C" } },
-          h("td", { colSpan: BP_N + 1, className: "pl-3 py-1.5", style: { fontSize: 11, color: "#FFFFFF", fontWeight: 700, letterSpacing: "0.08em", position: "sticky", left: 0 } },
+          h("td", { colSpan: BP_N + 1, className: "pl-3 py-1.5", style: { fontSize: 11, color: "#FFFFFF", fontWeight: 700, letterSpacing: "0.08em", position: "sticky", left: 0, background: "#3E4A5C" } },
             vert === "com" ? "VERTICAL COMUNIDADE" : "VERTICAL TECH")));
         BP_PREMISSAS_UI.filter(function (g) { return g.v === vert; }).forEach(function (g) {
           corpo.push(h("tr", { key: "b" + g.b, style: { background: "rgba(138,106,22,0.10)" } },
-            h("td", { colSpan: BP_N + 1, className: "pl-3 py-1", style: { fontSize: 11, color: "#7A5C10", fontWeight: 600, position: "sticky", left: 0 } }, g.b)));
+            /* Mesma composicao da tabelaDRE: fundo translucido sobre COR.surface, */
+            /* para a celula congelada ficar opaca ao rolar a tabela.               */
+            h("td", { colSpan: BP_N + 1, className: "pl-3 py-1", style: { fontSize: 11, color: "#7A5C10", fontWeight: 600, position: "sticky", left: 0,
+              background: "linear-gradient(rgba(138,106,22,0.10),rgba(138,106,22,0.10))," + COR.surface } }, g.b)));
           g.itens.forEach(function (it) {
             var id = it[0], rot = it[1], un = it[2], fn = it[3];
             var linhaEditada = !!armazem.ov[id];
