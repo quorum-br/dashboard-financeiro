@@ -2227,6 +2227,254 @@
     );
   }
 
+  /* Quebra um rotulo em quantas linhas forem precisas para nenhuma passar  */
+  /* de maxCaracteres — greedy, uma palavra de cada vez. Com poucas         */
+  /* colunas (largura sobrando) da pra usar um limite frouxo e o rotulo     */
+  /* sai em duas linhas; com muitas colunas apertadas (o waterfall da DRE,  */
+  /* por exemplo) o limite aperta e o rotulo quebra em tres ou quatro       */
+  /* linhas em vez de estourar a largura da coluna vizinha.                 */
+  function quebrarRotulo(texto, maxCaracteres) {
+    var limite = maxCaracteres || 14;
+    var palavras = String(texto).split(" ");
+    var linhas = [], atual = "";
+    palavras.forEach(function (p) {
+      var candidato = atual ? atual + " " + p : p;
+      if (candidato.length > limite && atual) { linhas.push(atual); atual = p; }
+      else atual = candidato;
+    });
+    if (atual) linhas.push(atual);
+    return linhas;
+  }
+
+  /* Cascata da DRE acumulada no periodo, da Receita Bruta ao Lucro         */
+  /* Liquido: um unico grafico por chamada (nao um por mes, como os outros  */
+  /* cinco), porque so faz sentido como acumulado do periodo selecionado.   */
+  /* Barra cheia (do zero) nos totais/checkpoints do DRE — Receita Bruta,   */
+  /* Receita Liquida, Lucro Bruto, EBITDA, Lucro Liquido; barra flutuante   */
+  /* (do acumulado anterior ao novo) em cada secao que soma ou subtrai no   */
+  /* meio do caminho, na mesma granularidade das secoes do DRE.             */
+  function GraficoWaterfallDRE(props) {
+    var dados = props.dados;
+    var meses = props.meses;
+    var regime = props.regime;
+
+    /* Soma cada secao do DRE no periodo inteiro — o mesmo padrao ja usado   */
+    /* nos cartoes do topo da tela (ex.: ebitdaPeriodo). */
+    function somaSecao(chave) {
+      return meses.reduce(function (soma, mes) { return soma + (dados.S[chave][mes] || 0); }, 0);
+    }
+    var recBruta = somaSecao("receita");
+    var impostos = somaSecao("impostos");
+    var custo = somaSecao("custo");
+    var despesas = somaSecao("despesas");
+    var finRec = somaSecao("finRec");
+    var finDesp = somaSecao("finDesp");
+    var outrasRec = somaSecao("outrasRec");
+    var outrasDesp = somaSecao("outrasDesp");
+    var impLucro = somaSecao("impLucro");
+    var recLiquida = recBruta + impostos;
+    var lucroBrutoTotal = recLiquida + custo;
+    var ebitdaTotal = lucroBrutoTotal + despesas;
+    var lucroLiquidoTotal = ebitdaTotal + finRec + finDesp + outrasRec + outrasDesp + impLucro;
+
+    /* A ordem aqui e a mesma cascata da tela DRE: receita -> impostos ->   */
+    /* receita liquida -> custo -> lucro bruto -> despesas -> ebitda ->     */
+    /* financeiro -> nao operacional -> impostos sobre o lucro -> liquido.  */
+    var etapasBrutas = [
+      { tipo: "total", rotulo: "Receita Bruta", valor: recBruta },
+      { tipo: "delta", rotulo: "Impostos e Deduções", valor: impostos },
+      { tipo: "total", rotulo: "Receita Líquida", valor: recLiquida },
+      { tipo: "delta", rotulo: "Custo dos Serviços Prestados", valor: custo },
+      { tipo: "total", rotulo: "Lucro Bruto", valor: lucroBrutoTotal },
+      { tipo: "delta", rotulo: "Despesas Fixas", valor: despesas },
+      { tipo: "total", rotulo: "EBITDA", valor: ebitdaTotal },
+      { tipo: "delta", rotulo: "Receitas Financeiras", valor: finRec },
+      { tipo: "delta", rotulo: "Despesas Financeiras", valor: finDesp },
+      { tipo: "delta", rotulo: "Outras Receitas Não Operacionais", valor: outrasRec },
+      { tipo: "delta", rotulo: "Resultado Não Operacional", valor: outrasDesp },
+      { tipo: "delta", rotulo: "Impostos sobre o Lucro", valor: impLucro },
+      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, final: true }
+    ];
+
+    /* Posiciona cada etapa: total sempre do zero ao seu valor; delta do    */
+    /* acumulado anterior ao novo acumulado. O acumulado so avanca de       */
+    /* verdade nas deltas — nos totais ele e reafirmado, nao somado de novo,*/
+    /* porque o total ja E o acumulado ate ali.                             */
+    var acumulado = 0;
+    var etapas = etapasBrutas.map(function (e) {
+      var inicio, fim;
+      if (e.tipo === "total") {
+        inicio = 0; fim = e.valor; acumulado = e.valor;
+      } else {
+        inicio = acumulado; fim = acumulado + e.valor; acumulado = fim;
+      }
+      return Object.assign({}, e, { inicio: inicio, fim: fim });
+    });
+
+    var temAlgumValor = etapas.some(function (e) { return Math.abs(e.valor) > 0.005; });
+
+    var moldura = {
+      className: "rounded overflow-hidden mx-auto",
+      style: {
+        background: COR.surface,
+        border: "1px solid " + COR.line,
+        maxWidth: 1080,
+        width: "100%"
+      }
+    };
+
+    if (!meses.length || !temAlgumValor) {
+      return h("div", moldura,
+        h("div", {
+          className: "flex items-center justify-center",
+          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
+        }, "Sem movimento no período para montar o gráfico.")
+      );
+    }
+
+    /* Area util do desenho, um pouco mais baixa que as outras: o rotulo   */
+    /* de cada etapa quebra em duas linhas, embaixo do eixo. */
+    var margem = { topo: 148, direita: 92, baixo: 168, esquerda: 132 };
+    var RECUO_TITULO = 56;
+    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
+    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
+    var baseY = margem.topo + alturaPlot;
+
+    var maiorValor = etapas.reduce(function (maior, e) { return Math.max(maior, e.inicio, e.fim); }, 0);
+    var menorValor = etapas.reduce(function (menor, e) { return Math.min(menor, e.inicio, e.fim); }, 0);
+    var RESERVA_ROTULO = 34;    /* espaco acima da maior barra para o valor */
+    var alturaUtil = alturaPlot - RESERVA_ROTULO;
+
+    var escala = escalaBonita(maiorValor, 4);
+    var amplitudeTotal = escala.topo + Math.abs(Math.min(0, menorValor));
+    var pxPorUnidade = amplitudeTotal > 0 ? alturaUtil / amplitudeTotal : 0;
+    var eixoZeroY = baseY - Math.abs(Math.min(0, menorValor)) * pxPorUnidade;
+    var yDoValor = function (v) { return eixoZeroY - v * pxPorUnidade; };
+
+    var faixa = larguraPlot / etapas.length;
+    var larguraColuna = Math.min(84, faixa * 0.62);
+    var FONTE_ROTULO = 13;
+    /* Cada linha do rotulo precisa caber dentro da propria faixa, senao    */
+    /* invade o rotulo da coluna vizinha — com 13 etapas a faixa e estreita.*/
+    var MAX_CARACTERES_ROTULO = Math.max(6, Math.floor((faixa * 0.94) / (FONTE_ROTULO * 0.55)));
+
+    /* Grade horizontal do eixo de R$. */
+    var grade = [];
+    for (var v = 0; v <= escala.topo + 0.0001; v += escala.passo) {
+      var yGrade = yDoValor(v);
+      grade.push(h("line", {
+        key: "g" + v,
+        x1: margem.esquerda, y1: yGrade, x2: margem.esquerda + larguraPlot, y2: yGrade,
+        stroke: v === 0 ? COR.line : COR.lineSoft,
+        strokeWidth: v === 0 ? 1.5 : 1
+      }));
+      grade.push(h("text", {
+        key: "r" + v,
+        x: margem.esquerda - 16, y: yGrade + 5,
+        textAnchor: "end",
+        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+      }, v === 0 ? "0" : formatarNumero(v, 0)));
+    }
+
+    /* Barras, rotulos de valor, rotulos de categoria (em ate duas linhas)  */
+    /* e as linhas pontilhadas que ligam o fim de uma barra ao inicio da    */
+    /* proxima — a mesma leitura de "escada" de qualquer waterfall.         */
+    var barras = [];
+    var conectores = [];
+    var centros = [];
+    etapas.forEach(function (e, indice) {
+      var centro = margem.esquerda + faixa * indice + faixa / 2;
+      centros.push(centro);
+      var yTopo = yDoValor(Math.max(e.inicio, e.fim));
+      var yBase = yDoValor(Math.min(e.inicio, e.fim));
+      var altura = Math.max(0, yBase - yTopo);
+      var negativo = e.fim < e.inicio;
+      var cor;
+      if (e.tipo === "total") {
+        cor = e.final ? (e.valor < 0 ? COR.coral : COR.mint) : AZUIS[0];
+      } else {
+        cor = negativo ? COR.coral : COR.mint;
+      }
+      if (altura > 0.4) {
+        barras.push(h("rect", {
+          key: "b" + indice,
+          x: centro - larguraColuna / 2, y: yTopo, width: larguraColuna, height: altura,
+          fill: cor
+        }));
+      }
+      if (Math.abs(e.valor) > 0.005) {
+        var acima = e.fim >= e.inicio;
+        barras.push(h("text", {
+          key: "t" + indice,
+          x: centro, y: acima ? (yTopo - 12) : (yBase + 20),
+          textAnchor: "middle",
+          style: { fontSize: 15, fontWeight: 600, fill: cor, fontVariantNumeric: "tabular-nums" }
+        }, (e.valor < 0 ? "(" + formatarNumero(Math.abs(e.valor), 0) + ")" : formatarNumero(e.valor, 0))));
+      }
+      /* Rotulo da categoria, quebrado em quantas linhas couberem na faixa. */
+      quebrarRotulo(e.rotulo, MAX_CARACTERES_ROTULO).forEach(function (linha, i) {
+        barras.push(h("text", {
+          key: "m" + indice + "_" + i,
+          x: centro, y: baseY + 26 + i * 18,
+          textAnchor: "middle",
+          style: { fontSize: FONTE_ROTULO, fill: COR.dim }
+        }, linha));
+      });
+      /* Conector pontilhado: liga o fim desta etapa ao inicio da proxima,  */
+      /* sempre na mesma altura (o acumulado e continuo entre as duas).     */
+      if (indice < etapas.length - 1) {
+        var yConector = yDoValor(e.fim);
+        conectores.push(h("line", {
+          key: "c" + indice,
+          x1: centro + larguraColuna / 2, y1: yConector,
+          x2: centro + faixa - larguraColuna / 2, y2: yConector,
+          stroke: COR.faint, strokeWidth: 1, strokeDasharray: "3,3"
+        }));
+      }
+    });
+
+    var periodo = meses.length
+      ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1])
+      : "sem período";
+
+    return h("div", moldura,
+      h("svg", {
+        viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura,
+        width: "100%",
+        preserveAspectRatio: "xMidYMid meet",
+        style: { display: "block", background: COR.surface }
+      },
+        h("text", {
+          x: RECUO_TITULO, y: 68,
+          style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
+        }, "FONTES E USOS DAS RECEITAS"),
+        h("text", {
+          x: RECUO_TITULO, y: 98,
+          style: { fontSize: 15, fill: COR.faint }
+        }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$" + " · acumulado do período"),
+
+        h("image", {
+          href: LOGO_QUORUM,
+          x: MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO,
+          width: TAMANHO_LOGO,
+          height: TAMANHO_LOGO
+        }),
+
+        h("text", {
+          x: SLIDE.largura - MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
+          textAnchor: "end",
+          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+        }, String(props.numero || 1)),
+
+        grade,
+        conectores,
+        barras
+      )
+    );
+  }
+
 
 
   /* Igual a escalaPercentual, mas sem prender o piso em 0% nem o teto em   */
@@ -4429,7 +4677,8 @@
         h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3 }),
         h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4 }),
         h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5 }),
-        h(GraficoEBITDA, { dados: dados, meses: meses, regime: regime, numero: 6 })
+        h(GraficoEBITDA, { dados: dados, meses: meses, regime: regime, numero: 6 }),
+        h(GraficoWaterfallDRE, { dados: dados, meses: meses, regime: regime, numero: 7 })
       );
     }
 
