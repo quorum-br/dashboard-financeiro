@@ -1941,8 +1941,8 @@
   /* Receita liquida acima do zero, custos e despesas empilhados abaixo,   */
   /* cada segmento com o proprio valor escrito dentro dele, mais o EBITDA  */
   /* do mes (a soma dos tres) como rotulo acima da barra inteira. A        */
-  /* margem usa receita BRUTA no denominador, igual ao cartao "EBITDA" no  */
-  /* topo da tela — as duas leituras do mesmo numero precisam bater.       */
+  /* margem usa receita LIQUIDA no denominador — e a mesma base de onde o  */
+  /* EBITDA e calculado (receita liquida - custos - despesas).             */
   function GraficoEBITDA(props) {
     var dados = props.dados;
     var meses = props.meses;
@@ -1957,8 +1957,9 @@
       custos[mes] = dados.S.custo[mes];
       despesas[mes] = dados.S.despesas[mes];
       ebitdaMes[mes] = dados.ebitda[mes];
-      var bruta = dados.S.receita[mes];
-      percentuais[mes] = bruta > 0.005 ? ebitdaMes[mes] / bruta : null;
+      /* EBITDA = receita liquida - custos - despesas, entao a margem e     */
+      /* sobre a mesma base: receita liquida, nao bruta.                    */
+      percentuais[mes] = receita[mes] > 0.005 ? ebitdaMes[mes] / receita[mes] : null;
     });
 
     /* Escala positiva pelo topo da receita liquida; escala negativa pela   */
@@ -2178,8 +2179,8 @@
     });
     pecasLegenda.push(h("line", { key: "llp", x1: xCursor + 8, y1: 7, x2: xCursor + 26, y2: 7, stroke: COR.brass, strokeWidth: 2 }));
     pecasLegenda.push(h("circle", { key: "lcp", cx: xCursor + 17, cy: 7, r: 4, fill: COR.surface, stroke: COR.brass, strokeWidth: 2 }));
-    pecasLegenda.push(h("text", { key: "ltp", x: xCursor + 36, y: 12, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, "% Margem EBITDA (s/ receita bruta)"));
-    var larguraLegenda = xCursor + 36 + larguraAproximada("% Margem EBITDA (s/ receita bruta)", LEGENDA_FONTE);
+    pecasLegenda.push(h("text", { key: "ltp", x: xCursor + 36, y: 12, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, "% Margem EBITDA (s/ receita líquida)"));
+    var larguraLegenda = xCursor + 36 + larguraAproximada("% Margem EBITDA (s/ receita líquida)", LEGENDA_FONTE);
     var xLegenda = (SLIDE.largura - larguraLegenda) / 2;
     var yLegenda = baseY + 72;
 
