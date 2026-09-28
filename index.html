@@ -1938,6 +1938,294 @@
     );
   }
 
+  /* Receita liquida acima do zero, custos e despesas empilhados abaixo,   */
+  /* cada segmento com o proprio valor escrito dentro dele, mais o EBITDA  */
+  /* do mes (a soma dos tres) como rotulo acima da barra inteira. A        */
+  /* margem usa receita BRUTA no denominador, igual ao cartao "EBITDA" no  */
+  /* topo da tela — as duas leituras do mesmo numero precisam bater.       */
+  function GraficoEBITDA(props) {
+    var dados = props.dados;
+    var meses = props.meses;
+    var regime = props.regime;
+
+    var COR_CUSTOS = "#B23A2F";     /* mesmo coral do resto do painel */
+    var COR_DESPESAS = "#D3938D";   /* tom mais claro, mesma familia  */
+
+    var receita = {}, custos = {}, despesas = {}, ebitdaMes = {}, percentuais = {};
+    meses.forEach(function (mes) {
+      receita[mes] = dados.receitaLiquida[mes];
+      custos[mes] = dados.S.custo[mes];
+      despesas[mes] = dados.S.despesas[mes];
+      ebitdaMes[mes] = dados.ebitda[mes];
+      var bruta = dados.S.receita[mes];
+      percentuais[mes] = bruta > 0.005 ? ebitdaMes[mes] / bruta : null;
+    });
+
+    /* Escala positiva pelo topo da receita liquida; escala negativa pela   */
+    /* soma de custos + despesas (as duas ja negativas, por convencao).     */
+    var maiorBarra = meses.reduce(function (maior, mes) {
+      return Math.max(maior, receita[mes]);
+    }, 0);
+    var menorBarra = meses.reduce(function (menor, mes) {
+      return Math.min(menor, custos[mes] + despesas[mes]);
+    }, 0);
+    var temAlgumValor = meses.some(function (mes) {
+      return Math.abs(receita[mes]) > 0.005 || Math.abs(custos[mes]) > 0.005 || Math.abs(despesas[mes]) > 0.005;
+    });
+
+    var moldura = {
+      className: "rounded overflow-hidden mx-auto",
+      style: {
+        background: COR.surface,
+        border: "1px solid " + COR.line,
+        maxWidth: 1080,
+        width: "100%"
+      }
+    };
+
+    if (!meses.length || !temAlgumValor) {
+      return h("div", moldura,
+        h("div", {
+          className: "flex items-center justify-center",
+          style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint }
+        }, "Sem receita, custo ou despesa no período para montar o gráfico.")
+      );
+    }
+
+    /* Area util do desenho, no mesmo padrao dos outros slides. */
+    var margem = { topo: 148, direita: 92, baixo: 192, esquerda: 132 };
+    var RECUO_TITULO = 56;
+    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
+    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
+    var baseY = margem.topo + alturaPlot;
+
+    /* Faixa propria da linha, no topo do plot, igual aos outros graficos   */
+    /* com percentual — e o rotulo do EBITDA do mes precisa de respiro      */
+    /* acima da barra, por isso o topo das colunas fica mais recuado ainda. */
+    var yTopoFaixaLinha = margem.topo + 40;
+    var ALTURA_FAIXA_LINHA = 90;
+    var yBaseFaixaLinha = yTopoFaixaLinha + ALTURA_FAIXA_LINHA;
+    var GAP_LINHA_BARRAS = 36;
+    var RESERVA_ROTULO_TOTAL = 34;
+    var topoParaBarras = yBaseFaixaLinha + GAP_LINHA_BARRAS + RESERVA_ROTULO_TOTAL;
+    var alturaTotalBarras = baseY - topoParaBarras;
+
+    var escala = escalaBonita(maiorBarra, 4);
+    var amplitudeTotal = escala.topo + Math.abs(Math.min(0, menorBarra));
+    var pxPorUnidade = amplitudeTotal > 0 ? alturaTotalBarras / amplitudeTotal : 0;
+    var eixoZeroY = baseY - Math.abs(Math.min(0, menorBarra)) * pxPorUnidade;
+    var alturaDeBarra = function (valor) { return Math.abs(valor) * pxPorUnidade; };
+
+    var faixa = larguraPlot / meses.length;
+    var larguraColuna = Math.min(96, faixa * 0.58);
+
+    /* Grade horizontal do eixo de R$, contando so o lado positivo. */
+    var grade = [];
+    for (var v = 0; v <= escala.topo + 0.0001; v += escala.passo) {
+      var y = eixoZeroY - v * pxPorUnidade;
+      grade.push(h("line", {
+        key: "g" + v,
+        x1: margem.esquerda, y1: y, x2: margem.esquerda + larguraPlot, y2: y,
+        stroke: v === 0 ? COR.line : COR.lineSoft,
+        strokeWidth: v === 0 ? 1.5 : 1
+      }));
+      grade.push(h("text", {
+        key: "r" + v,
+        x: margem.esquerda - 16, y: y + 5,
+        textAnchor: "end",
+        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+      }, v === 0 ? "0" : formatarNumero(v, 0)));
+    }
+
+    /* Um segmento da barra: retangulo colorido mais o valor centralizado   */
+    /* dentro dele, em branco. So desenha se a altura der pra caber texto.  */
+    function segmento(chave, y, altura, cor) {
+      return [h("rect", {
+        key: "b" + chave, x: 0, y: y, width: larguraColuna, height: altura, fill: cor,
+        stroke: COR.surface, strokeWidth: 1.5
+      })];
+    }
+    function rotuloSegmento(chave, y, altura, valor) {
+      if (altura < 16 || Math.abs(valor) < 0.005) return null;
+      return h("text", {
+        key: "t" + chave, x: larguraColuna / 2, y: y + altura / 2 + 5,
+        textAnchor: "middle",
+        style: { fontSize: 15, fill: "#FFFFFF", fontWeight: 600, fontVariantNumeric: "tabular-nums" }
+      }, (valor < 0 ? "(" + formatarNumero(Math.abs(valor), 0) + ")" : formatarNumero(valor, 0)));
+    }
+
+    var barras = [];
+    var centros = {};
+    meses.forEach(function (mes, indiceMes) {
+      var centro = margem.esquerda + faixa * indiceMes + faixa / 2;
+      centros[mes] = centro;
+      var x = centro - larguraColuna / 2;
+      var grupo = [];
+
+      /* Receita liquida: unico segmento positivo, cresce para cima do zero. */
+      var alturaReceita = alturaDeBarra(receita[mes]);
+      if (alturaReceita > 0) {
+        grupo = grupo.concat(segmento("r" + mes, eixoZeroY - alturaReceita, alturaReceita, AZUIS[1]));
+        var rotReceita = rotuloSegmento("r" + mes, eixoZeroY - alturaReceita, alturaReceita, receita[mes]);
+        if (rotReceita) grupo.push(rotReceita);
+      }
+
+      /* Custos, depois despesas, empilhados para baixo do zero nessa ordem  */
+      /* — a mesma ordem da DRE (receita liquida -> custo -> despesa).       */
+      var acumuladoNegativo = eixoZeroY;
+      [["c" + mes, custos[mes], COR_CUSTOS], ["d" + mes, despesas[mes], COR_DESPESAS]].forEach(function (par) {
+        var altura = alturaDeBarra(par[1]);
+        if (altura <= 0) return;
+        grupo = grupo.concat(segmento(par[0], acumuladoNegativo, altura, par[2]));
+        var rot = rotuloSegmento(par[0], acumuladoNegativo, altura, par[1]);
+        if (rot) grupo.push(rot);
+        acumuladoNegativo += altura;
+      });
+
+      /* EBITDA do mes: rotulo unico acima do topo da barra de receita (ou   */
+      /* acima do zero, se o mes nao tiver receita), a soma dos tres         */
+      /* segmentos — e por isso que nao entra dentro de nenhum deles. O y e  */
+      /* absoluto (a translacao do grupo mexe so no x), por isso usa         */
+      /* eixoZeroY e nao um deslocamento relativo ao topo do slide.          */
+      if (Math.abs(ebitdaMes[mes]) > 0.005) {
+        var negativo = ebitdaMes[mes] < 0;
+        var topoReceita = eixoZeroY - alturaReceita;
+        grupo.push(h("text", {
+          key: "e" + mes, x: larguraColuna / 2, y: topoReceita - 14,
+          textAnchor: "middle",
+          style: {
+            fontSize: 17, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+            fill: negativo ? COR.coral : COR.mint
+          }
+        }, (negativo ? "(" + formatarNumero(Math.abs(ebitdaMes[mes]), 0) + ")" : formatarNumero(ebitdaMes[mes], 0))));
+      }
+
+      barras.push(h("g", { key: "col" + mes, transform: "translate(" + x + ",0)" }, grupo));
+      barras.push(h("text", {
+        key: "m" + mes,
+        x: centro, y: baseY + 30,
+        textAnchor: "middle",
+        style: { fontSize: 16, fill: COR.dim }
+      }, rotuloMes(mes)));
+    });
+
+    /* Linha de margem EBITDA, com buraco nos meses sem receita bruta. */
+    var escalaPct = escalaLinhaLivre(meses.map(function (mes) { return percentuais[mes]; }));
+    var yDoPercentual = function (p) {
+      var fracao = (p - escalaPct.piso) / (escalaPct.teto - escalaPct.piso);
+      return yBaseFaixaLinha - fracao * ALTURA_FAIXA_LINHA;
+    };
+
+    var segmentosLinha = [];
+    var segmentoAtual = [];
+    meses.forEach(function (mes) {
+      var p = percentuais[mes];
+      if (p === null) {
+        if (segmentoAtual.length) segmentosLinha.push(segmentoAtual);
+        segmentoAtual = [];
+        return;
+      }
+      segmentoAtual.push({ x: centros[mes], y: yDoPercentual(p) });
+    });
+    if (segmentoAtual.length) segmentosLinha.push(segmentoAtual);
+
+    var elementosLinha = [];
+    segmentosLinha.forEach(function (segmento, indiceSegmento) {
+      if (segmento.length > 1) {
+        elementosLinha.push(h("polyline", {
+          key: "seg" + indiceSegmento,
+          points: segmento.map(function (p) { return p.x + "," + p.y; }).join(" "),
+          fill: "none",
+          stroke: COR.brass,
+          strokeWidth: 2
+        }));
+      }
+    });
+    meses.forEach(function (mes) {
+      var p = percentuais[mes];
+      if (p === null) return;
+      var x = centros[mes];
+      var y = yDoPercentual(p);
+      elementosLinha.push(h("text", {
+        key: "pl" + mes,
+        x: x, y: y - 16,
+        textAnchor: "middle",
+        style: { fontSize: 13, fill: COR.brass, fontWeight: 600, fontVariantNumeric: "tabular-nums" }
+      }, formatarPercentual(p)));
+      elementosLinha.push(h("circle", {
+        key: "pm" + mes,
+        cx: x, cy: y, r: 5,
+        fill: COR.surface,
+        stroke: COR.brass,
+        strokeWidth: 2.5
+      }));
+    });
+
+    /* Legenda: tres retangulos (receita, custos, despesas) mais a linha de */
+    /* percentual, centralizados abaixo dos rotulos de mes.                 */
+    var LEGENDA_FONTE = 15;
+    var itensLegenda = [
+      { rotulo: "Receita Líquida", cor: AZUIS[1] },
+      { rotulo: "Custos", cor: COR_CUSTOS },
+      { rotulo: "Despesas", cor: COR_DESPESAS }
+    ];
+    var xCursor = 0;
+    var pecasLegenda = [];
+    itensLegenda.forEach(function (item) {
+      pecasLegenda.push(h("rect", { key: "lb" + item.rotulo, x: xCursor, y: 0, width: 18, height: 14, rx: 2, fill: item.cor }));
+      pecasLegenda.push(h("text", { key: "lt" + item.rotulo, x: xCursor + 28, y: 12, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, item.rotulo));
+      xCursor += 28 + larguraAproximada(item.rotulo, LEGENDA_FONTE) + 30;
+    });
+    pecasLegenda.push(h("line", { key: "llp", x1: xCursor + 8, y1: 7, x2: xCursor + 26, y2: 7, stroke: COR.brass, strokeWidth: 2 }));
+    pecasLegenda.push(h("circle", { key: "lcp", cx: xCursor + 17, cy: 7, r: 4, fill: COR.surface, stroke: COR.brass, strokeWidth: 2 }));
+    pecasLegenda.push(h("text", { key: "ltp", x: xCursor + 36, y: 12, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, "% Margem EBITDA (s/ receita bruta)"));
+    var larguraLegenda = xCursor + 36 + larguraAproximada("% Margem EBITDA (s/ receita bruta)", LEGENDA_FONTE);
+    var xLegenda = (SLIDE.largura - larguraLegenda) / 2;
+    var yLegenda = baseY + 72;
+
+    var periodo = meses.length
+      ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1])
+      : "sem período";
+
+    return h("div", moldura,
+      h("svg", {
+        viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura,
+        width: "100%",
+        preserveAspectRatio: "xMidYMid meet",
+        style: { display: "block", background: COR.surface }
+      },
+        h("text", {
+          x: RECUO_TITULO, y: 68,
+          style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
+        }, "EVOLUÇÃO DO EBITDA"),
+        h("text", {
+          x: RECUO_TITULO, y: 98,
+          style: { fontSize: 15, fill: COR.faint }
+        }, periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · R$"),
+
+        h("image", {
+          href: LOGO_QUORUM,
+          x: MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO,
+          width: TAMANHO_LOGO,
+          height: TAMANHO_LOGO
+        }),
+
+        h("text", {
+          x: SLIDE.largura - MARGEM_RODAPE,
+          y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6,
+          textAnchor: "end",
+          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" }
+        }, String(props.numero || 1)),
+
+        grade,
+        barras,
+        elementosLinha,
+        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, pecasLegenda)
+      )
+    );
+  }
+
 
 
   /* Igual a escalaPercentual, mas sem prender o piso em 0% nem o teto em   */
@@ -4139,7 +4427,8 @@
         h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
         h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3 }),
         h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4 }),
-        h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5 })
+        h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5 }),
+        h(GraficoEBITDA, { dados: dados, meses: meses, regime: regime, numero: 6 })
       );
     }
 
