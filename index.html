@@ -2294,7 +2294,12 @@
       { tipo: "delta", rotulo: "Resultado Não Operacional", valor: outrasDesp },
       { tipo: "delta", rotulo: "Impostos sobre o Lucro", valor: impLucro },
       { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, final: true }
-    ];
+    ].filter(function (e) {
+      /* Coluna flutuante sem valor nao aparece — nao ha o que "usar" ali,   */
+      /* so ocuparia espaco. Os totais (checkpoints) sempre ficam, mesmo     */
+      /* que algum caia em zero, porque marcam um ponto fixo da cascata.     */
+      return e.tipo === "total" || Math.abs(e.valor) > 0.005;
+    });
 
     /* Posiciona cada etapa: total sempre do zero ao seu valor; delta do    */
     /* acumulado anterior ao novo acumulado. O acumulado so avanca de       */
