@@ -2257,9 +2257,11 @@
     var dados = props.dados;
     var meses = props.meses;
     var regime = props.regime;
+    var ateFluxoCaixa = !!props.ateFluxoCaixa;
 
-    /* Soma cada secao do DRE no periodo inteiro — o mesmo padrao ja usado   */
-    /* nos cartoes do topo da tela (ex.: ebitdaPeriodo). */
+    /* Soma cada secao do DRE (ou do fluxo de caixa) no periodo inteiro —   */
+    /* o mesmo padrao ja usado nos cartoes do topo da tela (ex.:            */
+    /* ebitdaPeriodo). */
     function somaSecao(chave) {
       return meses.reduce(function (soma, mes) { return soma + (dados.S[chave][mes] || 0); }, 0);
     }
@@ -2293,8 +2295,37 @@
       { tipo: "delta", rotulo: "Outras Receitas Não Operacionais", valor: outrasRec },
       { tipo: "delta", rotulo: "Resultado Não Operacional", valor: outrasDesp },
       { tipo: "delta", rotulo: "Impostos sobre o Lucro", valor: impLucro },
-      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, final: true }
-    ].filter(function (e) {
+      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, final: !ateFluxoCaixa }
+    ];
+
+    /* Continua a mesma cascata para dentro do Fluxo de Caixa — as secoes    */
+    /* que so existem la (entradas/saidas de passivo, ativo, investimentos,  */
+    /* transferencias, nao classificado), ate o Fluxo de Caixa Livre do      */
+    /* periodo. Este e o "(=) Fluxo de Caixa Livre do mes" da aba Fluxo de   */
+    /* Caixa (dados.fcl) — um resultado do periodo, somavel com o resto da   */
+    /* cascata. Nao e o cartao "Caixa Livre" do topo da tela: aquele e       */
+    /* saldo acumulado de todas as contas ja menos a caucao, uma posicao no  */
+    /* fim do periodo, nao um fluxo — nao daria pra somar linha a linha.     */
+    if (ateFluxoCaixa) {
+      var entradas = somaSecao("entradas");
+      var saidas = somaSecao("saidas");
+      var ativo = somaSecao("ativo");
+      var capex = somaSecao("capex");
+      var transf = somaSecao("transf");
+      var naoClassificado = somaSecao("naoClassificado");
+      var fclTotal = lucroLiquidoTotal + entradas + saidas + ativo + capex + transf + naoClassificado;
+      etapasBrutas = etapasBrutas.concat([
+        { tipo: "delta", rotulo: "Entradas Não Operacionais", valor: entradas },
+        { tipo: "delta", rotulo: "Saídas Não Operacionais", valor: saidas },
+        { tipo: "delta", rotulo: "Movimentação do Ativo", valor: ativo },
+        { tipo: "delta", rotulo: "Investimentos", valor: capex },
+        { tipo: "delta", rotulo: "Transferências entre Contas", valor: transf },
+        { tipo: "delta", rotulo: "Não Classificado", valor: naoClassificado },
+        { tipo: "total", rotulo: "Fluxo de Caixa Livre", valor: fclTotal, final: true }
+      ]);
+    }
+
+    etapasBrutas = etapasBrutas.filter(function (e) {
       /* Coluna flutuante sem valor nao aparece — nao ha o que "usar" ali,   */
       /* so ocuparia espaco. Os totais (checkpoints) sempre ficam, mesmo     */
       /* que algum caia em zero, porque marcam um ponto fixo da cascata.     */
@@ -2357,10 +2388,15 @@
     var yDoValor = function (v) { return eixoZeroY - v * pxPorUnidade; };
 
     var faixa = larguraPlot / etapas.length;
+    /* Coluna e fonte encolhem com o numero de etapas — o waterfall que      */
+    /* junta DRE e Fluxo de Caixa passa de 20 colunas, contra 10-13 do que   */
+    /* so vai ate o Lucro Liquido, e precisa caber tudo no mesmo slide.      */
     var larguraColuna = Math.min(84, faixa * 0.62);
-    var FONTE_ROTULO = 13;
+    var FONTE_ROTULO = Math.max(9, Math.min(13, faixa / 6.2));
+    var FONTE_VALOR = Math.max(11, Math.min(15, faixa / 7));
     /* Cada linha do rotulo precisa caber dentro da propria faixa, senao    */
-    /* invade o rotulo da coluna vizinha — com 13 etapas a faixa e estreita.*/
+    /* invade o rotulo da coluna vizinha — com muitas etapas a faixa e       */
+    /* bem estreita.                                                        */
     var MAX_CARACTERES_ROTULO = Math.max(6, Math.floor((faixa * 0.94) / (FONTE_ROTULO * 0.55)));
 
     /* Grade horizontal do eixo de R$. */
@@ -2424,7 +2460,7 @@
           key: "t" + indice,
           x: centro, y: acima ? (yTopo - 12) : (yBase + 20),
           textAnchor: "middle",
-          style: { fontSize: 15, fontWeight: 600, fill: cor, fontVariantNumeric: "tabular-nums" }
+          style: { fontSize: FONTE_VALOR, fontWeight: 600, fill: cor, fontVariantNumeric: "tabular-nums" }
         }, (e.valor < 0 ? "(" + formatarNumero(Math.abs(e.valor), 0) + ")" : formatarNumero(e.valor, 0))));
       }
       /* Rotulo da categoria, quebrado em quantas linhas couberem na faixa. */
@@ -2463,7 +2499,7 @@
         h("text", {
           x: RECUO_TITULO, y: 68,
           style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" }
-        }, "FONTES E USOS DAS RECEITAS"),
+        }, props.titulo || "FONTES E USOS DAS RECEITAS"),
         h("text", {
           x: RECUO_TITULO, y: 98,
           style: { fontSize: 15, fill: COR.faint }
@@ -4694,7 +4730,11 @@
         h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4 }),
         h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5 }),
         h(GraficoEBITDA, { dados: dados, meses: meses, regime: regime, numero: 6 }),
-        h(GraficoWaterfallDRE, { dados: dados, meses: meses, regime: regime, numero: 7 })
+        h(GraficoWaterfallDRE, { dados: dados, meses: meses, regime: regime, numero: 7 }),
+        h(GraficoWaterfallDRE, {
+          dados: dados, meses: meses, regime: regime, numero: 8, ateFluxoCaixa: true,
+          titulo: "FONTES E USOS DO CAIXA"
+        })
       );
     }
 
