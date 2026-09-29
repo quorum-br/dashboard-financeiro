@@ -2393,6 +2393,17 @@
       var yTopo = yDoValor(Math.max(e.inicio, e.fim));
       var yBase = yDoValor(Math.min(e.inicio, e.fim));
       var altura = Math.max(0, yBase - yTopo);
+      /* Valor real de verdade (ja passou pelo filtro), mas pequeno demais  */
+      /* pra virar barra visivel nessa escala — em vez de sumir, cresce ate */
+      /* uma altura minima, sem sair do lugar (mesmo centro na vertical),   */
+      /* pra pelo menos aparecer como uma linha fina no lugar certo.        */
+      var ALTURA_MINIMA_VISIVEL = 3;
+      if (Math.abs(e.valor) > 0.005 && altura < ALTURA_MINIMA_VISIVEL) {
+        var centroVertical = (yTopo + yBase) / 2;
+        yTopo = centroVertical - ALTURA_MINIMA_VISIVEL / 2;
+        yBase = centroVertical + ALTURA_MINIMA_VISIVEL / 2;
+        altura = ALTURA_MINIMA_VISIVEL;
+      }
       var negativo = e.fim < e.inicio;
       var cor;
       if (e.tipo === "total") {
