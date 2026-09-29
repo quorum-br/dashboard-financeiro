@@ -3314,7 +3314,7 @@
     var telaMaster = estTelaMaster[0], setTelaMaster = estTelaMaster[1];
 
     var estRegime = useState(function () {
-      return armazenamento.getItem("quorum_regime") || "caixa";
+      return armazenamento.getItem("quorum_regime") || "competencia";
     });
     var regime = estRegime[0], setRegime = estRegime[1];
 
@@ -4195,7 +4195,7 @@
     var barraFiltros = h("div", { className: "px-6 pt-4 flex flex-wrap items-center gap-3" },
       /* Regime de caixa ou de competencia. */
       h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
-        [["caixa", "Caixa"], ["competencia", "Competência"]].map(function (par) {
+        [["competencia", "Competência"], ["caixa", "Caixa"]].map(function (par) {
           var valor = par[0], rotulo = par[1];
           return h("button", {
             key: valor,
