@@ -3776,7 +3776,7 @@
       });
 
       var contasGarantia = dados.contas.filter(function (c) { return /garantia|cau/i.test(c); });
-      var linhaCaucao = escreverLinha("grupo", "   (-) Caução em garantia do cartão", function (c) {
+      var linhaCaucao = escreverLinha("grupo", "   (-) Caução travada em garantia (saldo no fim do mês)", function (c) {
         return contasGarantia.length
           ? "-(" + contasGarantia.map(function (conta) { return saldoAcumuladoConta(conta, c); }).join("+") + ")"
           : "0";
@@ -4427,7 +4427,7 @@
             acumulado: ultimoMes ? saldoAcumulado[ultimoMes] : 0
           }),
           h(LinhaTabela, {
-            label: "(-) Caução em garantia do cartão", valores: caucaoNegativa,
+            label: "(-) Caução travada em garantia (saldo no fim do mês)", valores: caucaoNegativa,
             meses: meses, nivel: "grupo", casas: 2,
             acumulado: ultimoMes ? caucaoNegativa[ultimoMes] : 0
           }),
