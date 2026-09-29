@@ -1197,12 +1197,28 @@
       }, v === 0 ? "0" : formatarNumero(v, 0)));
     }
 
-    /* Colunas empilhadas, maior serie na base. */
+    /* Cor do valor escrito dentro de um segmento: branco sobre tom escuro, */
+    /* escuro sobre tom claro (o azul-claro do fim do gradiente). O escuro  */
+    /* e proprio (nao COR.text) para o export em tema escuro distinguir os  */
+    /* dois casos: la todas as barras ficam claras e o texto vira escuro.   */
+    var TEXTO_SOBRE_CLARO = "#0B1A2B";
+    function corTextoSobre(hex) {
+      var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
+      if (!m) return "#FFFFFF";
+      var lum = (0.299 * parseInt(m[1], 16) + 0.587 * parseInt(m[2], 16) + 0.114 * parseInt(m[3], 16)) / 255;
+      return lum > 0.6 ? TEXTO_SOBRE_CLARO : "#FFFFFF";
+    }
+
+    /* Colunas empilhadas, maior serie na base. Com props.rotulosInternos,  */
+    /* cada segmento leva o proprio valor escrito dentro dele (como no      */
+    /* grafico de EBITDA) — so em coluna com dois ou mais segmentos, porque */
+    /* com um so o numero de dentro repetiria o total escrito no topo.      */
     var colunas = [];
     meses.forEach(function (mes, indiceMes) {
       var centro = margem.esquerda + faixa * indiceMes + faixa / 2;
       var x = centro - larguraColuna / 2;
       var topoAcumulado = baseY;
+      var segmentosNoMes = series.filter(function (serie) { return serie.valores[mes] > 0; }).length;
 
       series.forEach(function (serie) {
         var valor = serie.valores[mes];
@@ -1216,6 +1232,14 @@
           stroke: COR.surface,
           strokeWidth: 1.5
         }));
+        if (props.rotulosInternos && segmentosNoMes > 1 && altura >= 16) {
+          colunas.push(h("text", {
+            key: "v" + mes + serie.rotulo,
+            x: centro, y: topoAcumulado + altura / 2 + 5,
+            textAnchor: "middle",
+            style: { fontSize: 15, fill: corTextoSobre(serie.cor), fontWeight: 600, fontVariantNumeric: "tabular-nums" }
+          }, formatarNumero(valor, 0)));
+        }
       });
 
       /* Total no topo da coluna. */
@@ -1444,6 +1468,7 @@
 
     return h(SlideColunasEmpilhadas, {
       titulo: "RECEITA BRUTA POR CLIENTE",
+      rotulosInternos: true,
       series: series,
       meses: meses,
       regime: regime,
