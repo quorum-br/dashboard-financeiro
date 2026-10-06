@@ -3364,6 +3364,7 @@
   function Painel() {
     var estLinhas = useState(null);            var linhas = estLinhas[0],        setLinhas = estLinhas[1];
     var estAbertos = useState([]);             var emAberto = estAbertos[0],     setEmAberto = estAbertos[1];
+    var estGerandoApres = useState(false);     var gerandoApres = estGerandoApres[0], setGerandoApres = estGerandoApres[1];
     var estResposta = useState(null);          var resposta = estResposta[0],    setResposta = estResposta[1];
     var estCarregando = useState(true);        var carregando = estCarregando[0], setCarregando = estCarregando[1];
     var estAtualizado = useState(null);        var atualizadoEm = estAtualizado[0], setAtualizadoEm = estAtualizado[1];
@@ -4140,6 +4141,20 @@
         }, "Exportar XLSX"),
 
         h("button", {
+          onClick: function () { exportarApresentacao(); },
+          disabled: gerandoApres || !meses.length,
+          className: "px-3 py-1.5 rounded",
+          style: {
+            background: COR.surface,
+            border: "1px solid " + COR.brass,
+            color: COR.brass,
+            fontSize: 11,
+            opacity: gerandoApres || !meses.length ? 0.6 : 1
+          },
+          title: "Gera a apresentação de resultados (.pptx) com os 8 gráficos da aba Apresentação, no regime e no período selecionados"
+        }, gerandoApres ? "Gerando apresentação..." : "Exportar apresentação"),
+
+        h("button", {
           onClick: function () { buscarBase(true); },
           disabled: carregando,
           className: "px-3 py-1.5 rounded",
@@ -4744,6 +4759,19 @@
     /* ---------------------------------------------------------------- */
     /* Aba: apresentacao (RI)                                           */
     /* ---------------------------------------------------------------- */
+
+    /* Exporta a apresentacao de resultados (.pptx): os mesmos 8 graficos */
+    /* da aba abaixo, com o regime e o periodo selecionados no topo.     */
+    function exportarApresentacao() {
+      if (gerandoApres || !meses.length) return;
+      setGerandoApres(true);
+      apresGerar({ dados: dados, meses: meses, todosMeses: todosMeses, regime: regime })
+        .then(function (blob) {
+          apresBaixar(blob, "QUORUM_Apresentacao_de_Resultados_" + new Date().toISOString().slice(0, 10) + ".pptx");
+        })
+        .catch(function (erro) { window.alert("Não consegui gerar a apresentação: " + erro.message); })
+        .then(function () { setGerandoApres(false); });
+    }
 
     function abaApresentacao() {
       return h("div", { className: "space-y-3" },
@@ -6983,6 +7011,263 @@
 
   function bpBaixarXlsx(bytes, nomeArquivo) {
     var blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url; link.download = nomeArquivo;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 11-E. EXPORTACAO DA APRESENTACAO DE RESULTADOS (.pptx)              */
+  /* Botao "Exportar apresentacao" da tela Financeiro. Usa o molde       */
+  /* apresentacao_modelo.json (o .pptx em base64: capa, separador, 8     */
+  /* slides de grafico e                                                 */
+  /* contracapa, sem nenhum numero: o repositorio e publico) e so        */
+  /* sobrescreve nele as imagens ppt/media/grafico{n}.svg/.png e o       */
+  /* marcador {{PERIODO}} do separador. Os 8 graficos sao os mesmos da   */
+  /* aba Apresentacao, com o regime e o periodo do topo da tela, mas     */
+  /* recoloridos para fundo escuro SO no arquivo: a tela segue clara.    */
+  /* O grafico vai como SVG (o PowerPoint desenha com a Calibri dele,    */
+  /* nitido em qualquer tamanho), com um PNG de reserva para quem abrir  */
+  /* em outro programa.                                                   */
+  /* ------------------------------------------------------------------ */
+
+  /* O .pptx vai em base64 dentro de um JSON: o webhook de publicacao no */
+  /* GitHub so envia texto, e um binario chegaria corrompido.            */
+  var APRES_MODELO_URL = "apresentacao_modelo.json";
+  var APRES_JSZIP_URL = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+
+  /* Biblioteca de zip so e baixada no primeiro clique, para nao pesar a */
+  /* abertura do painel.                                                  */
+  function apresCarregarJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = APRES_JSZIP_URL;
+      s.onload = function () { window.JSZip ? resolve(window.JSZip) : reject(new Error("biblioteca de zip não carregou")); };
+      s.onerror = function () { reject(new Error("não consegui baixar a biblioteca de zip")); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /* Tema escuro do export. Mapa das cores claras do painel para o fundo  */
+  /* escuro do template: texto e linhas claros, barras claras e solidas.  */
+  var APRES_TEXTO = {
+    "#1B2230": "#FFFFFF",   /* titulos e valores */
+    "#4E586B": "#D5DAE1",   /* meses e legenda */
+    "#7A8598": "#A9B1BD",   /* eixo, subtitulo, nota */
+    "#0A2A47": "#E8EEF5",   /* rotulo dos totais do waterfall */
+    "#0D7A52": "#5EE3A6",   /* positivo */
+    "#8A6A16": "#F2C75C",   /* percentuais */
+    "#B23A2F": "#FF8B7B",   /* negativo */
+    "#FFFFFF": "#0B0F17",   /* valor dentro de barra (a barra fica clara) */
+    "#0B1A2B": "#0B0F17"    /* valor dentro de segmento que ja era claro */
+  };
+  var APRES_PREENCHIMENTO = {
+    "#0A2A47": "#E8EEF5", "#16497A": "#BFD9F0", "#A6CFE8": "#7FB2DB",
+    "#0D7A52": "#5EE3A6", "#B23A2F": "#FF8B7B", "#D3938D": "#FFC4BA",
+    "#B9C0CC": "#6F7886",   /* "Outros clientes" */
+    "#D8DEE7": "#9AA2AE",   /* "Sem cliente identificado": cinza, longe do branco do 1o cliente */
+    "#FFFFFF": "#000000"    /* miolo dos circulos da linha de % */
+  };
+  var APRES_TRACO = {
+    "#E1E6ED": "#6F7886",   /* grade */
+    "#CBD3DE": "#C9D1DC",   /* eixo zero */
+    "#7A8598": "#A9B1BD",   /* conectores do waterfall */
+    "#8A6A16": "#F2C75C",   /* linha de % */
+    "#FFFFFF": "none"       /* separacao entre segmentos: sem contorno sobre a marca d'agua */
+  };
+  var APRES_CINZA_PARCIAL = "#A3AAB5";   /* barra parcial do LTM, solida */
+  var APRES_TITULO_PX = 40, APRES_TITULO_EXPORT_PX = 44;
+
+  function apresHex(c) {
+    if (!c) return "";
+    c = String(c).trim();
+    var m = c.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (m) return "#" + [m[1], m[2], m[3]].map(function (n) { return ("0" + (+n).toString(16)).slice(-2); }).join("").toUpperCase();
+    return c.toUpperCase();
+  }
+
+  /* Recolore um SVG ja desenhado e passa os estilos para atributos de   */
+  /* apresentacao (fill, font-size...), que e o que o leitor de SVG do    */
+  /* PowerPoint respeita com seguranca.                                   */
+  function apresTemaEscuro(svg, numero) {
+    var XLINK = "http://www.w3.org/1999/xlink";
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    svg.setAttribute("xmlns:xlink", XLINK);
+    svg.setAttribute("width", String(SLIDE.largura));
+    svg.setAttribute("height", String(SLIDE.altura));
+    svg.removeAttribute("style");
+    svg.setAttribute("font-family", "Calibri");
+    Array.prototype.slice.call(svg.querySelectorAll("*")).forEach(function (el) {
+      var tag = el.tagName.toLowerCase();
+      if (tag === "text") {
+        /* numero do slide (canto inferior direito) sai do export */
+        if (el.textContent === String(numero) && el.getAttribute("text-anchor") === "end" && +el.getAttribute("y") > 600) {
+          el.parentNode.removeChild(el);
+          return;
+        }
+        var st = el.style;
+        var tamanho = parseFloat(st.fontSize);
+        if (tamanho === APRES_TITULO_PX) tamanho = APRES_TITULO_EXPORT_PX;
+        var cor = apresHex(st.fill || el.getAttribute("fill"));
+        if (APRES_TEXTO[cor]) cor = APRES_TEXTO[cor];
+        if (cor) el.setAttribute("fill", cor);
+        if (tamanho) el.setAttribute("font-size", String(tamanho));
+        var peso = parseInt(st.fontWeight, 10);
+        if (peso) el.setAttribute("font-weight", peso >= 600 ? "bold" : "normal");
+        if (st.fontStyle) el.setAttribute("font-style", st.fontStyle);
+        if (st.letterSpacing) el.setAttribute("letter-spacing", parseFloat(st.letterSpacing));
+        el.setAttribute("font-family", "Calibri");
+        el.removeAttribute("style");
+        return;
+      }
+      if (tag === "image") {
+        /* logotipo preto vira branco: inverte os pixels, que e o que   */
+        /* sobrevive no PowerPoint (filtro CSS nao)                      */
+        var href = el.getAttribute("href") || el.getAttributeNS(XLINK, "href");
+        if (href) el.setAttributeNS(XLINK, "xlink:href", href);
+        el.setAttribute("data-inverter", "1");
+        return;
+      }
+      var op = el.getAttribute("fill-opacity");
+      if (tag === "rect" && op && +op < 1) {
+        el.removeAttribute("fill-opacity");
+        el.setAttribute("fill", APRES_CINZA_PARCIAL);
+        return;
+      }
+      var fill = apresHex(el.getAttribute("fill"));
+      if (fill && APRES_PREENCHIMENTO[fill]) el.setAttribute("fill", APRES_PREENCHIMENTO[fill]);
+      var stroke = apresHex(el.getAttribute("stroke"));
+      if (stroke && APRES_TRACO[stroke]) el.setAttribute("stroke", APRES_TRACO[stroke]);
+      if (tag === "line" && stroke === "#E1E6ED") el.setAttribute("stroke-opacity", "0.55");
+    });
+    return svg;
+  }
+
+  /* Inverte as cores de uma imagem (data URI) num canvas: o logotipo     */
+  /* preto do painel vira branco no fundo escuro.                         */
+  function apresInverterImagem(dataUri) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement("canvas");
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        var ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        var px = ctx.getImageData(0, 0, c.width, c.height);
+        for (var i = 0; i < px.data.length; i += 4) {
+          px.data[i] = 255 - px.data[i]; px.data[i + 1] = 255 - px.data[i + 1]; px.data[i + 2] = 255 - px.data[i + 2];
+        }
+        ctx.putImageData(px, 0, 0);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.onerror = function () { reject(new Error("não consegui processar o logotipo")); };
+      img.src = dataUri;
+    });
+  }
+
+  /* Desenha um grafico fora da tela e devolve o texto do SVG ja no tema */
+  /* escuro.                                                              */
+  function apresRenderizarGrafico(elemento, numero) {
+    var caixa = document.createElement("div");
+    caixa.style.position = "fixed"; caixa.style.left = "-20000px"; caixa.style.top = "0"; caixa.style.width = "1280px";
+    document.body.appendChild(caixa);
+    var raiz = ReactDOM.createRoot(caixa);
+    ReactDOM.flushSync(function () { raiz.render(elemento); });
+    var original = caixa.querySelector("svg");
+    if (!original) { raiz.unmount(); document.body.removeChild(caixa); return Promise.reject(new Error("gráfico " + numero + " sem dados no período")); }
+    var svg = apresTemaEscuro(original.cloneNode(true), numero);
+    raiz.unmount(); document.body.removeChild(caixa);
+    var imagens = Array.prototype.slice.call(svg.querySelectorAll("image[data-inverter]"));
+    return Promise.all(imagens.map(function (el) {
+      var XLINK = "http://www.w3.org/1999/xlink";
+      return apresInverterImagem(el.getAttributeNS(XLINK, "href") || el.getAttribute("href")).then(function (novo) {
+        el.setAttribute("href", novo); el.setAttributeNS(XLINK, "xlink:href", novo); el.removeAttribute("data-inverter");
+      });
+    })).then(function () { return new XMLSerializer().serializeToString(svg); });
+  }
+
+  /* PNG de reserva do SVG, com fundo transparente. */
+  function apresSvgParaPng(textoSvg, largura, altura) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement("canvas");
+        c.width = largura; c.height = altura;
+        c.getContext("2d").drawImage(img, 0, 0, largura, altura);
+        c.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error("falha ao gerar PNG")); }, "image/png");
+      };
+      img.onerror = function () { reject(new Error("falha ao desenhar o gráfico em PNG")); };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(textoSvg);
+    });
+  }
+
+  function apresEscaparXml(t) {
+    return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  /* Gera o .pptx inteiro. Recebe o mesmo contexto da aba Apresentacao.  */
+  function apresGerar(ctx) {
+    var props = { dados: ctx.dados, meses: ctx.meses, regime: ctx.regime };
+    var graficos = [
+      h(GraficoReceitaBruta, Object.assign({ numero: 1 }, props)),
+      h(GraficoReceitaPorCliente, Object.assign({ numero: 2 }, props)),
+      h(GraficoReceitaBrutaLTM, Object.assign({ numero: 3, todosMeses: ctx.todosMeses }, props)),
+      h(GraficoReceitaLiquida, Object.assign({ numero: 4 }, props)),
+      h(GraficoLucroBruto, Object.assign({ numero: 5 }, props)),
+      h(GraficoEBITDA, Object.assign({ numero: 6 }, props)),
+      h(GraficoWaterfallDRE, Object.assign({ numero: 7 }, props)),
+      h(GraficoWaterfallDRE, Object.assign({ numero: 8, ateFluxoCaixa: true, titulo: "FLUXO DE CAIXA LIVRE" }, props))
+    ];
+    var periodo = ctx.meses.length
+      ? rotuloMes(ctx.meses[0]) + " a " + rotuloMes(ctx.meses[ctx.meses.length - 1])
+      : "sem período";
+    var textoPeriodo = periodo + " · regime de " + (ctx.regime === "caixa" ? "caixa" : "competência");
+
+    return Promise.all([
+      apresCarregarJSZip(),
+      fetch(APRES_MODELO_URL, { cache: "no-store" }).then(function (r) {
+        if (!r.ok) throw new Error("molde da apresentação indisponível (HTTP " + r.status + ")");
+        return r.json();
+      })
+    ]).then(function (res) {
+      if (!res[1] || !res[1].pptx_base64) throw new Error("molde da apresentação sem o arquivo");
+      return res[0].loadAsync(res[1].pptx_base64, { base64: true });
+    }).then(function (zip) {
+      /* um grafico de cada vez: cada um monta e desmonta sua propria raiz */
+      var cadeia = Promise.resolve();
+      graficos.forEach(function (elemento, i) {
+        var n = i + 1;
+        cadeia = cadeia.then(function () {
+          if (!zip.file("ppt/media/grafico" + n + ".svg")) throw new Error("molde sem o espaço do gráfico " + n);
+          return apresRenderizarGrafico(elemento, n).then(function (textoSvg) {
+            zip.file("ppt/media/grafico" + n + ".svg", textoSvg);
+            return apresSvgParaPng(textoSvg, 1920, 1080).then(function (png) {
+              zip.file("ppt/media/grafico" + n + ".png", png);
+            });
+          });
+        });
+      });
+      return cadeia.then(function () {
+        /* periodo no subtitulo do separador */
+        var slides = Object.keys(zip.files).filter(function (nome) { return /^ppt\/slides\/slide\d+\.xml$/.test(nome); });
+        return Promise.all(slides.map(function (nome) {
+          return zip.file(nome).async("string").then(function (xml) {
+            if (xml.indexOf("{{PERIODO}}") >= 0) zip.file(nome, xml.split("{{PERIODO}}").join(apresEscaparXml(textoPeriodo)));
+          });
+        }));
+      }).then(function () {
+        return zip.generateAsync({
+          type: "blob", compression: "DEFLATE",
+          mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        });
+      });
+    });
+  }
+
+  function apresBaixar(blob, nomeArquivo) {
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
     link.href = url; link.download = nomeArquivo;
