@@ -83,6 +83,11 @@
   var CODIGO_DO_GRUPO = new Map(); /* nome do grupo -> codigo do grupo */
   var NOME_DA_CATEGORIA = new Map(); /* codigo da categoria -> nome */
 
+  /* Categorias que sobem para o topo do proprio grupo, pelo CODIGO. Na  */
+  /* Omie o Evento Spot (1.01.98) vem antes da Cota Master (1.01.99);    */
+  /* decisao de Alex (07/10/2026): a receita recorrente aparece primeiro. */
+  var ORDEM_NO_GRUPO = ["1.01.99"];
+
   /* ------------------------------------------------------------------ */
   /* 3. SECOES DO DRE E DO FLUXO DE CAIXA                                */
   /* Quais categorias existem e o nome delas e fato, vem da Omie. Em que  */
@@ -180,6 +185,18 @@
 
     PLANO_DE_CONTAS = Array.from(blocos.values()).filter(function (b) {
       return b.itens.length;
+    });
+
+    /* Ordem de exibicao dentro do grupo: as categorias de ORDEM_NO_GRUPO */
+    /* vem primeiro, na ordem da lista; as demais seguem a ordem da Omie. */
+    PLANO_DE_CONTAS.forEach(function (b) {
+      var posicao = function (item) {
+        var i = ORDEM_NO_GRUPO.indexOf(item[2]);
+        return i < 0 ? ORDEM_NO_GRUPO.length : i;
+      };
+      b.itens = b.itens.map(function (item, i) { return [item, i]; })
+        .sort(function (a, c) { return (posicao(a[0]) - posicao(c[0])) || (a[1] - c[1]); })
+        .map(function (par) { return par[0]; });
     });
 
     CHAVES_DO_PLANO = new Map();
