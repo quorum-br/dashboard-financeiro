@@ -62,8 +62,14 @@
     mintSoft: "rgba(13,122,82,0.10)",
     coral: "#B23A2F",
     coralSoft: "rgba(178,58,47,0.10)",
+    orange: "#C2600C",   /* achado de severidade alta: nao confundir com erro (coral) */
     ink: "#D8DEE7"
   };
+
+  /* Valor absoluto a partir do qual uma despesa paga como movimento     */
+  /* avulso, sem titulo (cartao, PIX, debito), vira achado "Despesa      */
+  /* relevante fora de titulo". Abaixo disso e tarifa, IOF, assinatura.  */
+  var LIMITE_DESPESA_FORA_DE_TITULO = 1000;
 
   /* ------------------------------------------------------------------ */
   /* 2. PLANO DE CONTAS                                                  */
@@ -472,6 +478,12 @@
 
     /* Movimento e saldo acumulado por conta corrente. */
     var contas = Array.from(new Set(usadas.map(function (l) { return l.conta; }))).sort();
+
+    /* Tipo de cada conta, lido dos proprios lancamentos (conta_tipo). */
+    var tipoConta = {};
+    linhas.forEach(function (l) {
+      if (l.contaTipo && !tipoConta[l.conta]) tipoConta[l.conta] = l.contaTipo;
+    });
     var movConta = {};
     var saldoConta = {};
     contas.forEach(function (conta) {
@@ -606,18 +618,90 @@
       });
     }
 
-    /* Em competencia, lancamentos sem nota fiscal foram reconhecidos pela  */
-    /* data de pagamento. Fica registrado aqui para auditoria: o valor      */
-    /* entra no resultado certo, mas o mes onde ele caiu e uma aproximacao. */
-    var comFallback = usadas.filter(function (l) { return l.usouFallbackData; });
-    if (comFallback.length) {
+    /* Lancamentos sem nota ou sem emissao. Antes era um achado so, com  */
+    /* todo lancamento sem emissao; como os movimentos avulsos (id "M":    */
+    /* cartao, tarifa, IOF, cashback, PIX) nunca tem nota, o alerta virou   */
+    /* ruido. Regra de Alex (07/10/2026): tres achados, cada um so aparece  */
+    /* com pelo menos um lancamento, todos olhando so o que foi pago.       */
+    /* Sempre fora: 0.x (transferencias), 2.17.x (fatura de cartao), linha  */
+    /* de encargo (-ENC-) e o que nao entra na soma.                       */
+    function codigoGrupoDe(l) {
+      return l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || "";
+    }
+    var SECOES_DRE_CHAVES = SECOES_DRE.map(function (s) { return s.key; });
+    var candidatasNota = linhas.filter(function (l) {
+      var cat = String(l.codigoCategoria || ""), grp = codigoGrupoDe(l);
+      if (!l.dPag) return false;
+      if (/^0\./.test(cat) || /^0\./.test(grp)) return false;
+      if (/^2\.17(\.|$)/.test(cat) || grp === "2.17") return false;
+      if (String(l.id).indexOf("-ENC-") >= 0) return false;
+      return secaoDaLinha(l) !== "transf";
+    });
+    function ehMovimento(l) { return /^M/.test(String(l.id)); }
+    function somaDe(lista) { return lista.reduce(function (s, l) { return s + l.valor; }, 0); }
+
+    var receitaSemNota = candidatasNota.filter(function (l) {
+      var grp = codigoGrupoDe(l);
+      return l.tipo === "receber" && /^1\./.test(grp) && grp !== "1.08" && grp !== "1.11"
+        && (ehMovimento(l) || !l.dEmi);
+    });
+    if (receitaSemNota.length) {
       achados.push({
         nivel: "alerta",
-        titulo: "Reconhecido pela data de pagamento, sem nota fiscal",
-        detalhe: comFallback.length + " lançamento(s) sem data de emissão, somando "
-          + formatarNumero(comFallback.reduce(function (s, l) { return s + l.valor; }, 0), 2)
-          + ", contados no mês do pagamento em vez do mês de emissão",
-        linhas: comFallback
+        severidade: "alta",
+        titulo: "Receita sem nota",
+        detalhe: receitaSemNota.length + " recebimento(s) de receita sem título ou sem emissão, somando "
+          + formatarNumero(somaDe(receitaSemNota), 2),
+        linhas: receitaSemNota
+      });
+    }
+
+    var tituloSemEmissao = candidatasNota.filter(function (l) {
+      return !ehMovimento(l) && !l.dEmi;
+    });
+    if (tituloSemEmissao.length) {
+      achados.push({
+        nivel: "alerta",
+        severidade: "média",
+        titulo: "Título sem emissão",
+        detalhe: tituloSemEmissao.length + " título(s) pago(s) sem data de emissão, somando "
+          + formatarNumero(somaDe(tituloSemEmissao), 2) + ": a competência caiu no mês do pagamento",
+        linhas: tituloSemEmissao
+      });
+    }
+
+    var despesaForaDeTitulo = candidatasNota.filter(function (l) {
+      /* So contas correntes bancarias e caixa: compra no cartao (CR)     */
+      /* nunca vira titulo, entao o alerta nao teria acao possivel.      */
+      return l.tipo === "pagar" && ehMovimento(l)
+        && (l.contaTipo === "CC" || l.contaTipo === "CX")
+        && SECOES_DRE_CHAVES.indexOf(secaoDaLinha(l)) >= 0
+        && Math.abs(l.valor) >= LIMITE_DESPESA_FORA_DE_TITULO;
+    });
+    if (despesaForaDeTitulo.length) {
+      achados.push({
+        nivel: "alerta",
+        severidade: "baixa",
+        titulo: "Despesa relevante fora de título",
+        detalhe: despesaForaDeTitulo.length + " pagamento(s) de " + formatarNumero(LIMITE_DESPESA_FORA_DE_TITULO, 2)
+          + " ou mais sem título, pagos direto da conta corrente ou do caixa, somando "
+          + formatarNumero(somaDe(despesaForaDeTitulo), 2),
+        linhas: despesaForaDeTitulo
+      });
+    }
+
+    /* Sem tipo, a conta nao entra na regra acima e cai como caixa na     */
+    /* posicao do topo; fica visivel aqui para corrigir o cadastro.       */
+    var contaSemTipo = linhas.filter(function (l) { return !l.contaTipo; });
+    if (contaSemTipo.length) {
+      var nomesSemTipo = Array.from(new Set(contaSemTipo.map(function (l) { return l.conta; })));
+      achados.push({
+        nivel: "alerta",
+        severidade: "baixa",
+        titulo: "Conta sem tipo no cadastro",
+        detalhe: contaSemTipo.length + " lançamento(s) em conta sem tipo na Omie (" + nomesSemTipo.join(", ")
+          + "): ficam fora de \"Despesa relevante fora de título\" e contam como caixa na posição do topo",
+        linhas: contaSemTipo
       });
     }
 
@@ -683,6 +767,14 @@
       }
     });
 
+    /* Ordem por gravidade: erro, alta, media, alertas sem severidade      */
+    /* (sem data, duplicidade, cancelado), baixa. Empate mantem a ordem.  */
+    var PESO_GRAVIDADE = { "alta": 1, "média": 2, "baixa": 4 };
+    function pesoDe(a) { return a.nivel === "erro" ? 0 : (PESO_GRAVIDADE[a.severidade] || 3); }
+    achados = achados.map(function (a, i) { return [a, i]; })
+      .sort(function (x, y) { return (pesoDe(x[0]) - pesoDe(y[0])) || (x[1] - y[1]); })
+      .map(function (par) { return par[0]; });
+
     return {
       meses: meses,
       bruto: bruto,
@@ -705,6 +797,7 @@
       acumulado: acumulado,
       fcl: fcl,
       contas: contas,
+      tipoConta: tipoConta,
       movConta: movConta,
       saldoConta: saldoConta,
       integridade: integridade,
@@ -3290,11 +3383,17 @@
       id: idEstavel,
       idTitulo: linha.id || "",
       idMovimento: linha.id_movimento || "",
+      tipo: linha.tipo || "",
       grupo: linha.grupo,
       categoria: linha.categoria,
       codigoCategoria: linha.codigo_categoria || "",
       codigoGrupo: linha.codigo_grupo || "",
       conta: linha.conta,
+      /* Codigo e tipo da conta corrente, do cadastro da Omie             */
+      /* (tipo_conta_corrente): CC conta corrente, CX caixa, CR cartao de */
+      /* credito, CV conta garantia (caucao). O tipo decide, nunca o nome. */
+      contaCodigo: String(linha.conta_codigo || ""),
+      contaTipo: String(linha.conta_tipo || "").toUpperCase(),
       situacao: linha.situacao,
       liquidado: String(linha.liquidado || "").toUpperCase() === "S",
       documento: linha.documento || "",
@@ -3901,8 +4000,11 @@
 
       dados.contas.forEach(function (conta) {
         var saldo = dados.saldoConta[conta][ultimoMes];
-        if (/garantia|cau/i.test(conta)) { garantia += saldo; nomes.garantia.push(conta); }
-        else if (/cart/i.test(conta)) { cartao += saldo; nomes.cartao.push(conta); }
+        /* Pelo tipo do cadastro da Omie, nunca pelo nome: CV e caucao, CR */
+        /* e cartao; CC, CX e conta sem tipo contam como caixa.            */
+        var tipo = dados.tipoConta[conta] || "";
+        if (tipo === "CV") { garantia += saldo; nomes.garantia.push(conta); }
+        else if (tipo === "CR") { cartao += saldo; nomes.cartao.push(conta); }
         else { corrente += saldo; nomes.corrente.push(conta); }
       });
 
@@ -4691,13 +4793,19 @@
         }, "Nenhum achado. Categorias dentro do plano, sem duplicidade aparente, sem cancelado na base e fluxo fechando com a base."),
         dados.achados.map(function (achado, indice) {
           var temLinhas = !!(achado.linhas && achado.linhas.length);
+          /* Erro de conciliacao e coral; alerta pela severidade: alta em  */
+          /* laranja, media e sem severidade em dourado, baixa em cinza.   */
+          var corAchado = achado.nivel === "erro" ? COR.coral
+            : achado.severidade === "alta" ? COR.orange
+            : achado.severidade === "baixa" ? COR.faint
+            : COR.brass;
           return h("div", {
             key: indice,
             className: "rounded px-4 py-3",
             style: {
               background: COR.surface,
-              borderLeft: "3px solid " + (achado.nivel === "erro" ? COR.coral : COR.brass),
               border: "1px solid " + COR.line,
+              borderLeft: "3px solid " + corAchado,
               cursor: temLinhas ? "pointer" : "default"
             },
             onClick: temLinhas ? function () { abrirAchado(achado); } : undefined,
@@ -4707,10 +4815,13 @@
               h("div", {
                 style: {
                   fontSize: 12,
-                  color: achado.nivel === "erro" ? COR.coral : COR.brass,
+                  color: corAchado,
                   fontWeight: 600
                 }
-              }, achado.titulo),
+              }, achado.titulo,
+                achado.severidade && h("span", {
+                  style: { marginLeft: 8, fontSize: 10, fontWeight: 400, letterSpacing: "0.08em", textTransform: "uppercase" }
+                }, "severidade " + achado.severidade)),
               temLinhas && h("span", { style: { fontSize: 10, color: COR.faint } }, "ver lançamentos")
             ),
             h("div", { className: "mt-0.5", style: { fontSize: 12, color: COR.dim } }, achado.detalhe)
