@@ -3376,6 +3376,14 @@
   /* nao depende de posicao. So cai no indice se nenhum dos dois existir,   */
   /* o que na pratica nao deveria acontecer -- todo lancamento tem pelo     */
   /* menos um movimento de conta corrente por tras. */
+  /* Contas da carga com um dos tipos do cadastro da Omie (CC, CX, CR,   */
+  /* CV). Mesma regra da posicao do topo: o tipo decide, nunca o nome.   */
+  function contasDoTipo(dados, tipos) {
+    return dados.contas.filter(function (conta) {
+      return tipos.indexOf(dados.tipoConta[conta] || "") >= 0;
+    });
+  }
+
   function normalizarLinha(linha, indice) {
     var contraparte = resolverContraparte(linha);
     var idEstavel = linha.id || (linha.id_movimento ? "M" + linha.id_movimento : "L" + indice);
@@ -3953,7 +3961,7 @@
           }])
       });
 
-      var contasGarantia = dados.contas.filter(function (c) { return /garantia|cau/i.test(c); });
+      var contasGarantia = contasDoTipo(dados, ["CV"]);
       var linhaCaucao = escreverLinha("grupo", "   (-) Caução travada em garantia (saldo no fim do mês)", function (c) {
         return contasGarantia.length
           ? "-(" + contasGarantia.map(function (conta) { return saldoAcumuladoConta(conta, c); }).join("+") + ")"
@@ -4592,14 +4600,14 @@
       var faturaCartao = {};
       var corrido = 0;
 
+      var contasCaucao = contasDoTipo(dados, ["CV"]);
+      var contasCartao = contasDoTipo(dados, ["CR"]);
       meses.forEach(function (mes) {
         corrido += dados.fcl[mes];
         saldoAcumulado[mes] = corrido;
-        caucaoNegativa[mes] = -dados.contas
-          .filter(function (c) { return /garantia|cau/i.test(c); })
+        caucaoNegativa[mes] = -contasCaucao
           .reduce(function (soma, conta) { return soma + dados.saldoConta[conta][mes]; }, 0);
-        faturaCartao[mes] = dados.contas
-          .filter(function (c) { return /cart/i.test(c) && !/garantia|cau/i.test(c); })
+        faturaCartao[mes] = contasCartao
           .reduce(function (soma, conta) { return soma + dados.saldoConta[conta][mes]; }, 0);
         caixaLivre[mes] = saldoAcumulado[mes] + caucaoNegativa[mes];
       });
