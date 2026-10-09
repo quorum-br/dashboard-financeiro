@@ -3706,15 +3706,22 @@
         return BASE + "!" + COL_DATA + "$2:" + COL_DATA + "$" + ultimaLinhaBase + ',">="&' + colunaMes + "$3,"
              + BASE + "!" + COL_DATA + "$2:" + COL_DATA + "$" + ultimaLinhaBase + ',"<"&EDATE(' + colunaMes + "$3,1)";
       };
+      /* Criterio de texto exato para SUMIFS. Sem o "=" na frente, o Excel */
+      /* le o nome como operador: a categoria "<Disponível>" virava "menor */
+      /* que Disponível" e somava as outras categorias do grupo (em jul/26 */
+      /* contou de novo a devolucao de 8.000). * ? e ~ seriam curingas.    */
+      var criterioTexto = function (texto) {
+        return '"=' + String(texto).replace(/[~*?]/g, "~$&").replace(/"/g, '""') + '"';
+      };
       var somaCategoria = function (grupo, categoria, colunaMes) {
         return "SUMIFS(" + FAIXA_VALOR
-          + "," + BASE + "!$B$2:$B$" + ultimaLinhaBase + ',"' + grupo + '"'
-          + "," + BASE + "!$C$2:$C$" + ultimaLinhaBase + ',"' + categoria + '"'
+          + "," + BASE + "!$B$2:$B$" + ultimaLinhaBase + "," + criterioTexto(grupo)
+          + "," + BASE + "!$C$2:$C$" + ultimaLinhaBase + "," + criterioTexto(categoria)
           + "," + criterioMes(colunaMes) + ")";
       };
       var saldoAcumuladoConta = function (conta, colunaMes) {
         return "SUMIFS(" + FAIXA_VALOR
-          + "," + BASE + "!$D$2:$D$" + ultimaLinhaBase + ',"' + conta + '"'
+          + "," + BASE + "!$D$2:$D$" + ultimaLinhaBase + "," + criterioTexto(conta)
           + "," + BASE + "!" + COL_DATA + "$2:" + COL_DATA + "$" + ultimaLinhaBase
           + ',"<"&EDATE(' + colunaMes + "$3,1))";
       };
@@ -3756,7 +3763,11 @@
         return linhaAtual++;
       }
 
+      /* Linha fina de separacao. Cada grupo ja termina com uma; se a      */
+      /* linha anterior ja e fina, nao poe outra (nunca duas seguidas).     */
       function linhaVazia() {
+        var anterior = abaQuorum.linhas.filter(function (l) { return l.r === linhaAtual - 1; })[0];
+        if (anterior && anterior.altura === 3) return;
         abaQuorum.linhas.push({ r: linhaAtual, celulas: [], altura: 3 });
         linhaAtual++;
       }
@@ -3934,6 +3945,9 @@
       });
       linhaVazia();
       dados.secoesFluxo.forEach(function (secao) { escreverSecao(secao); });
+      /* "Nao classificado" costuma vir sem grupo e, sem grupo, nao termina */
+      /* em linha fina: sem esta, o Fluxo de Caixa Livre colava nela.       */
+      linhaVazia();
 
       var linhaFcl = escreverLinha("total", "(=) Fluxo de Caixa Livre do mês", function (c) {
         return c + linhaLucroNoFluxo + "+" + c + linhaDaSecao.entradas + "+" + c + linhaDaSecao.saidas
