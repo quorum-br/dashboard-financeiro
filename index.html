@@ -3314,6 +3314,117 @@
 
   var URL_API = window.__QUORUM_API__ || "";
 
+  /* Login com Google (decisao de Alex, 10/10/2026). O ID de cliente e    */
+  /* publico por natureza; a credencial do Google so vale para ele. Quem  */
+  /* decide se a pessoa entra e o n8n, nunca esta pagina: ele confere a   */
+  /* assinatura no Google, o dominio quorum-br.com e a tabela de usuarios */
+  /* ('QUORUM Painel - Usuarios', administrada pela aba Acessos).         */
+  var GOOGLE_CLIENT_ID = "24757321664-gpb181p8tfus3p2eu51ushgv2g1brlvr.apps.googleusercontent.com";
+  var DOMINIO_LOGIN = "quorum-br.com";
+  var URL_ACESSOS = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-acessos";
+  var TELAS_DO_PAINEL = [["financeiro", "Financeiro"], ["bp", "Business Plan"]];
+
+  /* Validade da credencial lida do proprio token, so para nao tentar usar */
+  /* um vencido (o Google emite por 1 hora). Nao e conferencia de seguranca:*/
+  /* essa e feita no n8n.                                                   */
+  function expiracaoDoToken(token) {
+    try {
+      var corpo = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      var dados = JSON.parse(decodeURIComponent(escape(window.atob(corpo))));
+      return Number(dados.exp) * 1000 || 0;
+    } catch (e) { return 0; }
+  }
+  function tokenAindaValido(token) {
+    return expiracaoDoToken(token) > Date.now() + 60000;
+  }
+
+  /* Chama o workflow de acessos. Devolve a resposta JSON; 401 e 403 viram */
+  /* erro com a mensagem do n8n e a marca de sessao recusada.               */
+  function chamarAcessos(token, corpo) {
+    return fetch(URL_ACESSOS, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json", "x-quorum-id-token": token },
+      body: JSON.stringify(corpo)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (json) {
+        if (r.ok && json && json.ok) return json;
+        var erro = new Error((json && json.erro) || ("HTTP " + r.status));
+        erro.sessaoRecusada = r.status === 401 || r.status === 403;
+        throw erro;
+      });
+    });
+  }
+
+  var promessaGoogle = null;
+  function carregarGoogle() {
+    if (window.google && window.google.accounts && window.google.accounts.id) return Promise.resolve(window.google);
+    if (promessaGoogle) return promessaGoogle;
+    promessaGoogle = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.onload = function () { resolve(window.google); };
+      s.onerror = function () { promessaGoogle = null; reject(new Error("não consegui carregar o login do Google")); };
+      document.head.appendChild(s);
+    });
+    return promessaGoogle;
+  }
+
+  /* O Google so aceita um initialize por pagina; quem recebe a credencial */
+  /* muda conforme o momento: a tela de login, ou a renovacao silenciosa   */
+  /* da sessao com o painel aberto.                                        */
+  var receptorCredencial = null;
+  var googleIniciado = false;
+  function iniciarGoogle() {
+    return carregarGoogle().then(function (google) {
+      if (!googleIniciado) {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          hd: DOMINIO_LOGIN,
+          auto_select: true,
+          cancel_on_tap_outside: false,
+          use_fedcm_for_prompt: true,
+          callback: function (resp) {
+            if (resp && resp.credential && receptorCredencial) receptorCredencial(resp.credential);
+          }
+        });
+        googleIniciado = true;
+      }
+      return google;
+    });
+  }
+
+  /* Pede ao Google uma credencial nova sem sair da tela. Com auto_select, */
+  /* quem ja entrou neste navegador recebe na hora, sem clicar; se o       */
+  /* Google precisar de um clique ou nao conseguir, a promessa falha e o   */
+  /* painel mostra um aviso com o botao, sem perder o que esta na tela.    */
+  function renovarCredencial() {
+    return iniciarGoogle().then(function (google) {
+      return new Promise(function (resolve, reject) {
+        var encerrado = false;
+        function fim(erro, credencial) {
+          if (encerrado) return;
+          encerrado = true;
+          clearTimeout(limite);
+          receptorCredencial = null;
+          if (erro) reject(erro); else resolve(credencial);
+        }
+        var limite = setTimeout(function () { fim(new Error("o Google não renovou a sessão")); }, 20000);
+        receptorCredencial = function (credencial) { fim(null, credencial); };
+        try {
+          google.accounts.id.prompt(function (aviso) {
+            try {
+              if (aviso && ((aviso.isNotDisplayed && aviso.isNotDisplayed()) || (aviso.isSkippedMoment && aviso.isSkippedMoment()))) {
+                fim(new Error("o Google pediu um clique para renovar"));
+              }
+            } catch (e) {}
+          });
+        } catch (e) { fim(e); }
+      });
+    });
+  }
+
   /* Versao do contrato que este painel sabe ler, e os campos sem os quais */
   /* nao ha calculo confiavel. As duas travas existem pela mesma razao: um */
   /* numero errado com cara de numero certo e pior que nenhum numero. Se o */
@@ -3420,27 +3531,35 @@
 
   /* ------------------------------------------------------------------ */
   /* 10-A. TELA DE LOGIN                                                 */
-  /* Substitui a chave na URL por uma senha guardada no navegador.       */
-  /* A senha nunca e validada aqui: e so enviada ao n8n por header, que   */
-  /* e quem decide se ela e valida.                                      */
+  /* Botao "Entrar com Google". A pagina so repassa a credencial; quem    */
+  /* aceita ou recusa e o n8n (dominio, assinatura e tabela de usuarios). */
+  /* A senha compartilhada antiga deixou de existir aqui.                */
   /* ------------------------------------------------------------------ */
 
   function TelaLogin(props) {
-    var estValor = useState("");
-    var valor = estValor[0], setValor = estValor[1];
+    var caixaBotao = useRef(null);
+    var estFalha = useState("");
+    var falha = estFalha[0], setFalha = estFalha[1];
+    var aoEntrar = useRef(props.aoEntrar);
+    aoEntrar.current = props.aoEntrar;
 
-    function enviar(evento) {
-      if (evento && evento.preventDefault) evento.preventDefault();
-      var limpo = valor.trim();
-      if (!limpo) return;
-      props.aoEntrar(limpo);
-    }
+    useEffect(function () {
+      var vivo = true;
+      receptorCredencial = function (credencial) { aoEntrar.current(credencial); };
+      iniciarGoogle().then(function (google) {
+        if (!vivo || !caixaBotao.current) return;
+        google.accounts.id.renderButton(caixaBotao.current, {
+          theme: "outline", size: "large", text: "signin_with", shape: "rectangular", width: 320, locale: "pt-BR"
+        });
+      }).catch(function (erro) { if (vivo) setFalha(erro.message); });
+      return function () { vivo = false; receptorCredencial = null; };
+    }, []);
 
     return h("div", {
       className: "min-h-screen w-full flex items-center justify-center p-6",
       style: { background: COR.bg, color: COR.text }
     },
-      h("form", { onSubmit: enviar, className: "max-w-sm w-full" },
+      h("div", { className: "max-w-sm w-full" },
         h("div", {
           className: "uppercase mb-2",
           style: { fontSize: 10, letterSpacing: "0.3em", color: COR.brass }
@@ -3452,32 +3571,198 @@
         h("p", {
           className: "text-sm mb-5",
           style: { color: COR.faint }
-        }, "Digite a senha para continuar."),
-        h("input", {
-          type: "password",
-          autoFocus: true,
-          value: valor,
-          onChange: function (evento) { setValor(evento.target.value); },
-          placeholder: "senha",
-          className: "w-full px-3 py-2.5 rounded mb-3",
-          style: {
-            fontSize: 14,
-            background: COR.surface,
-            border: "1px solid " + (props.erro ? COR.coral : COR.line),
-            color: COR.text,
-            outline: "none"
-          }
-        }),
-        props.erro && h("div", {
-          className: "text-sm mb-3",
-          style: { color: COR.coral }
-        }, props.erro),
-        h("button", {
-          type: "submit",
-          className: "w-full py-2.5 rounded text-sm",
-          style: { background: COR.brass, color: "#FFFFFF", fontWeight: 600 }
-        }, props.entrando ? "Entrando..." : "Entrar")
+        }, "Entre com a sua conta Google @" + DOMINIO_LOGIN + "."),
+        /* O botao fica sempre montado (so escondido enquanto confere): o  */
+        /* Google desenha nele uma vez so, e ele precisa voltar apos uma   */
+        /* recusa.                                                          */
+        props.entrando && h("div", { className: "text-sm py-2.5", style: { color: COR.dim } }, "Conferindo o seu acesso..."),
+        h("div", { ref: caixaBotao, style: { minHeight: 44, display: props.entrando ? "none" : "block" } }),
+        (props.erro || falha) && h("div", {
+          className: "text-sm mt-3 p-3 rounded",
+          style: { color: COR.coral, background: COR.coralSoft }
+        }, props.erro || falha),
+        h("p", {
+          className: "mt-5",
+          style: { fontSize: 11, color: COR.faint, lineHeight: 1.5 }
+        }, "Só entram contas do domínio liberadas por um administrador. Para pedir acesso, fale com o Alex.")
       )
+    );
+  }
+
+  /* Faixa no topo quando a sessao venceu e o Google nao renovou sozinho: */
+  /* o painel continua na tela, com os dados ja carregados, e um clique   */
+  /* no botao do Google renova a sessao.                                  */
+  function AvisoSessao(props) {
+    var caixaBotao = useRef(null);
+    var aoRenovar = useRef(props.aoRenovar);
+    aoRenovar.current = props.aoRenovar;
+    useEffect(function () {
+      receptorCredencial = function (credencial) { aoRenovar.current(credencial); };
+      iniciarGoogle().then(function (google) {
+        if (caixaBotao.current) google.accounts.id.renderButton(caixaBotao.current, { theme: "outline", size: "medium", text: "continue_with", locale: "pt-BR" });
+      }).catch(function () {});
+      return function () { receptorCredencial = null; };
+    }, []);
+    return h("div", { className: "mx-6 mt-3 p-3 rounded flex flex-wrap items-center gap-3",
+      style: { background: COR.brassSoft, border: "1px solid " + COR.brass, fontSize: 12, color: COR.text } },
+      h("span", null, "A sua sessão venceu. Os números na tela continuam valendo; para atualizar ou gravar, confirme a sua conta:"),
+      h("div", { ref: caixaBotao }));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 10-B. TELA DE CONTROLE DE ACESSOS                                    */
+  /* So aparece para administrador, e cada leitura ou gravacao e         */
+  /* conferida de novo no n8n. Nao ha exclusao: bloquear guarda historico.*/
+  /* ------------------------------------------------------------------ */
+
+  function TelaAcessos(props) {
+    var estLista = useState(null);      var lista = estLista[0], setLista = estLista[1];
+    var estEdicao = useState({});       var edicao = estEdicao[0], setEdicao = estEdicao[1];
+    var estMsg = useState(null);        var msg = estMsg[0], setMsg = estMsg[1];
+    var estSalvando = useState("");     var salvando = estSalvando[0], setSalvando = estSalvando[1];
+    var novoVazio = { email: "", nome: "", perfil: "usuario", telas: ["financeiro"], ativo: true };
+    var estNovo = useState(novoVazio);  var novo = estNovo[0], setNovo = estNovo[1];
+
+    function falhou(erro) {
+      if (erro.sessaoRecusada && /expirad|inválid/i.test(erro.message)) {
+        setMsg({ tipo: "erro", texto: "A sessão venceu; renovando. Tente de novo em seguida." });
+        props.aoSessaoExpirada().then(function () { setMsg({ tipo: "ok", texto: "Sessão renovada. Pode repetir a ação." }); }).catch(function () {});
+        return;
+      }
+      setMsg({ tipo: "erro", texto: erro.message });
+    }
+
+    useEffect(function () {
+      chamarAcessos(props.token, { acao: "listar" })
+        .then(function (r) { setLista(r.usuarios); })
+        .catch(falhou);
+    }, []);
+
+    function valorDe(u) { return edicao[u.email] || u; }
+    function mudar(u, campo, valor) {
+      var atual = Object.assign({}, valorDe(u));
+      atual[campo] = valor;
+      if (campo === "perfil" && valor === "admin") atual.telas = TELAS_DO_PAINEL.map(function (t) { return t[0]; });
+      var copia = Object.assign({}, edicao); copia[u.email] = atual; setEdicao(copia);
+    }
+    /* O Business Plan usa a mesma base do Financeiro, e o webhook dela  */
+    /* exige o Financeiro: marcar o BP marca o Financeiro junto, e tirar */
+    /* o Financeiro tira o BP. O n8n aplica a mesma regra ao gravar.     */
+    function alternarTela(telas, tela) {
+      var tinha = telas.indexOf(tela) >= 0;
+      var nova = tinha ? telas.filter(function (t) { return t !== tela; }) : telas.concat([tela]);
+      if (!tinha && tela === "bp" && nova.indexOf("financeiro") < 0) nova = nova.concat(["financeiro"]);
+      if (tinha && tela === "financeiro") nova = nova.filter(function (t) { return t !== "bp"; });
+      return TELAS_DO_PAINEL.map(function (t) { return t[0]; }).filter(function (t) { return nova.indexOf(t) >= 0; });
+    }
+    function salvar(registro, aoTerminar) {
+      setSalvando(registro.email); setMsg(null);
+      return chamarAcessos(props.token, { acao: "salvar", usuario: registro })
+        .then(function (r) {
+          setLista(r.usuarios);
+          var copia = Object.assign({}, edicao); delete copia[registro.email]; setEdicao(copia);
+          setMsg({ tipo: "ok", texto: "Acesso de " + registro.email + " gravado." });
+          if (aoTerminar) aoTerminar();
+        })
+        .catch(falhou)
+        .then(function () { setSalvando(""); });
+    }
+    function adicionar(evento) {
+      evento.preventDefault();
+      var email = novo.email.trim().toLowerCase();
+      if (!new RegExp("^[a-z0-9._%+-]+@" + DOMINIO_LOGIN.replace(/\./g, "\\.") + "$").test(email)) {
+        setMsg({ tipo: "erro", texto: "Use um e-mail @" + DOMINIO_LOGIN + "." });
+        return;
+      }
+      if (lista && lista.some(function (u) { return u.email === email; })) {
+        setMsg({ tipo: "erro", texto: email + " já está na lista; altere na linha dele." });
+        return;
+      }
+      if (novo.perfil !== "admin" && !novo.telas.length) {
+        setMsg({ tipo: "erro", texto: "Marque pelo menos uma tela." });
+        return;
+      }
+      salvar(Object.assign({}, novo, { email: email }), function () { setNovo(novoVazio); });
+    }
+
+    var estiloCel = { padding: "8px 10px", borderBottom: "1px solid " + COR.lineSoft, fontSize: 12, verticalAlign: "middle" };
+    var estiloCab = { padding: "8px 10px", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: COR.faint, textAlign: "left", borderBottom: "1px solid " + COR.line };
+    var estiloCampo = { fontSize: 12, padding: "6px 8px", border: "1px solid " + COR.line, borderRadius: 4, background: COR.surface, color: COR.text };
+
+    function caixasDeTela(valor, aoMudar, travado) {
+      return TELAS_DO_PAINEL.map(function (t) {
+        return h("label", { key: t[0], className: "inline-flex items-center gap-1 mr-3", style: { fontSize: 12, color: travado ? COR.faint : COR.text } },
+          h("input", { type: "checkbox", checked: valor.indexOf(t[0]) >= 0, disabled: travado,
+            onChange: function () { aoMudar(alternarTela(valor, t[0])); } }),
+          t[1]);
+      });
+    }
+
+    return h("div", { className: "px-6 py-5 max-w-6xl" },
+      h("div", { className: "mb-1", style: { fontSize: 16, fontWeight: 600 } }, "Controle de acessos"),
+      h("div", { className: "mb-4", style: { fontSize: 12, color: COR.faint } },
+        "Só contas @" + DOMINIO_LOGIN + " liberadas aqui entram no painel. Administrador vê as duas telas e gerencia acessos. "
+        + "Bloquear tira o acesso na hora, sem apagar o histórico. O Business Plan só pode ser liberado junto com o Financeiro, "
+        + "porque é calculado a partir da mesma base."),
+      msg && h("div", { className: "mb-3 p-3 rounded", style: {
+        fontSize: 12,
+        background: msg.tipo === "ok" ? COR.mintSoft : COR.coralSoft,
+        color: msg.tipo === "ok" ? COR.mint : COR.coral } }, msg.texto),
+      !lista
+        ? h("div", { style: { fontSize: 12, color: COR.faint } }, msg ? "" : "Carregando a lista de acessos...")
+        : h("div", { className: "rounded overflow-x-auto", style: { background: COR.surface, border: "1px solid " + COR.line } },
+            h("table", { className: "w-full", style: { borderCollapse: "collapse", minWidth: 860 } },
+              h("thead", null, h("tr", null,
+                ["Pessoa", "Perfil", "Telas liberadas", "Situação", "Último acesso", ""].map(function (c, i) {
+                  return h("th", { key: i, style: estiloCab }, c);
+                }))),
+              h("tbody", null, lista.map(function (u) {
+                var v = valorDe(u);
+                var euMesmo = u.email === props.usuario.email;
+                var mudou = !!edicao[u.email];
+                return h("tr", { key: u.email, style: { opacity: v.ativo ? 1 : 0.6 } },
+                  h("td", { style: estiloCel },
+                    h("input", { value: v.nome, placeholder: "nome", style: Object.assign({}, estiloCampo, { width: 170 }),
+                      onChange: function (e) { mudar(u, "nome", e.target.value); } }),
+                    h("div", { style: { fontSize: 11, color: COR.dim, marginTop: 2 } }, u.email, euMesmo ? " (você)" : "")),
+                  h("td", { style: estiloCel },
+                    h("select", { value: v.perfil, disabled: euMesmo, style: estiloCampo,
+                      onChange: function (e) { mudar(u, "perfil", e.target.value); } },
+                      h("option", { value: "usuario" }, "Usuário"),
+                      h("option", { value: "admin" }, "Administrador"))),
+                  h("td", { style: estiloCel }, caixasDeTela(v.telas, function (t) { mudar(u, "telas", t); }, v.perfil === "admin")),
+                  h("td", { style: estiloCel },
+                    h("button", { disabled: euMesmo, onClick: function () { mudar(u, "ativo", !v.ativo); },
+                      className: "px-2 py-1 rounded",
+                      style: { fontSize: 11, border: "1px solid " + (v.ativo ? COR.mint : COR.coral), color: v.ativo ? COR.mint : COR.coral, background: COR.surface, opacity: euMesmo ? 0.6 : 1 },
+                      title: euMesmo ? "Você não pode bloquear o seu próprio acesso" : (v.ativo ? "Clique para bloquear" : "Clique para liberar") },
+                      v.ativo ? "Ativo" : "Bloqueado")),
+                  h("td", { style: Object.assign({}, estiloCel, { color: COR.dim }) }, u.ultimoAcesso || "nunca entrou"),
+                  h("td", { style: Object.assign({}, estiloCel, { textAlign: "right", whiteSpace: "nowrap" }) },
+                    mudou && h("button", { onClick: function () { var c = Object.assign({}, edicao); delete c[u.email]; setEdicao(c); },
+                      className: "px-2 py-1 mr-2", style: { fontSize: 11, color: COR.faint } }, "Desfazer"),
+                    h("button", { disabled: !mudou || !!salvando, onClick: function () { salvar(v); },
+                      className: "px-3 py-1 rounded",
+                      style: { fontSize: 11, background: mudou ? COR.brass : COR.surfaceAlt, color: mudou ? "#FFFFFF" : COR.faint } },
+                      salvando === u.email ? "Gravando..." : "Salvar")));
+              }))
+            )
+          ),
+      lista && h("form", { onSubmit: adicionar, className: "mt-5 rounded p-4 flex flex-wrap items-center gap-3",
+        style: { background: COR.surface, border: "1px dashed " + COR.brass } },
+        h("div", { style: { fontSize: 12, fontWeight: 600, width: "100%" } }, "Adicionar pessoa"),
+        h("input", { value: novo.email, placeholder: "nome@" + DOMINIO_LOGIN, style: Object.assign({}, estiloCampo, { width: 220 }),
+          onChange: function (e) { setNovo(Object.assign({}, novo, { email: e.target.value })); } }),
+        h("input", { value: novo.nome, placeholder: "nome", style: Object.assign({}, estiloCampo, { width: 170 }),
+          onChange: function (e) { setNovo(Object.assign({}, novo, { nome: e.target.value })); } }),
+        h("select", { value: novo.perfil, style: estiloCampo,
+          onChange: function (e) { setNovo(Object.assign({}, novo, { perfil: e.target.value })); } },
+          h("option", { value: "usuario" }, "Usuário"),
+          h("option", { value: "admin" }, "Administrador")),
+        h("span", null, caixasDeTela(novo.perfil === "admin" ? TELAS_DO_PAINEL.map(function (t) { return t[0]; }) : novo.telas,
+          function (t) { setNovo(Object.assign({}, novo, { telas: t })); }, novo.perfil === "admin")),
+        h("button", { type: "submit", disabled: !!salvando, className: "px-3 py-1.5 rounded",
+          style: { fontSize: 11, background: COR.brass, color: "#FFFFFF", fontWeight: 600 } }, "Adicionar"))
     );
   }
 
@@ -3534,29 +3819,87 @@
     var estGaveta = useState(null);            var gaveta = estGaveta[0], setGaveta = estGaveta[1];
     var estAviso = useState("");               var aviso = estAviso[0], setAviso = estAviso[1];
 
-    /* Autenticacao: chave lida da URL antiga (?k=) ou da memoria do        */
-    /* navegador. Nula significa "mostrar tela de login".                  */
-    var estChave = useState(function () {
-      var daUrl = new URLSearchParams(window.location.search).get("k");
-      return daUrl || armazenamento.getItem("quorum_chave") || null;
+    /* Autenticacao: credencial do Google guardada no navegador enquanto  */
+    /* valer (1 hora). Nula significa "mostrar tela de login". O usuario  */
+    /* (perfil e telas) vem do n8n a cada entrada, nunca do navegador.     */
+    var estToken = useState(function () {
+      var salvo = armazenamento.getItem("quorum_id_token");
+      return salvo && tokenAindaValido(salvo) ? salvo : null;
     });
-    var chave = estChave[0], setChave = estChave[1];
+    var token = estToken[0], setToken = estToken[1];
+    var estUsuario = useState(null);            var usuario = estUsuario[0], setUsuario = estUsuario[1];
     var estErroLogin = useState("");            var erroLogin = estErroLogin[0], setErroLogin = estErroLogin[1];
     var estEntrando = useState(false);          var entrando = estEntrando[0], setEntrando = estEntrando[1];
+    var estSessaoVencida = useState(false);     var sessaoVencida = estSessaoVencida[0], setSessaoVencida = estSessaoVencida[1];
 
     var campoData = regime === "caixa" ? "dPag" : "dEmi";
 
-    /* Limpa o ?k= da barra de enderecos assim que a chave foi capturada,   */
-    /* e guarda a chave na memoria do navegador para as proximas visitas.   */
+    /* A credencial do Google vale 1 hora. Cinco minutos antes de vencer,  */
+    /* pede uma nova em silencio; o painel nao sai da tela. Se o Google    */
+    /* precisar de um clique, aparece a faixa com o botao (AvisoSessao).   */
+    function renovarSessao() {
+      return renovarCredencial().then(function (nova) {
+        setToken(nova);
+        setSessaoVencida(false);
+        return nova;
+      }).catch(function (erro) {
+        setSessaoVencida(true);
+        throw erro;
+      });
+    }
     useEffect(function () {
+      if (!token || !usuario) return;
+      var falta = expiracaoDoToken(token) - Date.now() - 5 * 60 * 1000;
+      var relogio = setTimeout(function () { renovarSessao().catch(function () {}); }, Math.max(falta, 0));
+      return function () { clearTimeout(relogio); };
+    }, [token, !!usuario]);
+
+    /* A senha compartilhada antiga e o ?k= da URL deixaram de existir:    */
+    /* limpa o que tiver sobrado deles neste navegador.                    */
+    useEffect(function () {
+      armazenamento.removeItem("quorum_chave");
       var params = new URLSearchParams(window.location.search);
       if (params.get("k")) {
         window.history.replaceState({}, "", window.location.pathname + window.location.hash);
       }
     }, []);
     useEffect(function () {
-      if (chave) armazenamento.setItem("quorum_chave", chave);
-    }, [chave]);
+      if (token) armazenamento.setItem("quorum_id_token", token);
+      else armazenamento.removeItem("quorum_id_token");
+    }, [token]);
+
+    /* Encerra a sessao e volta para a tela de login, com o motivo. */
+    function encerrarSessao(motivo) {
+      setToken(null);
+      setUsuario(null);
+      setLinhas(null);
+      setResposta(null);
+      setErroLogin(motivo || "");
+      try { if (window.google && window.google.accounts) window.google.accounts.id.disableAutoSelect(); } catch (e) {}
+    }
+
+    /* Com a credencial em maos, pergunta ao n8n quem e a pessoa e o que   */
+    /* ela pode ver. So depois busca a base.                               */
+    useEffect(function () {
+      if (!token) return;
+      var vivo = true;
+      setEntrando(true);
+      chamarAcessos(token, { acao: "eu" })
+        .then(function (r) {
+          if (!vivo) return;
+          /* O webhook da base exige a tela Financeiro (o BP e calculado a */
+          /* partir dela), entao sem Financeiro nao ha o que mostrar.      */
+          if (r.usuario.telas.indexOf("financeiro") < 0) {
+            encerrarSessao("O seu acesso não inclui o Financeiro, e o Business Plan ainda usa a mesma base. Peça ao administrador para liberar o Financeiro.");
+            return;
+          }
+          setUsuario(r.usuario);
+          setErroLogin("");
+        })
+        .catch(function (erro) { if (vivo) encerrarSessao(erro.message); })
+        .then(function () { if (vivo) setEntrando(false); });
+      return function () { vivo = false; };
+    }, [token]);
 
     /* Preferencias persistidas entre visitas. */
     useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
@@ -3570,24 +3913,24 @@
     /* Busca a base na Omie, via webhook. A senha vai por header, nunca   */
     /* mais pela URL. Uma recusa 401 derruba a sessao e volta pra tela de  */
     /* login, em vez de cair no aviso vermelho generico de erro de rede.   */
-    function buscarBase(forcar) {
+    function buscarBase(forcar, tokenUsado, jaRenovou) {
+      tokenUsado = tokenUsado || token;
       if (!URL_API) {
         setAviso("A URL da base não foi configurada nesta página. Fale com o Alex.");
         setCarregando(false);
         return Promise.resolve();
       }
-      if (!chave) return Promise.resolve();
+      if (!tokenUsado) return Promise.resolve();
       setCarregando(true);
-      setEntrando(true);
       setAviso("");
-      var cabecalhos = { "x-quorum-key": chave };
+      var cabecalhos = { "x-quorum-id-token": tokenUsado };
       /* "Atualizar agora" sempre pula o cache do n8n; carregamento normal */
       /* de pagina usa o cache quando ele existe e esta dentro do TTL.     */
       if (forcar) cabecalhos["x-forcar-atualizacao"] = "1";
       return fetch(URL_API, { cache: "no-store", headers: cabecalhos })
         .then(function (r) {
           if (r.status === 401) {
-            var recusado = new Error("Senha incorreta.");
+            var recusado = new Error("Sessão expirada ou acesso recusado. Entre de novo.");
             recusado.autenticacaoRecusada = true;
             throw recusado;
           }
@@ -3617,18 +3960,23 @@
           setErroLogin("");
         })
         .catch(function (erro) {
+          /* Recusa com a base ja na tela: provavelmente a credencial      */
+          /* venceu. Renova em silencio e tenta uma vez mais; se nao der,   */
+          /* a faixa da sessao aparece e os numeros continuam na tela.     */
           if (erro && erro.autenticacaoRecusada) {
-            armazenamento.removeItem("quorum_chave");
-            setChave(null);
-            setErroLogin("Senha incorreta. Tenta de novo.");
+            if (!jaRenovou) {
+              return renovarSessao().then(function (nova) { return buscarBase(forcar, nova, true); }).catch(function () {});
+            }
+            if (!linhas) { encerrarSessao(erro.message); return; }
+            setSessaoVencida(true);
             return;
           }
           setAviso("Não consegui buscar a base agora: " + erro.message + ". Tenta de novo em alguns segundos.");
         })
-        .then(function () { setCarregando(false); setEntrando(false); });
+        .then(function () { setCarregando(false); });
     }
 
-    useEffect(function () { if (chave) buscarBase(); }, [chave]);
+    useEffect(function () { if (token && usuario) buscarBase(); }, [token, usuario && usuario.email]);
 
     var dados = useMemo(function () {
       return linhas ? calcular(linhas, regime) : null;
@@ -4040,12 +4388,12 @@
       };
     }, [dados, ultimoMes]);
 
-    /* Sem chave, nem tenta buscar: mostra a tela de login direto. */
-    if (!chave) {
+    /* Sem sessao confirmada pelo n8n, mostra a tela de login. */
+    if (!token || !usuario) {
       return h(TelaLogin, {
         erro: erroLogin,
-        entrando: entrando,
-        aoEntrar: function (valor) { setErroLogin(""); setChave(valor); }
+        entrando: !!token && entrando,
+        aoEntrar: function (credencial) { setErroLogin(""); setToken(credencial); }
       });
     }
 
@@ -4229,12 +4577,13 @@
           style: { fontSize: 9, letterSpacing: "0.3em", color: COR.brass }
         }, "QUORUM"),
         h("div", { className: "text-sm", style: { fontWeight: 600 } },
-          telaMaster === "bp" ? "Business Plan QUORUM" : "Dashboard Financeiro QUORUM")
+          telaMaster === "bp" ? "Business Plan QUORUM" : telaMaster === "acessos" ? "Controle de acessos QUORUM" : "Dashboard Financeiro QUORUM")
       ),
 
       /* Tela master: alterna entre o dashboard do realizado e o BP. */
       h("div", { className: "flex rounded overflow-hidden ml-2", style: { border: "1px solid " + COR.line } },
-        [["financeiro", "Financeiro"], ["bp", "Business Plan"]].map(function (par) {
+        TELAS_DO_PAINEL.filter(function (par) { return usuario.telas.indexOf(par[0]) >= 0; })
+          .concat(usuario.perfil === "admin" ? [["acessos", "Acessos"]] : []).map(function (par) {
           var valor = par[0], rotulo = par[1];
           return h("button", {
             key: valor,
@@ -4242,7 +4591,8 @@
             className: "px-3 py-1.5",
             title: valor === "financeiro"
               ? "Realizado: DRE, fluxo de caixa e conciliação a partir da Omie"
-              : "Projeção: premissas e motor de projeção",
+              : valor === "bp" ? "Projeção: premissas e motor de projeção"
+              : "Quem pode entrar no painel e o que cada pessoa vê",
             style: {
               fontSize: 11,
               background: telaMaster === valor ? COR.brass : "transparent",
@@ -4309,14 +4659,13 @@
         }, carregando ? "Atualizando..." : "Atualizar agora")
       ),
 
+      h("span", { className: "ml-1", style: { fontSize: 11, color: COR.dim }, title: usuario.perfil === "admin" ? "Administrador" : "Usuário" },
+        usuario.email),
       h("button", {
-        onClick: function () {
-          armazenamento.removeItem("quorum_chave");
-          setChave(null);
-        },
+        onClick: function () { encerrarSessao(""); },
         className: "px-2 py-1.5",
         style: { fontSize: 11, color: COR.faint },
-        title: "Esquece a senha guardada neste navegador"
+        title: "Sai da conta neste navegador"
       }, "Sair")
     );
 
@@ -4955,6 +5304,7 @@
         aoFechar: function () { setGaveta(null); }
       }),
       barraSuperior,
+      sessaoVencida && h(AvisoSessao, { aoRenovar: function (nova) { setToken(nova); setSessaoVencida(false); } }),
       telaMaster === "financeiro"
         ? h(Fragment, null,
             aviso && h("div", {
@@ -4981,7 +5331,9 @@
                   )
             )
           )
-        : h(PainelBP, { linhas: linhas, abertos: emAberto })
+        : telaMaster === "acessos" && usuario.perfil === "admin"
+          ? h(TelaAcessos, { token: token, usuario: usuario, aoSessaoExpirada: function () { return renovarSessao(); } })
+          : h(PainelBP, { linhas: linhas, abertos: emAberto })
     );
   }
 
