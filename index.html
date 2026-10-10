@@ -3698,8 +3698,8 @@
       });
     }
 
-    return h("div", { className: "px-6 py-5 max-w-6xl" },
-      h("div", { className: "mb-1", style: { fontSize: 16, fontWeight: 600 } }, "Controle de acessos"),
+    return h("div", { className: "max-w-6xl" },
+      h("h1", { className: "mb-1", style: { margin: 0, fontSize: 20, fontWeight: 600 } }, "Acessos"),
       h("div", { className: "mb-4", style: { fontSize: 12, color: COR.faint } },
         "Só contas @" + DOMINIO_LOGIN + " liberadas aqui entram no painel. Administrador vê as duas telas e gerencia acessos. "
         + "Bloquear tira o acesso na hora, sem apagar o histórico. O Business Plan só pode ser liberado junto com o Financeiro, "
@@ -3767,6 +3767,194 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* 10-C. NAVEGACAO: ROTAS, ICONES E BARRA LATERAL                      */
+  /* Desenho de Alex (11/10/2026), inspirado no console do Google Cloud:  */
+  /* barra lateral com todas as telas agrupadas por categoria; no topo,   */
+  /* so o que vale para a pagina toda. Cada tela tem endereco proprio     */
+  /* (#/categoria/tela) para favoritar e para o voltar do navegador.      */
+  /* Navegacao e layout apenas: nenhum calculo mora aqui.                 */
+  /* ------------------------------------------------------------------ */
+
+  /* tela: "financeiro" ou "bp" (telas liberadas na aba Acessos) ou      */
+  /* "admin" (so administrador). aba: o que cada tela usava antes.       */
+  var ROTAS = [
+    /* Ordem e agrupamento definidos por Alex em 11/10/2026, depois de    */
+    /* navegar na primeira versao: o resumo (faixa da base e cartoes) fica */
+    /* no topo das telas marcadas com resumo: true, e nao e tela propria.  */
+    { id: "dre", cat: "Resultado e Caixa", rotulo: "DRE", hash: "resultado-e-caixa/dre", tela: "financeiro", icone: "tabela", resumo: true },
+    { id: "caixa", cat: "Resultado e Caixa", rotulo: "Fluxo de caixa", hash: "resultado-e-caixa/fluxo", tela: "financeiro", icone: "fluxo", resumo: true },
+    { id: "apres", cat: "Resultado e Caixa", rotulo: "Gráficos", hash: "resultado-e-caixa/graficos", tela: "financeiro", icone: "slides" },
+    { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
+    { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
+    { id: "cc", cat: "Centros de Custos e Projetos", rotulo: "Resultado por Centro de Custo", hash: "centros-e-projetos/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
+    { id: "proj", cat: "Centros de Custos e Projetos", rotulo: "Resultado por Projeto", hash: "centros-e-projetos/projeto", tela: "financeiro", icone: "pasta", resumo: true },
+    { id: "bp-cons", cat: "Planejamento", grupo: "Business Plan", rotulo: "Consolidado", hash: "planejamento/bp/consolidado", tela: "bp", icone: "grafico", bp: "cons" },
+    { id: "bp-com", cat: "Planejamento", grupo: "Business Plan", rotulo: "Comunidade", hash: "planejamento/bp/comunidade", tela: "bp", icone: "grafico", bp: "com" },
+    { id: "bp-tech", cat: "Planejamento", grupo: "Business Plan", rotulo: "Tech", hash: "planejamento/bp/tech", tela: "bp", icone: "grafico", bp: "tech" },
+    { id: "premissas", cat: "Planejamento", rotulo: "Premissas e parâmetros", hash: "planejamento/premissas", tela: "bp", icone: "ajustes", bp: "premissas" },
+    { id: "achados", cat: "Controle", rotulo: "Achados", hash: "controle/achados", tela: "financeiro", icone: "alerta" },
+    { id: "exportacoes", cat: "Controle", rotulo: "Exportações", hash: "controle/exportacoes", tela: "financeiro", icone: "baixar" },
+    { id: "acessos", cat: "Administração", rotulo: "Acessos", hash: "administracao/acessos", tela: "admin", icone: "pessoas" }
+  ];
+  var ROTA_INICIAL = "dre";
+
+  function rotaPorId(id) { return ROTAS.filter(function (r) { return r.id === id; })[0] || null; }
+  function rotaDoEndereco() {
+    var trecho = String(window.location.hash || "").replace(/^#\/?/, "").replace(/\/+$/, "");
+    var achada = ROTAS.filter(function (r) { return r.hash === trecho; })[0];
+    return achada ? achada.id : null;
+  }
+  /* A pagina so mostra o que o n8n liberou para a pessoa; o n8n confere */
+  /* de novo em cada pedido de dados.                                    */
+  function rotaPermitida(rota, usuario) {
+    if (!rota || !usuario) return false;
+    if (rota.tela === "admin") return usuario.perfil === "admin";
+    return usuario.telas.indexOf(rota.tela) >= 0;
+  }
+  function tituloDaRota(rota) {
+    return rota.grupo ? rota.grupo + " · " + rota.rotulo : rota.rotulo;
+  }
+
+  /* Icones de traco, 18 px, desenhados aqui para nao depender de fonte  */
+  /* nem de biblioteca externa.                                           */
+  var ICONES = {
+    resumo: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z",
+    slides: "M3 4h18v12H3zM12 16v4M8 20h8",
+    tabela: "M4 5h16M4 10h16M4 15h16M4 20h10",
+    centro: "M12 3v5M5 12h14M5 12v4M12 8v8M19 12v4M3 16h4v4H3zM10 16h4v4h-4zM17 16h4v4h-4z",
+    pasta: "M3 6h6l2 2h10v11H3z",
+    carteira: "M3 7h16v12H3zM3 7l12-3v3M16 13h3",
+    fluxo: "M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4",
+    agenda: "M4 6h16v14H4zM4 10h16M8 3v5M16 3v5",
+    grafico: "M4 19h16M6 15l4-5 4 3 5-7",
+    ajustes: "M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6",
+    alerta: "M12 4l9 16H3zM12 10v4M12 17v1",
+    baixar: "M12 4v11M7 10l5 5 5-5M5 20h14",
+    pessoas: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 .5 3 2.5 3 5",
+    menu: "M4 6h16M4 12h16M4 18h16",
+    recolher: "M15 6l-6 6 6 6",
+    expandir: "M9 6l6 6-6 6"
+  };
+  function Icone(props) {
+    return h("svg", { width: props.tamanho || 18, height: props.tamanho || 18, viewBox: "0 0 24 24", fill: "none",
+      stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true",
+      style: { flex: "none" } },
+      h("path", { d: ICONES[props.nome] || "" }));
+  }
+
+  /* Barra lateral. recolhida: so icones (lembrado no navegador). No     */
+  /* celular ela vira menu por cima da pagina, aberto pelo botao do topo. */
+  function BarraLateral(props) {
+    var recolhida = props.recolhida && !props.celular;
+    var categorias = [];
+    props.rotas.forEach(function (r) { if (categorias.indexOf(r.cat) < 0) categorias.push(r.cat); });
+
+    function item(r, opcoes) {
+      var ativo = props.atual === r.id;
+      var sub = opcoes && opcoes.sub;
+      return h("a", {
+        key: r.id,
+        href: "#/" + r.hash,
+        onClick: function (e) { e.preventDefault(); props.aoNavegar(r.id); },
+        title: recolhida ? tituloDaRota(r) : undefined,
+        "aria-current": ativo ? "page" : undefined,
+        className: "flex items-center",
+        style: {
+          gap: 10, textDecoration: "none", fontSize: sub ? 12 : 12.5,
+          padding: recolhida ? "8px 0" : (sub ? "6px 10px 6px 40px" : "7px 10px"),
+          justifyContent: recolhida ? "center" : "flex-start",
+          margin: recolhida ? "2px 6px" : "1px 8px 1px 0",
+          borderRadius: recolhida ? 8 : "0 18px 18px 0",
+          borderLeft: !recolhida && ativo ? "3px solid " + COR.brass : "3px solid transparent",
+          background: ativo ? COR.brassSoft : "transparent",
+          color: ativo ? "#6B520F" : COR.dim,
+          fontWeight: ativo ? 600 : 400
+        }
+      },
+        !sub && h("span", { style: { color: ativo ? COR.brass : COR.faint, display: "flex" } }, h(Icone, { nome: r.icone })),
+        !recolhida && h("span", { style: { flex: 1, minWidth: 0 } }, r.rotulo),
+        !recolhida && props.contagens[r.id] !== undefined && h("span", {
+          style: { fontSize: 10, background: COR.surfaceAlt, color: COR.dim, borderRadius: 999, padding: "1px 7px" }
+        }, props.contagens[r.id])
+      );
+    }
+
+    var corpo = categorias.map(function (cat) {
+      var daCategoria = props.rotas.filter(function (r) { return r.cat === cat; });
+      var linhas = [];
+      var gruposVistos = {};
+      daCategoria.forEach(function (r) {
+        if (!r.grupo) { linhas.push(item(r)); return; }
+        if (gruposVistos[r.grupo]) { if (!recolhida) linhas.push(item(r, { sub: true })); return; }
+        gruposVistos[r.grupo] = true;
+        var irmas = daCategoria.filter(function (x) { return x.grupo === r.grupo; });
+        var algumaAtiva = irmas.some(function (x) { return x.id === props.atual; });
+        /* Cabeca do grupo (Business Plan): leva a primeira tela dele; na  */
+        /* barra recolhida e o unico icone do grupo.                        */
+        linhas.push(h("a", {
+          key: "grupo-" + r.grupo, href: "#/" + r.hash,
+          onClick: function (e) { e.preventDefault(); props.aoNavegar(r.id); },
+          title: recolhida ? r.grupo : undefined,
+          className: "flex items-center",
+          style: {
+            gap: 10, textDecoration: "none", fontSize: 12.5,
+            padding: recolhida ? "8px 0" : "7px 10px", justifyContent: recolhida ? "center" : "flex-start",
+            margin: recolhida ? "2px 6px" : "1px 8px 1px 0", borderRadius: recolhida ? 8 : "0 18px 18px 0",
+            borderLeft: "3px solid transparent",
+            background: recolhida && algumaAtiva ? COR.brassSoft : "transparent",
+            color: algumaAtiva ? "#6B520F" : COR.dim, fontWeight: algumaAtiva ? 600 : 400
+          }
+        },
+          h("span", { style: { color: algumaAtiva ? COR.brass : COR.faint, display: "flex" } }, h(Icone, { nome: r.icone })),
+          !recolhida && h("span", null, r.grupo)));
+        if (!recolhida) linhas.push(item(r, { sub: true }));
+      });
+      return h("div", { key: cat },
+        recolhida
+          ? h("div", { style: { margin: "10px 14px 6px", borderTop: "1px solid " + COR.lineSoft } })
+          : h("div", { className: "uppercase", style: { fontSize: 10, letterSpacing: "0.14em", color: COR.faint, fontWeight: 600, padding: "14px 12px 6px" } }, cat),
+        linhas);
+    });
+
+    return h("nav", {
+      "aria-label": "Telas do painel",
+      style: props.celular
+        ? { position: "fixed", top: 56, left: 0, bottom: 0, width: 260, zIndex: 31, background: COR.surface,
+            borderRight: "1px solid " + COR.line, boxShadow: "4px 0 24px rgba(0,0,0,0.18)", overflowY: "auto", padding: "4px 0 16px" }
+        : { position: "sticky", top: 56, alignSelf: "flex-start", height: "calc(100vh - 56px)", overflowY: "auto",
+            width: recolhida ? 64 : 240, flex: "none", background: COR.surface, borderRight: "1px solid " + COR.line,
+            padding: "4px 0 16px", transition: "width 120ms ease" }
+    },
+      corpo,
+      !props.celular && h("button", {
+        onClick: props.aoRecolher,
+        className: "flex items-center",
+        title: recolhida ? "Abrir o menu" : "Recolher o menu",
+        style: { gap: 8, margin: "16px 0 0", padding: recolhida ? "8px 0" : "8px 14px", width: "100%",
+          justifyContent: recolhida ? "center" : "flex-start", fontSize: 11, color: COR.faint,
+          borderTop: "1px solid " + COR.lineSoft }
+      }, h(Icone, { nome: recolhida ? "expandir" : "recolher", tamanho: 16 }), !recolhida && "Recolher menu")
+    );
+  }
+
+  /* Exporta o BP em Excel fora da tela do BP (pagina Exportacoes), com o */
+  /* mesmo calculo da tela: cenario base, premissas e parametros gravados */
+  /* neste navegador. A tela do BP chama esta mesma funcao.               */
+  function bpExportarExcel(linhas, abertos) {
+    var abertosBP = (abertos || []).map(normalizarLinha).filter(function (l) { return !l.dPag && l.dEmi; });
+    var linhasBP = linhas ? linhas.concat(abertosBP) : [];
+    var armazem = bpLerArmazem();
+    var projBase = bpProjetar(armazem.ov, armazem.pr, bpRealizado(linhasBP), 1, chaveMes(new Date()));
+    return fetch(BP_MODELO_URL, { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("molde indisponível (HTTP " + r.status + ")"); return r.json(); })
+      .then(function (modelo) {
+        var agora = new Date();
+        var bytes = bpGerarXlsx(modelo, projBase, linhasBP, agora.toLocaleDateString("pt-BR"));
+        bpBaixarXlsx(bytes, "BP_QUORUM_online_" + agora.toISOString().slice(0, 10) + ".xlsx");
+      });
+  }
+
+  /* ------------------------------------------------------------------ */
   /* 11. PAINEL                                                          */
   /* ------------------------------------------------------------------ */
 
@@ -3774,22 +3962,28 @@
     var estLinhas = useState(null);            var linhas = estLinhas[0],        setLinhas = estLinhas[1];
     var estAbertos = useState([]);             var emAberto = estAbertos[0],     setEmAberto = estAbertos[1];
     var estGerandoApres = useState(false);     var gerandoApres = estGerandoApres[0], setGerandoApres = estGerandoApres[1];
+    var estGerandoBP = useState(false);        var gerandoBP = estGerandoBP[0], setGerandoBP = estGerandoBP[1];
     var estResposta = useState(null);          var resposta = estResposta[0],    setResposta = estResposta[1];
     var estCarregando = useState(true);        var carregando = estCarregando[0], setCarregando = estCarregando[1];
     var estAtualizado = useState(null);        var atualizadoEm = estAtualizado[0], setAtualizadoEm = estAtualizado[1];
 
-    /* Tela master: Financeiro (dashboard atual) ou Business Plan. Nao      */
-    /* persiste entre sessoes de proposito: todo reload volta pra           */
-    /* Financeiro, e a troca de tela so vale enquanto a aba estiver aberta.  */
-    var estTelaMaster = useState("financeiro");
-    var telaMaster = estTelaMaster[0], setTelaMaster = estTelaMaster[1];
+    /* Tela aberta: vem do endereco (#/categoria/tela). Sem endereco, ou  */
+    /* com uma tela nao liberada, abre o Resumo (decisao de Alex).        */
+    var estRota = useState(rotaDoEndereco);
+    var rotaId = estRota[0], setRotaId = estRota[1];
+    var estRecolhida = useState(function () { return armazenamento.getItem("quorum_menu_recolhido") === "1"; });
+    var menuRecolhido = estRecolhida[0], setMenuRecolhido = estRecolhida[1];
+    var estMenuAberto = useState(false);       var menuAberto = estMenuAberto[0], setMenuAberto = estMenuAberto[1];
+    var estCelular = useState(function () {
+      try { return window.matchMedia("(max-width: 767px)").matches; } catch (e) { return false; }
+    });
+    var celular = estCelular[0], setCelular = estCelular[1];
 
     var estRegime = useState(function () {
       return armazenamento.getItem("quorum_regime") || "competencia";
     });
     var regime = estRegime[0], setRegime = estRegime[1];
 
-    var estAba = useState("dre");              var aba = estAba[0], setAba = estAba[1];
 
     var estDetalhe = useState(function () {
       return armazenamento.getItem("quorum_detalhe") !== "0";
@@ -3903,6 +4097,41 @@
 
     /* Preferencias persistidas entre visitas. */
     useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
+    useEffect(function () { armazenamento.setItem("quorum_menu_recolhido", menuRecolhido ? "1" : "0"); }, [menuRecolhido]);
+    useEffect(function () {
+      function aoMudarEndereco() { setRotaId(rotaDoEndereco()); setMenuAberto(false); }
+      window.addEventListener("hashchange", aoMudarEndereco);
+      var consulta = null, aoMudarTela = function (e) { setCelular(e.matches); };
+      try { consulta = window.matchMedia("(max-width: 767px)"); consulta.addEventListener("change", aoMudarTela); } catch (e) {}
+      return function () {
+        window.removeEventListener("hashchange", aoMudarEndereco);
+        try { if (consulta) consulta.removeEventListener("change", aoMudarTela); } catch (e) {}
+      };
+    }, []);
+
+    /* Leva para uma tela. O endereco muda (favoritar, voltar do navegador)*/
+    /* e o hashchange atualiza o estado.                                   */
+    function navegar(id) {
+      var rota = rotaPorId(id);
+      if (!rota) return;
+      setMenuAberto(false);
+      if (window.location.hash === "#/" + rota.hash) { setRotaId(id); return; }
+      window.location.hash = "#/" + rota.hash;
+      try { window.scrollTo(0, 0); } catch (e) {}
+    }
+
+    /* Endereco sem tela, ou com tela nao liberada para a pessoa: troca    */
+    /* pelo Resumo sem criar entrada nova no historico.                     */
+    useEffect(function () {
+      if (!usuario) return;
+      var rota = rotaPorId(rotaId);
+      if (rota && rotaPermitida(rota, usuario)) return;
+      var destino = rotaPorId(ROTA_INICIAL);
+      if (!rotaPermitida(destino, usuario)) destino = ROTAS.filter(function (r) { return rotaPermitida(r, usuario); })[0];
+      if (!destino) return;
+      try { window.history.replaceState({}, "", window.location.pathname + window.location.search + "#/" + destino.hash); } catch (e) {}
+      setRotaId(destino.id);
+    }, [rotaId, usuario]);
     useEffect(function () { armazenamento.setItem("quorum_detalhe", mostrarDetalhe ? "1" : "0"); }, [mostrarDetalhe]);
     useEffect(function () { armazenamento.setItem("quorum_zeradas", mostrarZeradas ? "1" : "0"); }, [mostrarZeradas]);
     useEffect(function () {
@@ -4567,100 +4796,151 @@
     /* Barra superior                                                   */
     /* ---------------------------------------------------------------- */
 
-    var barraSuperior = h("div", {
-      className: "sticky top-0 z-10 px-6 py-3 flex flex-wrap items-center gap-3",
-      style: { background: COR.surface, borderBottom: "1px solid " + COR.line }
-    },
-      h("div", null,
+    /* Tela aberta e o que ela usava antes como "aba" do Financeiro: as  */
+    /* funcoes de cada aba continuam as mesmas e leem esta variavel.     */
+    var rota = rotaPorId(rotaId) || rotaPorId(ROTA_INICIAL);
+    var aba = rota.id;
+    var naTelaFinanceira = rota.tela === "financeiro";
+    var rotasLiberadas = ROTAS.filter(function (r) { return rotaPermitida(r, usuario); });
+    /* Titulo da aba do navegador acompanha a tela (sem hook: este trecho */
+    /* fica depois dos retornos antecipados de login e carga).            */
+    if (document.title !== tituloDaRota(rota) + " · Dashboard Financeiro QUORUM") {
+      document.title = tituloDaRota(rota) + " · Dashboard Financeiro QUORUM";
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Barra superior: so o que vale para a pagina toda. Competencia ou  */
+    /* caixa e o periodo so aparecem nas telas do realizado: o Business  */
+    /* Plan e sempre competencia e 36 meses, e nao usa nenhum dos dois.  */
+    /* ---------------------------------------------------------------- */
+
+    var seletorRegime = h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+      [["competencia", "Competência"], ["caixa", "Caixa"]].map(function (par) {
+        var valor = par[0], rotulo = par[1];
+        return h("button", {
+          key: valor,
+          onClick: function () { setRegime(valor); },
+          className: "px-3 py-1.5",
+          title: valor === "caixa"
+            ? "Usa a data de pagamento ou recebimento: mostra quando o dinheiro entrou e saiu"
+            : "Usa a data de emissão: mostra o mês em que a receita ou a despesa foi gerada",
+          style: {
+            fontSize: 11,
+            background: regime === valor ? COR.brass : "transparent",
+            color: regime === valor ? "#FFFFFF" : COR.dim,
+            fontWeight: regime === valor ? 600 : 400
+          }
+        }, rotulo);
+      })
+    );
+
+    /* Filtro livre de meses: qual mes aparece em todas as telas do        */
+    /* realizado (tabelas, cartoes e apresentacao).                        */
+    var rotuloPeriodo = !meses.length ? "Nenhum mês"
+      : mesesSelecionados === null ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1])
+      : meses.length + " de " + todosMeses.length + " meses";
+    var seletorPeriodo = h("div", { style: { position: "relative" } },
+      h("button", {
+        onClick: function () { setFiltroMesesAberto(!filtroMesesAberto); },
+        className: "px-3 py-1.5 rounded",
+        style: estiloBotao(mesesSelecionados !== null),
+        title: "Escolhe quais meses aparecem em todas as telas do realizado, tabelas e apresentação"
+      }, "Período: " + rotuloPeriodo + " ▾"),
+
+      filtroMesesAberto && h(React.Fragment, null,
         h("div", {
-          className: "uppercase",
-          style: { fontSize: 9, letterSpacing: "0.3em", color: COR.brass }
-        }, "QUORUM"),
-        h("div", { className: "text-sm", style: { fontWeight: 600 } },
-          telaMaster === "bp" ? "Business Plan QUORUM" : telaMaster === "acessos" ? "Controle de acessos QUORUM" : "Dashboard Financeiro QUORUM")
-      ),
+          onClick: function () { setFiltroMesesAberto(false); },
+          style: { position: "fixed", inset: 0, zIndex: 40 }
+        }),
+        h("div", {
+          className: "absolute mt-1 rounded p-3",
+          style: {
+            zIndex: 41, right: 0, background: COR.surface, border: "1px solid " + COR.line,
+            minWidth: 190, boxShadow: "0 4px 16px rgba(0,0,0,0.12)"
+          }
+        },
+          h("div", { className: "flex justify-between gap-3 mb-2 pb-2", style: { fontSize: 11, borderBottom: "1px solid " + COR.lineSoft } },
+            h("button", { onClick: function () { setMesesSelecionados(null); }, style: { color: COR.brass, fontWeight: 600 } }, "Todos"),
+            h("button", { onClick: function () { setMesesSelecionados([]); }, style: { color: COR.faint } }, "Limpar")
+          ),
+          h("div", { className: "space-y-1", style: { maxHeight: 260, overflowY: "auto" } },
+            todosMeses.map(function (mes) {
+              var marcado = mesesSelecionados === null || mesesSelecionados.indexOf(mes) >= 0;
+              return h("label", {
+                key: mes,
+                className: "flex items-center gap-2 cursor-pointer px-1 py-0.5 rounded",
+                style: { fontSize: 12, color: COR.dim }
+              },
+                h("input", {
+                  type: "checkbox",
+                  checked: marcado,
+                  onChange: function () {
+                    var baseAtual = mesesSelecionados === null ? todosMeses.slice() : mesesSelecionados.slice();
+                    var indice = baseAtual.indexOf(mes);
+                    if (indice >= 0) baseAtual.splice(indice, 1); else baseAtual.push(mes);
+                    setMesesSelecionados(baseAtual.length === todosMeses.length ? null : baseAtual);
+                  }
+                }),
+                rotuloMes(mes)
+              );
+            })
+          )
+        )
+      )
+    );
 
-      /* Tela master: alterna entre o dashboard do realizado e o BP. */
-      h("div", { className: "flex rounded overflow-hidden ml-2", style: { border: "1px solid " + COR.line } },
-        TELAS_DO_PAINEL.filter(function (par) { return usuario.telas.indexOf(par[0]) >= 0; })
-          .concat(usuario.perfil === "admin" ? [["acessos", "Acessos"]] : []).map(function (par) {
-          var valor = par[0], rotulo = par[1];
-          return h("button", {
-            key: valor,
-            onClick: function () { setTelaMaster(valor); },
-            className: "px-3 py-1.5",
-            title: valor === "financeiro"
-              ? "Realizado: DRE, fluxo de caixa e conciliação a partir da Omie"
-              : valor === "bp" ? "Projeção: premissas e motor de projeção"
-              : "Quem pode entrar no painel e o que cada pessoa vê",
-            style: {
-              fontSize: 11,
-              background: telaMaster === valor ? COR.brass : "transparent",
-              color: telaMaster === valor ? "#FFFFFF" : COR.dim,
-              fontWeight: telaMaster === valor ? 600 : 400
-            }
-          }, rotulo);
-        })
-      ),
+    /* Selo do estado da base: verde ou vermelho; leva aos Achados. */
+    var seloBase = h("button", {
+      onClick: function () { navegar("achados"); },
+      className: "uppercase",
+      title: erros.length
+        ? erros.length + " erro(s) a resolver antes de usar estes números"
+        : "Toda linha da base tem destino no fluxo, diferença zero em todos os meses"
+          + (alertas.length ? ". " + alertas.length + " alerta(s) para revisar em Achados." : ""),
+      style: {
+        fontSize: 10, letterSpacing: "0.08em", fontWeight: 700, borderRadius: 999, padding: "5px 10px",
+        color: erros.length ? COR.coral : COR.mint, background: erros.length ? COR.coralSoft : COR.mintSoft
+      }
+    }, erros.length ? "A base não fecha" : "Base íntegra", alertas.length > 0 && (" · " + alertas.length + " alerta(s)"));
 
-      telaMaster === "financeiro" && h("div", { className: "ml-2", style: { fontSize: 11, color: COR.faint } },
-        dados.usadas.length,
-        " lançamentos realizados · ",
-        meses.length ? rotuloMes(meses[0]) + " a " + rotuloMes(ultimoMes) : "sem período",
-        resposta && resposta.em_aberto > 0 && h("span", { style: { color: COR.brass } },
-          " · " + resposta.em_aberto + " compromisso(s) futuro(s) não incluído(s)"),
-        atualizadoEm && h("span", { style: { color: COR.mint } },
-          " · atualizado às ",
-          atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))
-      ),
+    var botaoAtualizar = h("button", {
+      onClick: function () { buscarBase(true); },
+      disabled: carregando,
+      className: "px-3 py-1.5 rounded",
+      style: {
+        border: "1px solid " + (carregando ? COR.line : COR.mint),
+        color: carregando ? COR.faint : COR.mint,
+        fontSize: 11,
+        background: COR.surface,
+        whiteSpace: "nowrap"
+      },
+      title: "Busca a base de novo na Omie agora, sem esperar a próxima abertura"
+    }, carregando ? "Atualizando..." : (celular ? "Atualizar" : "Atualizar agora"));
 
+    var barraSuperior = h("div", {
+      className: "sticky top-0 flex items-center",
+      style: { zIndex: 30, height: 56, gap: 12, padding: celular ? "0 10px" : "0 16px", background: COR.surface, borderBottom: "1px solid " + COR.line }
+    },
+      h("button", {
+        onClick: function () { if (celular) setMenuAberto(!menuAberto); else setMenuRecolhido(!menuRecolhido); },
+        className: "flex items-center justify-center rounded",
+        style: { width: 34, height: 34, color: COR.dim },
+        title: celular ? "Abrir o menu" : (menuRecolhido ? "Abrir o menu" : "Recolher o menu"),
+        "aria-label": "Menu"
+      }, h(Icone, { nome: "menu", tamanho: 20 })),
+      h("div", { style: { lineHeight: 1.15 } },
+        h("div", { className: "uppercase", style: { fontSize: 9, letterSpacing: "0.3em", color: COR.brass } }, "QUORUM"),
+        h("div", { style: { fontSize: celular ? 12 : 13, fontWeight: 600, whiteSpace: "nowrap" } }, "Dashboard Financeiro")),
+      !celular && h("div", { className: "ml-3", style: { fontSize: 12, color: COR.faint, whiteSpace: "nowrap" } },
+        rota.cat, " › ", rota.grupo ? rota.grupo + " › " : "", h("span", { style: { color: COR.text, fontWeight: 600 } }, rota.rotulo)),
       h("div", { className: "flex-1" }),
-
-      /* Exportar e atualizar são acoes do Financeiro. Visão sintética foi   */
-      /* junto com os outros toggles pra barraFiltros, acima das abas.       */
-      telaMaster === "financeiro" && h(Fragment, null,
-        h("button", {
-          onClick: function () { exportarXlsx(); },
-          className: "px-3 py-1.5 rounded",
-          style: {
-            background: COR.surface,
-            border: "1px solid " + COR.brass,
-            color: COR.brass,
-            fontSize: 11
-          },
-          title: "Gera o XLSX com as três abas, todas as fórmulas e a formatação do template"
-        }, "Exportar XLSX"),
-
-        h("button", {
-          onClick: function () { exportarApresentacao(); },
-          disabled: gerandoApres || !meses.length,
-          className: "px-3 py-1.5 rounded",
-          style: {
-            background: COR.surface,
-            border: "1px solid " + COR.brass,
-            color: COR.brass,
-            fontSize: 11,
-            opacity: gerandoApres || !meses.length ? 0.6 : 1
-          },
-          title: "Gera a apresentação de resultados (.pptx) com os 8 gráficos da aba Apresentação, no regime e no período selecionados"
-        }, gerandoApres ? "Gerando apresentação..." : "Exportar apresentação"),
-
-        h("button", {
-          onClick: function () { buscarBase(true); },
-          disabled: carregando,
-          className: "px-3 py-1.5 rounded",
-          style: {
-            border: "1px solid " + (carregando ? COR.line : COR.mint),
-            color: carregando ? COR.faint : COR.mint,
-            fontSize: 11,
-            background: COR.surface
-          },
-          title: "Busca a base de novo na Omie agora, sem esperar a próxima abertura"
-        }, carregando ? "Atualizando..." : "Atualizar agora")
-      ),
-
-      h("span", { className: "ml-1", style: { fontSize: 11, color: COR.dim }, title: usuario.perfil === "admin" ? "Administrador" : "Usuário" },
-        usuario.email),
+      !celular && naTelaFinanceira && seletorRegime,
+      !celular && naTelaFinanceira && seletorPeriodo,
+      !celular && seloBase,
+      !celular && atualizadoEm && h("span", { style: { fontSize: 11, color: COR.mint, whiteSpace: "nowrap" } },
+        "atualizado às ", atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })),
+      !celular && botaoAtualizar,
+      !celular && h("span", { style: { fontSize: 11, color: COR.dim }, title: usuario.perfil === "admin" ? "Administrador" : "Usuário" }, usuario.email),
       h("button", {
         onClick: function () { encerrarSessao(""); },
         className: "px-2 py-1.5",
@@ -4669,11 +4949,23 @@
       }, "Sair")
     );
 
+    /* No celular, regime, periodo e Atualizar descem para uma segunda    */
+    /* linha logo abaixo do topo.                                         */
+    var barraCelular = celular && h("div", {
+      className: "flex flex-wrap items-center",
+      style: { gap: 8, padding: "8px 12px", background: COR.surface, borderBottom: "1px solid " + COR.line }
+    },
+      naTelaFinanceira && seletorRegime,
+      naTelaFinanceira && seletorPeriodo,
+      seloBase,
+      botaoAtualizar
+    );
+
     /* ---------------------------------------------------------------- */
     /* Faixa de integridade e cartoes                                   */
     /* ---------------------------------------------------------------- */
 
-    var faixaIntegridade = h("div", { className: "px-6 pt-4" },
+    var faixaIntegridade = h("div", null,
       h("div", {
         className: "rounded px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2",
         style: {
@@ -4695,7 +4987,7 @@
             ? erros.length + " erro(s) a resolver antes de usar estes números"
             : "Toda linha da base tem destino no fluxo, diferença zero em todos os meses"),
         alertas.length > 0 && h("button", {
-          onClick: function () { setAba("achados"); },
+          onClick: function () { navegar("achados"); },
           style: { fontSize: 11, color: COR.brass, textDecoration: "underline" }
         }, alertas.length, " alerta(s) para revisar")
       )
@@ -4705,7 +4997,7 @@
     var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.ebitda[mes]; }, 0);
 
     var cartoes = h("div", {
-      className: "px-6 pt-4 grid gap-3",
+      className: "pt-4 grid gap-3",
       style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
     },
       h(CartaoIndicador, {
@@ -4754,86 +5046,11 @@
     );
 
     /* ---------------------------------------------------------------- */
-    /* Barra de filtros: regime, meses e zeradas, logo acima das abas.   */
-    /* Estava no topo da tela; desceu para ficar junto do que ela filtra. */
+    /* Ferramentas das tabelas do DRE e do fluxo: valem so para a tabela  */
+    /* da tela aberta, por isso ficam no cabecalho da pagina, nao no topo.*/
     /* ---------------------------------------------------------------- */
 
-    var barraFiltros = h("div", { className: "px-6 pt-4 flex flex-wrap items-center gap-3" },
-      /* Regime de caixa ou de competencia. */
-      h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
-        [["competencia", "Competência"], ["caixa", "Caixa"]].map(function (par) {
-          var valor = par[0], rotulo = par[1];
-          return h("button", {
-            key: valor,
-            onClick: function () { setRegime(valor); },
-            className: "px-3 py-1.5",
-            title: valor === "caixa"
-              ? "Usa a data de pagamento ou recebimento: mostra quando o dinheiro entrou e saiu"
-              : "Usa a data de emissão: mostra o mês em que a receita ou a despesa foi gerada",
-            style: {
-              fontSize: 11,
-              background: regime === valor ? COR.brass : "transparent",
-              color: regime === valor ? "#FFFFFF" : COR.dim,
-              fontWeight: regime === valor ? 600 : 400
-            }
-          }, rotulo);
-        })
-      ),
-
-      /* Filtro livre de meses: qual mes aparece em toda a tela (tabelas e   */
-      /* apresentacao), independente do que a base tem no total.             */
-      h("div", { style: { position: "relative" } },
-        h("button", {
-          onClick: function () { setFiltroMesesAberto(!filtroMesesAberto); },
-          className: "px-3 py-1.5 rounded",
-          style: estiloBotao(mesesSelecionados !== null),
-          title: "Escolhe quais meses aparecem em todo o painel, tabelas e apresentação"
-        }, mesesSelecionados === null
-             ? "Todos os meses"
-             : "Meses: " + mesesSelecionados.length + " de " + todosMeses.length),
-
-        filtroMesesAberto && h(React.Fragment, null,
-          h("div", {
-            onClick: function () { setFiltroMesesAberto(false); },
-            style: { position: "fixed", inset: 0, zIndex: 40 }
-          }),
-          h("div", {
-            className: "absolute mt-1 rounded p-3",
-            style: {
-              zIndex: 41, background: COR.surface, border: "1px solid " + COR.line,
-              minWidth: 190, boxShadow: "0 4px 16px rgba(0,0,0,0.12)"
-            }
-          },
-            h("div", { className: "flex justify-between gap-3 mb-2 pb-2", style: { fontSize: 11, borderBottom: "1px solid " + COR.lineSoft } },
-              h("button", { onClick: function () { setMesesSelecionados(null); }, style: { color: COR.brass, fontWeight: 600 } }, "Todos"),
-              h("button", { onClick: function () { setMesesSelecionados([]); }, style: { color: COR.faint } }, "Limpar")
-            ),
-            h("div", { className: "space-y-1", style: { maxHeight: 260, overflowY: "auto" } },
-              todosMeses.map(function (mes) {
-                var marcado = mesesSelecionados === null || mesesSelecionados.indexOf(mes) >= 0;
-                return h("label", {
-                  key: mes,
-                  className: "flex items-center gap-2 cursor-pointer px-1 py-0.5 rounded",
-                  style: { fontSize: 12, color: COR.dim }
-                },
-                  h("input", {
-                    type: "checkbox",
-                    checked: marcado,
-                    onChange: function () {
-                      var baseAtual = mesesSelecionados === null ? todosMeses.slice() : mesesSelecionados.slice();
-                      var indice = baseAtual.indexOf(mes);
-                      if (indice >= 0) baseAtual.splice(indice, 1); else baseAtual.push(mes);
-                      setMesesSelecionados(baseAtual.length === todosMeses.length ? null : baseAtual);
-                    }
-                  }),
-                  rotuloMes(mes)
-                );
-              })
-            )
-          )
-        )
-      ),
-
+    var ferramentasTabela = h("div", { className: "flex flex-wrap items-center gap-3" },
       /* Esconder ou mostrar categorias sem movimento. */
       h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
         [[false, "Só com valor"], [true, "Todas as linhas"]].map(function (par) {
@@ -4864,43 +5081,6 @@
           ? "Hoje mostrando grupo e categoria. Clique para ver só os totais de cada seção"
           : "Hoje mostrando só os totais. Clique para abrir grupo e categoria"
       }, mostrarDetalhe ? "Visão sintética" : "Visão analítica")
-    );
-
-    /* ---------------------------------------------------------------- */
-    /* Abas                                                             */
-    /* ---------------------------------------------------------------- */
-
-    var ABAS = [
-      ["dre", "DRE"],
-      ["caixa", "Fluxo de caixa"],
-      ["proj", "Por projeto"],
-      ["cc", "Por centro de custo"],
-      ["achados", "Achados (" + dados.achados.length + ")"],
-      ["abertos", "Compromissos futuros (" + emAberto.length + ")"],
-      ["apres", "Apresentação"]
-    ];
-
-    var barraAbas = h("div", { className: "px-6 pt-5 flex gap-1 flex-wrap" },
-      ABAS.map(function (par) {
-        var chave = par[0], rotulo = par[1];
-        return h("button", {
-          key: chave,
-          onClick: function () { setAba(chave); },
-          className: "px-3 py-2 rounded-t",
-          style: {
-            fontSize: 11,
-            background: aba === chave ? COR.surface : "transparent",
-            color: aba === chave ? COR.text : COR.faint,
-            fontWeight: aba === chave ? 600 : 400,
-            borderBottom: aba === chave ? "2px solid " + COR.brass : "2px solid transparent"
-          }
-        }, rotulo);
-      }),
-      h("div", { className: "flex-1" }),
-      h("div", {
-        className: "self-center",
-        style: { fontSize: 10, color: COR.faint }
-      }, "clique em qualquer linha para ver os lançamentos por trás dela")
     );
 
     /* ---------------------------------------------------------------- */
@@ -5274,8 +5454,6 @@
 
     function abaApresentacao() {
       return h("div", { className: "space-y-3" },
-        h("div", { style: { fontSize: 11, color: COR.faint } },
-          "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo."),
         h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
         h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
         h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3 }),
@@ -5291,7 +5469,121 @@
     }
 
     /* ---------------------------------------------------------------- */
-    /* Montagem final                                                   */
+    /* Paginas novas, montadas so com o que ja estava calculado          */
+    /* ---------------------------------------------------------------- */
+
+    /* Resumo: estado da base e os cinco indicadores do periodo, no topo */
+    /* das telas marcadas com resumo: true em ROTAS.                       */
+    function blocoResumo() {
+      return h("div", { className: "mb-5" }, faixaIntegridade, cartoes);
+    }
+
+    /* Posicao de caixa: o mesmo objeto 'posicao' dos cartoes (tipo de   */
+    /* cada conta na Omie), agora com o detalhe que so aparecia no "?".  */
+    function paginaPosicao() {
+      if (!posicao) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem mês selecionado.");
+      var linhasPosicao = [
+        ["Conta corrente e caixa", posicao.corrente, posicao.nomes.corrente.join(", "), "item"],
+        ["(-) Fatura de cartão em aberto", posicao.cartao, posicao.nomes.cartao.join(", "), "item"],
+        ["(=) Caixa livre", posicao.livre, "o que sobra depois do já comprometido", "total"],
+        ["(+) Caução travada em garantia", posicao.garantia, posicao.nomes.garantia.join(", ") + " · restituível, fora do caixa livre", "item"],
+        ["(=) Posição total", posicao.total, "caixa livre somado à caução", "total"]
+      ];
+      return h("div", null,
+        h("div", { className: "rounded overflow-hidden", style: { background: COR.surface, border: "1px solid " + COR.line, maxWidth: 760 } },
+          linhasPosicao.map(function (l) {
+            var total = l[3] === "total";
+            return h("div", { key: l[0], className: "flex items-center px-4 py-2.5", style: {
+              gap: 12, borderBottom: "1px solid " + COR.lineSoft, background: total ? "rgba(138,106,22,0.08)" : "transparent" } },
+              h("div", { style: { flex: 1, minWidth: 0 } },
+                h("div", { style: { fontSize: 12.5, fontWeight: total ? 700 : 500, color: total ? "#7A5C10" : COR.text } }, l[0]),
+                l[2] && h("div", { style: { fontSize: 11, color: COR.faint } }, l[2])),
+              h("div", { style: { fontSize: 13, fontWeight: total ? 700 : 500, fontVariantNumeric: "tabular-nums",
+                color: l[1] < 0 ? COR.coral : (total ? "#7A5C10" : COR.text) } }, formatarNumero(l[1], 2)));
+          })),
+        h("div", { className: "mt-3", style: { fontSize: 11, color: COR.faint, maxWidth: 760, lineHeight: 1.6 } },
+          "Saldos no fim de " + rotuloMes(ultimoMes) + ". Cada conta entra pelo tipo cadastrado na Omie: conta corrente e caixa somam o saldo, "
+          + "cartão de crédito é a fatura em aberto e conta garantia é a caução. A caução já saiu da conta corrente quando foi depositada.")
+      );
+    }
+
+    /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
+    function paginaExportacoes() {
+      function exportarBP() {
+        if (gerandoBP) return;
+        setGerandoBP(true);
+        bpExportarExcel(linhas, emAberto)
+          .catch(function (erro) { window.alert("Não consegui gerar o Excel: " + erro.message); })
+          .then(function () { setGerandoBP(false); });
+      }
+      var itens = [
+        { titulo: "Excel do Financeiro", texto: "DRE e fluxo de caixa do realizado, no regime (" + (regime === "caixa" ? "caixa" : "competência") + ") e no período selecionados no topo. Três abas, tudo em fórmula sobre a base de lançamentos.",
+          botao: "Exportar XLSX", acao: function () { exportarXlsx(); }, ocupado: false },
+        { titulo: "Apresentação de resultados", texto: "Os 8 gráficos da Apresentação em .pptx, no modelo da QUORUM, no regime e no período selecionados no topo.",
+          botao: gerandoApres ? "Gerando apresentação..." : "Exportar apresentação", acao: exportarApresentacao, ocupado: gerandoApres || !meses.length },
+        usuario.telas.indexOf("bp") >= 0 && { titulo: "Excel do Business Plan", texto: "O BP no cenário base, 7 abas no formato da BP_QUORUM_Oficial, tudo em fórmula, com as premissas e os parâmetros gravados neste navegador.",
+          botao: gerandoBP ? "Gerando Excel..." : "Exportar Excel do BP", acao: exportarBP, ocupado: gerandoBP }
+      ].filter(Boolean);
+      return h("div", { className: "grid gap-3", style: { gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", maxWidth: 980 } },
+        itens.map(function (it) {
+          return h("div", { key: it.titulo, className: "rounded p-4 flex flex-col", style: { background: COR.surface, border: "1px solid " + COR.line, gap: 10 } },
+            h("div", { className: "flex items-center", style: { gap: 8, fontSize: 13, fontWeight: 600 } },
+              h("span", { style: { color: COR.brass, display: "flex" } }, h(Icone, { nome: "baixar" })), it.titulo),
+            h("div", { style: { fontSize: 12, color: COR.dim, lineHeight: 1.5, flex: 1 } }, it.texto),
+            h("button", { onClick: it.acao, disabled: it.ocupado, className: "px-3 py-1.5 rounded self-start",
+              style: { fontSize: 11, border: "1px solid " + COR.brass, color: COR.brass, background: COR.surface, fontWeight: 600, opacity: it.ocupado ? 0.6 : 1 } },
+              it.botao));
+        }));
+    }
+
+    /* Cabecalho de cada pagina: titulo, uma linha sobre o que ela mostra */
+    /* e as ferramentas que valem so para ela.                            */
+    var nomeRegime = regime === "caixa" ? "caixa" : "competência";
+    var DESCRICAO = {
+      apres: "Gráficos em formato 16:9, prontos para virar slide. Seguem o regime e o período selecionados no topo.",
+      dre: "Resultado no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos por trás dela.",
+      cc: "Receita, saída e resultado por centro de custo, no regime de " + nomeRegime + ".",
+      proj: "Receita, saída e resultado por projeto, no regime de " + nomeRegime + ".",
+      posicao: "Quanto há em conta, quanto já está comprometido e a caução.",
+      caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
+      abertos: "",
+      achados: "Conferências automáticas da base, da mais grave para a mais leve.",
+      exportacoes: "Arquivos para levar o painel para fora.",
+      "bp-cons": "Comunidade + Tech, 36 meses: realizado da Omie em competência e projeção.",
+      "bp-com": "Vertical Comunidade, 36 meses.",
+      "bp-tech": "Vertical Tech (Insights, Review e Advisory), 36 meses.",
+      premissas: "Premissas mês a mês e parâmetros do BP online, editáveis e gravados neste navegador.",
+      acessos: ""
+    };
+    var semMesSelecionado = naTelaFinanceira && !meses.length && rota.id !== "achados" && rota.id !== "exportacoes";
+
+    function conteudoDaRota() {
+      if (rota.tela === "admin") return h(TelaAcessos, { token: token, usuario: usuario, aoSessaoExpirada: function () { return renovarSessao(); } });
+      if (rota.tela === "bp") return h(PainelBP, { linhas: linhas, abertos: emAberto, aba: rota.bp });
+      if (semMesSelecionado) {
+        return h("div", { className: "flex items-center justify-center text-center py-16", style: { fontSize: 12, color: COR.faint } },
+          "Nenhum mês selecionado. Abra \"Período\" no topo e marque pelo menos um.");
+      }
+      if (aba === "posicao") return paginaPosicao();
+      if (aba === "exportacoes") return paginaExportacoes();
+      if (aba === "dre") return abaDRE();
+      if (aba === "caixa") return abaFluxoDeCaixa();
+      if (aba === "proj" || aba === "cc") return abaDimensao();
+      if (aba === "achados") return abaAchados();
+      if (aba === "abertos") return abaCompromissos();
+      if (aba === "apres") return abaApresentacao();
+      return null;
+    }
+
+    var contagens = { achados: dados.achados.length, abertos: emAberto ? emAberto.length : 0 };
+    var mostrarFerramentas = (aba === "dre" || aba === "caixa") && !semMesSelecionado;
+    var lateral = (!celular || menuAberto) && h(BarraLateral, {
+      rotas: rotasLiberadas, atual: rota.id, contagens: contagens, recolhida: menuRecolhido, celular: celular,
+      aoNavegar: navegar, aoRecolher: function () { setMenuRecolhido(!menuRecolhido); }
+    });
+
+    /* ---------------------------------------------------------------- */
+    /* Montagem final: topo, barra lateral e a pagina da tela aberta     */
     /* ---------------------------------------------------------------- */
 
     return h("div", {
@@ -5304,36 +5596,28 @@
         aoFechar: function () { setGaveta(null); }
       }),
       barraSuperior,
-      sessaoVencida && h(AvisoSessao, { aoRenovar: function (nova) { setToken(nova); setSessaoVencida(false); } }),
-      telaMaster === "financeiro"
-        ? h(Fragment, null,
-            aviso && h("div", {
-              className: "mx-6 mt-3 p-3 rounded",
-              style: { background: COR.coralSoft, color: COR.coral, fontSize: 12 }
-            }, aviso),
-            faixaIntegridade,
-            cartoes,
-            barraFiltros,
-            barraAbas,
-            h("div", { className: "px-6 pb-16 pt-3" },
-              !meses.length
-                ? h("div", {
-                    className: "flex items-center justify-center text-center py-16",
-                    style: { fontSize: 12, color: COR.faint }
-                  }, "Nenhum mês selecionado. Abra \"Meses\" no topo e marque pelo menos um.")
-                : h(React.Fragment, null,
-                    aba === "dre" && abaDRE(),
-                    aba === "caixa" && abaFluxoDeCaixa(),
-                    (aba === "proj" || aba === "cc") && abaDimensao(),
-                    aba === "achados" && abaAchados(),
-                    aba === "abertos" && abaCompromissos(),
-                    aba === "apres" && abaApresentacao()
-                  )
-            )
-          )
-        : telaMaster === "acessos" && usuario.perfil === "admin"
-          ? h(TelaAcessos, { token: token, usuario: usuario, aoSessaoExpirada: function () { return renovarSessao(); } })
-          : h(PainelBP, { linhas: linhas, abertos: emAberto })
+      barraCelular,
+      h("div", { className: "flex" },
+        celular && menuAberto && h("div", {
+          onClick: function () { setMenuAberto(false); },
+          style: { position: "fixed", top: 56, left: 0, right: 0, bottom: 0, background: "rgba(15,20,30,0.35)", zIndex: 30 }
+        }),
+        lateral,
+        h("main", { style: { flex: 1, minWidth: 0, padding: celular ? "14px 12px 64px" : "18px 24px 64px" } },
+          sessaoVencida && h(AvisoSessao, { aoRenovar: function (nova) { setToken(nova); setSessaoVencida(false); } }),
+          aviso && h("div", {
+            className: "mb-3 p-3 rounded",
+            style: { background: COR.coralSoft, color: COR.coral, fontSize: 12 }
+          }, aviso),
+          rota.resumo && !semMesSelecionado && blocoResumo(),
+          rota.id !== "acessos" && h("div", { className: "flex flex-wrap items-end mb-3", style: { gap: 12 } },
+            h("div", { style: { flex: "1 1 320px", minWidth: 0 } },
+              h("h1", { style: { margin: 0, fontSize: 20, fontWeight: 600 } }, tituloDaRota(rota)),
+              DESCRICAO[rota.id] && h("div", { style: { fontSize: 12, color: COR.faint, marginTop: 2 } }, DESCRICAO[rota.id])),
+            mostrarFerramentas && ferramentasTabela),
+          conteudoDaRota()
+        )
+      )
     );
   }
 
@@ -6342,7 +6626,9 @@
   /* ------------------------------------------------------------------ */
 
   function PainelBP(props) {
-    var estAba = useState("cons");            var aba = estAba[0], setAba = estAba[1];
+    /* A tela aberta vem da barra lateral (props.aba); sem ela, as abas   */
+    /* proprias do BP continuam funcionando.                               */
+    var estAba = useState("cons");            var aba = props.aba || estAba[0], setAba = estAba[1];
     var estCenario = useState("base");        var cenario = estCenario[0], setCenario = estCenario[1];
     var estGran = useState("ano");            var granularidade = estGran[0], setGranularidade = estGran[1];
     var estZeradas = useState(false);         var mostrarZeradas = estZeradas[0], setMostrarZeradas = estZeradas[1];
@@ -6419,13 +6705,7 @@
     function exportarExcel() {
       if (exportando) return;
       setExportando(true);
-      fetch(BP_MODELO_URL, { cache: "no-store" })
-        .then(function (r) { if (!r.ok) throw new Error("molde indisponível (HTTP " + r.status + ")"); return r.json(); })
-        .then(function (modelo) {
-          var agora = new Date();
-          var bytes = bpGerarXlsx(modelo, projBase, linhasBP, agora.toLocaleDateString("pt-BR"));
-          bpBaixarXlsx(bytes, "BP_QUORUM_online_" + agora.toISOString().slice(0, 10) + ".xlsx");
-        })
+      bpExportarExcel(props.linhas, props.abertos)
         .catch(function (erro) { window.alert("Não consegui gerar o Excel: " + erro.message); })
         .then(function () { setExportando(false); });
     }
@@ -6730,6 +7010,7 @@
       );
     }
 
+    if (props.aba) return h("div", null, aba === "premissas" ? abaPremissas() : abaDRE(aba));
     return h(Fragment, null,
       barraAbas,
       h("div", { className: "px-6 pb-16 pt-3" },
