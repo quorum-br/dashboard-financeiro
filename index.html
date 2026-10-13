@@ -351,7 +351,11 @@
     "Comercial", "AdmeFin", "Contabilidade", "Jurídico", "Outros não listados"
   ];
 
-  function calcular(linhas, regime) {
+  /* mesesFixos (opcional): usa esta lista de meses em vez da que sai dos */
+  /* proprios lancamentos. Serve para calcular um recorte (uma vertical)  */
+  /* com exatamente as mesmas colunas da base inteira: mes sem lancamento */
+  /* da vertical vale zero, e o resultado acumulado segue corrido.        */
+  function calcular(linhas, regime, mesesFixos) {
     var campoData = regime === "caixa" ? "dPag" : "dEmi";
 
     /* Data efetiva de cada linha no regime escolhido. Em competencia, um   */
@@ -381,7 +385,7 @@
       if (l.dPag) chavesMes.add(chaveMes(l.dPag));
       if (l.dEmi) chavesMes.add(chaveMes(l.dEmi));
     });
-    var meses = Array.from(chavesMes).sort();
+    var meses = mesesFixos ? mesesFixos.slice() : Array.from(chavesMes).sort();
 
     var porCategoria = new Map();  /* grupo||categoria||mes */
     var porGrupo = new Map();      /* grupo||mes */
@@ -1026,6 +1030,7 @@
           if (ctx.grupos && ctx.grupos.indexOf(l.grupo) < 0) return false;
           if (ctx.projeto && l.projeto !== ctx.projeto) return false;
           if (ctx.centro && l.centro !== ctx.centro) return false;
+          if (ctx.vertical && bpVerticalDoCentro(l.centro) !== ctx.vertical) return false;
           if (ctx.somenteResultado && ctx.gruposResultado.indexOf(l.grupo) < 0) return false;
           if (ctx.mes && chaveMes(l.dataRegime) !== ctx.mes) return false;
           return true;
@@ -3787,8 +3792,9 @@
     { id: "apres", cat: "Resultado e Caixa", rotulo: "Gráficos", hash: "resultado-e-caixa/graficos", tela: "financeiro", icone: "slides" },
     { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
     { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
-    { id: "cc", cat: "Centros de Custos e Projetos", rotulo: "Resultado por Centro de Custo", hash: "centros-e-projetos/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
-    { id: "proj", cat: "Centros de Custos e Projetos", rotulo: "Resultado por Projeto", hash: "centros-e-projetos/projeto", tela: "financeiro", icone: "pasta", resumo: true },
+    { id: "cc", cat: "Resultado e Caixa", rotulo: "Resultado por Centro de Custo", hash: "resultado-e-caixa/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
+    { id: "proj", cat: "Resultado e Caixa", rotulo: "Resultado por Projeto", hash: "resultado-e-caixa/projeto", tela: "financeiro", icone: "pasta", resumo: true },
+    { id: "vertical", cat: "Resultado e Caixa", rotulo: "Resultado por Vertical", hash: "resultado-e-caixa/vertical", tela: "financeiro", icone: "vertical", resumo: true },
     { id: "bp-cons", cat: "Planejamento", grupo: "Business Plan", rotulo: "Consolidado", hash: "planejamento/bp/consolidado", tela: "bp", icone: "grafico", bp: "cons" },
     { id: "bp-com", cat: "Planejamento", grupo: "Business Plan", rotulo: "Comunidade", hash: "planejamento/bp/comunidade", tela: "bp", icone: "grafico", bp: "com" },
     { id: "bp-tech", cat: "Planejamento", grupo: "Business Plan", rotulo: "Tech", hash: "planejamento/bp/tech", tela: "bp", icone: "grafico", bp: "tech" },
@@ -3828,6 +3834,7 @@
     fluxo: "M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4",
     agenda: "M4 6h16v14H4zM4 10h16M8 3v5M16 3v5",
     grafico: "M4 19h16M6 15l4-5 4 3 5-7",
+    vertical: "M4 20V10M10 20V4M16 20v-8M3 20h18",
     ajustes: "M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6",
     alerta: "M12 4l9 16H3zM12 10v4M12 17v1",
     baixar: "M12 4v11M7 10l5 5 5-5M5 20h14",
@@ -4247,6 +4254,28 @@
     var dados = useMemo(function () {
       return linhas ? calcular(linhas, regime) : null;
     }, [linhas, regime]);
+
+    /* Realizado por vertical: o mesmo calcular, so com os lancamentos de  */
+    /* cada vertical (regra de bpVerticalDoCentro, a mesma da BD Omie) e   */
+    /* com os meses da base inteira. O Consolidado da tela e o proprio     */
+    /* 'dados': Comunidade + Tech tem que bater com ele (testado).         */
+    var dadosVertical = useMemo(function () {
+      if (!linhas || !dados) return null;
+      function daVertical(v) {
+        return linhas.filter(function (l) { return bpVerticalDoCentro(l.centro) === v; });
+      }
+      return {
+        com: calcular(daVertical("com"), regime, dados.meses),
+        tech: calcular(daVertical("tech"), regime, dados.meses),
+        cons: dados
+      };
+    }, [linhas, regime, dados]);
+    var estVisaoVertical = useState(function () {
+      var salva = armazenamento.getItem("quorum_visao_vertical");
+      return salva === "com" || salva === "tech" ? salva : "lado";
+    });
+    var visaoVertical = estVisaoVertical[0], setVisaoVertical = estVisaoVertical[1];
+    useEffect(function () { armazenamento.setItem("quorum_visao_vertical", visaoVertical); }, [visaoVertical]);
 
     /* ---------------------------------------------------------------- */
     /* Exportacao: tres abas, todas as celulas em formula sobre BD Contas */
@@ -4830,6 +4859,116 @@
         denominador += dados.receitaLiquida[mes] || 0;
       });
       return denominador ? numerador / denominador : undefined;
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Resultado por vertical. As linhas seguem exatamente a DRE da tela */
+    /* DRE (mesmas secoes, grupos, categorias, totais e margens), mas    */
+    /* cada linha sabe ler o valor de qualquer um dos tres calculos:     */
+    /* Comunidade, Tech ou Consolidado.                                  */
+    /* ---------------------------------------------------------------- */
+
+    var NOME_VERTICAL = { com: "Comunidade", tech: "Tech", cons: "Consolidado" };
+    function pctMes(d, valores) {
+      var r = {};
+      meses.forEach(function (mes) { r[mes] = d.receitaLiquida[mes] ? valores[mes] / d.receitaLiquida[mes] : 0; });
+      return r;
+    }
+    function pctAcum(d, valores) {
+      var num = 0, den = 0;
+      meses.forEach(function (mes) { num += valores[mes] || 0; den += d.receitaLiquida[mes] || 0; });
+      return den ? num / den : undefined;
+    }
+    function especDRE() {
+      var rows = [];
+      function secao(i) {
+        var sec = dados.secoesDre[i];
+        rows.push({ key: sec.key, label: sec.label, nivel: "secao", filtro: { grupos: sec.groups },
+          serie: function (d) { return d.S[sec.key]; } });
+        if (!mostrarDetalhe) return;
+        sec.groups.forEach(function (g) {
+          rows.push({ key: sec.key + g, label: g, nivel: "grupo", filtro: { grupo: g }, ocultavel: true,
+            serie: function (d) { var v = {}; meses.forEach(function (m) { v[m] = d.grupoMes(g, m); }); return v; } });
+          var bloco = PLANO_DE_CONTAS.filter(function (b) { return b.grupo === g; })[0];
+          if (!bloco) return;
+          bloco.itens.forEach(function (item) {
+            var c = item[0];
+            rows.push({ key: sec.key + g + c, label: c, nivel: "item", filtro: { grupo: g, categoria: c }, ocultavel: true, item: true, inativa: !item[1],
+              serie: function (d) { var v = {}; meses.forEach(function (m) { v[m] = d.bruto(g, c, m); }); return v; } });
+          });
+        });
+      }
+      function total(label, campo) { rows.push({ key: label, label: label, nivel: "total", serie: function (d) { return d[campo]; } }); }
+      function pct(label, campo) {
+        rows.push({ key: label, label: label, nivel: "pct", formato: "pct",
+          serie: function (d) { return pctMes(d, d[campo]); }, acum: function (d) { return pctAcum(d, d[campo]); } });
+      }
+      secao(0); secao(1); total("(=) Receita Líquida", "receitaLiquida");
+      secao(2); total("(=) Lucro Bruto", "lucroBruto"); pct("% margem bruta", "lucroBruto");
+      secao(3); total("(=) EBITDA", "ebitda"); pct("% margem EBITDA", "ebitda");
+      secao(4); secao(5); secao(6); secao(7); total("(=) Resultado Antes de Impostos", "ebit");
+      secao(8); total("(=) Lucro Líquido", "lucroLiquido");
+      rows.push({ key: "acumulado", label: "(=) Resultado Acumulado", nivel: "secao", acumFinal: true, serie: function (d) { return d.acumulado; } });
+      pct("% margem líquida", "lucroLiquido");
+      return rows;
+    }
+
+    function paginaVertical() {
+      var rows = especDRE();
+      var dv = dadosVertical;
+      if (visaoVertical !== "lado") {
+        var v = visaoVertical, d = dv[v];
+        var filtroV = v === "cons" ? {} : { vertical: v };
+        return h(Tabela, null, rows.map(function (r) {
+          var valores = r.serie(d);
+          if (r.ocultavel && !mostrarZeradas && !temValor(valores)) return null;
+          var acumulado = r.acum ? r.acum(d) : (r.acumFinal ? (ultimoMes ? d.acumulado[ultimoMes] : 0) : undefined);
+          return h(LinhaTabela, {
+            key: r.key, label: r.label, valores: valores, meses: meses, nivel: r.nivel, formato: r.formato, acumulado: acumulado,
+            aoAbrir: r.filtro && (!r.item || temValor(valores))
+              ? abrirGaveta(r.label + (v === "cons" ? "" : " · " + NOME_VERTICAL[v]), Object.assign({}, r.filtro, filtroV)) : undefined,
+            sufixo: r.inativa ? h("span", { style: { fontSize: 10, color: COR.faint } }, "  inativa") : null
+          });
+        }));
+      }
+      /* Lado a lado: total do periodo selecionado em cada vertical. */
+      var ordem = ["com", "tech", "cons"];
+      function totalPeriodo(r, d) {
+        if (r.acum) return r.acum(d);
+        var vals = r.serie(d);
+        if (r.acumFinal) return ultimoMes ? d.acumulado[ultimoMes] : 0;
+        return meses.reduce(function (soma, m) { return soma + (vals[m] || 0); }, 0);
+      }
+      var cab = { padding: "8px 12px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: COR.dim, fontWeight: 600, textAlign: "right", background: COR.ink };
+      return h("div", null,
+        h("div", { className: "mb-2", style: { fontSize: 11, color: COR.faint } },
+          "Total do período selecionado no topo (" + (meses.length ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1]) : "sem mês") + "). Clique num valor para ver os lançamentos daquela vertical."),
+        h("div", { className: "overflow-x-auto rounded", style: { border: "1px solid " + COR.line, background: COR.surface } },
+          h("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 640, tableLayout: "fixed" } },
+            h("colgroup", null, h("col", { style: { width: "46%" } }), ordem.map(function (v) { return h("col", { key: v, style: { width: "18%" } }); })),
+            h("thead", null, h("tr", null,
+              h("th", { style: Object.assign({}, cab, { textAlign: "left" }) }, "Linha"),
+              ordem.map(function (v) { return h("th", { key: v, style: Object.assign({}, cab, v === "cons" ? { color: COR.brass, borderLeft: "1px solid " + COR.line } : {}) }, NOME_VERTICAL[v]); }))),
+            h("tbody", null, rows.map(function (r) {
+              if (r.ocultavel && !mostrarZeradas && !ordem.some(function (v) { return temValor(r.serie(dv[v])); })) return null;
+              var estilo = ESTILO_LINHA[r.nivel];
+              return h("tr", { key: r.key, style: { background: estilo.bg } },
+                h("td", { className: estilo.pad + " py-1 whitespace-nowrap overflow-hidden", style: { color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs, textOverflow: "ellipsis" }, title: r.label },
+                  r.label, r.inativa ? h("span", { style: { fontSize: 10, color: COR.faint } }, "  inativa") : null),
+                ordem.map(function (v) {
+                  var valor = totalPeriodo(r, dv[v]);
+                  var clicavel = !!r.filtro && Math.abs(valor || 0) > 0.005;
+                  return h("td", { key: v, className: "px-3 py-1 text-right whitespace-nowrap",
+                    onClick: clicavel ? function () { abrirGaveta(r.label + (v === "cons" ? "" : " · " + NOME_VERTICAL[v]), Object.assign({}, r.filtro, v === "cons" ? {} : { vertical: v }))(null); } : undefined,
+                    title: clicavel ? "Ver os lançamentos de " + NOME_VERTICAL[v] + " no período" : undefined,
+                    style: { color: estilo.cor, fontWeight: estilo.peso, fontSize: estilo.fs, fontVariantNumeric: "tabular-nums",
+                      cursor: clicavel ? "pointer" : "default", borderLeft: v === "cons" ? "1px solid " + COR.line : undefined } },
+                    r.formato === "pct" ? (valor !== undefined ? formatarPercentual(valor) : "") : formatarNumero(valor, 2));
+                }));
+            }))
+          )
+        )
+      );
     }
 
     /* Estilo dos botoes de alternancia da barra superior. */
@@ -5596,6 +5735,7 @@
       dre: "Resultado no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos por trás dela.",
       cc: "Receita, saída e resultado por centro de custo, no regime de " + nomeRegime + ".",
       proj: "Receita, saída e resultado por projeto, no regime de " + nomeRegime + ".",
+      vertical: "DRE realizada por vertical, no regime de " + nomeRegime + ". Centro de custo com Insights, Review ou Advisory é Tech; o resto, inclusive sem centro, é Comunidade.",
       posicao: "Quanto há em conta, quanto já está comprometido e a caução.",
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
       abertos: "",
@@ -5635,6 +5775,7 @@
       if (aba === "dre") return abaDRE();
       if (aba === "caixa") return abaFluxoDeCaixa();
       if (aba === "proj" || aba === "cc") return abaDimensao();
+      if (aba === "vertical") return paginaVertical();
       if (aba === "achados") return abaAchados();
       if (aba === "abertos") return abaCompromissos();
       if (aba === "apres") return abaApresentacao();
@@ -5642,7 +5783,7 @@
     }
 
     var contagens = { achados: dados.achados.length, abertos: emAberto ? emAberto.length : 0 };
-    var mostrarFerramentas = (aba === "dre" || aba === "caixa") && !semMesSelecionado;
+    var mostrarFerramentas = (aba === "dre" || aba === "caixa" || aba === "vertical") && !semMesSelecionado;
     var lateral = (!celular || menuAberto) && h(BarraLateral, {
       rotas: rotasLiberadas, atual: rota.id, contagens: contagens, recolhida: menuRecolhido, celular: celular,
       aoNavegar: navegar, aoRecolher: function () { setMenuRecolhido(!menuRecolhido); }
@@ -5680,6 +5821,13 @@
             h("div", { style: { flex: "1 1 320px", minWidth: 0 } },
               h("h1", { style: { margin: 0, fontSize: 20, fontWeight: 600 } }, tituloDaRota(rota)),
               DESCRICAO[rota.id] && h("div", { style: { fontSize: 12, color: COR.faint, marginTop: 2 } }, DESCRICAO[rota.id])),
+            aba === "vertical" && !semMesSelecionado && h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
+              [["lado", "Todas"], ["com", "Comunidade"], ["tech", "Tech"]].map(function (par) {
+                var ativo = visaoVertical === par[0];
+                return h("button", { key: par[0], onClick: function () { setVisaoVertical(par[0]); }, className: "px-3 py-1.5",
+                  title: par[0] === "lado" ? "Comunidade, Tech e Consolidado lado a lado, no total do período" : "Mês a mês da vertical escolhida",
+                  style: { fontSize: 11, background: ativo ? COR.brass : "transparent", color: ativo ? "#FFFFFF" : COR.dim, fontWeight: ativo ? 600 : 400 } }, par[1]);
+              })),
             mostrarFerramentas && ferramentasTabela),
           conteudoDaRota()
         )
