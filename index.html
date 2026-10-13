@@ -3322,6 +3322,7 @@
   var GOOGLE_CLIENT_ID = "24757321664-gpb181p8tfus3p2eu51ushgv2g1brlvr.apps.googleusercontent.com";
   var DOMINIO_LOGIN = "quorum-br.com";
   var URL_ACESSOS = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-acessos";
+  var URL_PREMISSAS_BP = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-bp-premissas";
   var TELAS_DO_PAINEL = [["financeiro", "Financeiro"], ["bp", "Business Plan"]];
 
   /* Validade da credencial lida do proprio token, so para nao tentar usar */
@@ -3963,6 +3964,9 @@
     var estAbertos = useState([]);             var emAberto = estAbertos[0],     setEmAberto = estAbertos[1];
     var estGerandoApres = useState(false);     var gerandoApres = estGerandoApres[0], setGerandoApres = estGerandoApres[1];
     var estGerandoBP = useState(false);        var gerandoBP = estGerandoBP[0], setGerandoBP = estGerandoBP[1];
+    /* Premissas do BP: { estado: "nada" | "carregando" | "ok" | "erro", msg } */
+    var estPremissas = useState({ estado: "nada", msg: "" });
+    var premissasBP = estPremissas[0], setPremissasBP = estPremissas[1];
     var estResposta = useState(null);          var resposta = estResposta[0],    setResposta = estResposta[1];
     var estCarregando = useState(true);        var carregando = estCarregando[0], setCarregando = estCarregando[1];
     var estAtualizado = useState(null);        var atualizadoEm = estAtualizado[0], setAtualizadoEm = estAtualizado[1];
@@ -4206,6 +4210,39 @@
     }
 
     useEffect(function () { if (token && usuario) buscarBase(); }, [token, usuario && usuario.email]);
+
+    /* Premissas do Business Plan: vem do n8n, so para quem tem o BP e o  */
+    /* Financeiro liberados (o n8n confere de novo). Falha ou recusa vira  */
+    /* mensagem na tela do BP, nunca "carregando" para sempre. Recusa por  */
+    /* credencial vencida renova a sessao em silencio e tenta mais uma vez.*/
+    var temBP = !!(usuario && usuario.telas.indexOf("bp") >= 0 && usuario.telas.indexOf("financeiro") >= 0);
+    function carregarPremissas(tokenUsado, jaRenovou) {
+      tokenUsado = tokenUsado || token;
+      if (!tokenUsado) return Promise.resolve();
+      /* Recarga com o BP ja na tela (Atualizar) nao apaga a tela: so a   */
+      /* primeira carga, ou depois de um erro, mostra "carregando".      */
+      setPremissasBP(function (atual) { return atual.estado === "ok" ? atual : { estado: "carregando", msg: "" }; });
+      return fetch(URL_PREMISSAS_BP, { cache: "no-store", headers: { "x-quorum-id-token": tokenUsado } })
+        .then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (json) {
+            if (r.ok && json && json.ok && json.series && json.params) {
+              bpAplicarPremissas(json);
+              setPremissasBP({ estado: "ok", msg: "", versao: json.versao || "" });
+              return;
+            }
+            if (r.status === 401 && !jaRenovou) {
+              return renovarSessao().then(function (nova) { return carregarPremissas(nova, true); });
+            }
+            throw new Error((json && json.erro) || ("HTTP " + r.status));
+          });
+        })
+        .catch(function (erro) {
+          var motivo = /failed to fetch|networkerror|load failed/i.test(erro.message) ? "sem resposta do servidor" : erro.message;
+          setPremissasBP({ estado: "erro", msg: "Não foi possível carregar as premissas do Business Plan (" + motivo + "). Tente Atualizar." });
+        });
+    }
+    /* Busca na entrada; a renovacao de sessao de hora em hora nao refaz. */
+    useEffect(function () { if (token && temBP) carregarPremissas(); }, [temBP]);
 
     var dados = useMemo(function () {
       return linhas ? calcular(linhas, regime) : null;
@@ -4904,7 +4941,7 @@
     }, erros.length ? "A base não fecha" : "Base íntegra", alertas.length > 0 && (" · " + alertas.length + " alerta(s)"));
 
     var botaoAtualizar = h("button", {
-      onClick: function () { buscarBase(true); },
+      onClick: function () { buscarBase(true); if (temBP) carregarPremissas(); },
       disabled: carregando,
       className: "px-3 py-1.5 rounded",
       style: {
@@ -5510,7 +5547,7 @@
     /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
     function paginaExportacoes() {
       function exportarBP() {
-        if (gerandoBP) return;
+        if (gerandoBP || premissasBP.estado !== "ok") return;
         setGerandoBP(true);
         bpExportarExcel(linhas, emAberto)
           .catch(function (erro) { window.alert("Não consegui gerar o Excel: " + erro.message); })
@@ -5521,8 +5558,10 @@
           botao: "Exportar XLSX", acao: function () { exportarXlsx(); }, ocupado: false },
         { titulo: "Apresentação de resultados", texto: "Os 8 gráficos da Apresentação em .pptx, no modelo da QUORUM, no regime e no período selecionados no topo.",
           botao: gerandoApres ? "Gerando apresentação..." : "Exportar apresentação", acao: exportarApresentacao, ocupado: gerandoApres || !meses.length },
-        usuario.telas.indexOf("bp") >= 0 && { titulo: "Excel do Business Plan", texto: "O BP no cenário base, 7 abas no formato da BP_QUORUM_Oficial, tudo em fórmula, com as premissas e os parâmetros gravados neste navegador.",
-          botao: gerandoBP ? "Gerando Excel..." : "Exportar Excel do BP", acao: exportarBP, ocupado: gerandoBP }
+        temBP && { titulo: "Excel do Business Plan", texto: premissasBP.estado === "erro" ? premissasBP.msg
+            : "O BP no cenário base, 7 abas no formato da BP_QUORUM_Oficial, tudo em fórmula, com as premissas e os parâmetros gravados neste navegador.",
+          botao: gerandoBP ? "Gerando Excel..." : premissasBP.estado === "ok" ? "Exportar Excel do BP" : premissasBP.estado === "erro" ? "Premissas indisponíveis" : "Carregando premissas...",
+          acao: exportarBP, ocupado: gerandoBP || premissasBP.estado !== "ok" }
       ].filter(Boolean);
       return h("div", { className: "grid gap-3", style: { gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", maxWidth: 980 } },
         itens.map(function (it) {
@@ -5559,7 +5598,21 @@
 
     function conteudoDaRota() {
       if (rota.tela === "admin") return h(TelaAcessos, { token: token, usuario: usuario, aoSessaoExpirada: function () { return renovarSessao(); } });
-      if (rota.tela === "bp") return h(PainelBP, { linhas: linhas, abertos: emAberto, aba: rota.bp });
+      if (rota.tela === "bp") {
+        if (premissasBP.estado !== "ok") {
+          var falhou = premissasBP.estado === "erro";
+          return h("div", { className: "rounded p-4 flex flex-wrap items-center", style: {
+            gap: 12, fontSize: 12, maxWidth: 760,
+            background: falhou ? COR.coralSoft : COR.surface, color: falhou ? COR.coral : COR.faint,
+            border: "1px solid " + (falhou ? COR.coral : COR.line) } },
+            h("span", { style: { flex: 1, minWidth: 0 } }, falhou ? premissasBP.msg : "Carregando as premissas do Business Plan..."),
+            falhou && h("button", { onClick: function () { carregarPremissas(); }, className: "px-3 py-1.5 rounded",
+              style: { fontSize: 11, border: "1px solid " + COR.coral, color: COR.coral, background: COR.surface, fontWeight: 600 } }, "Tentar de novo"));
+        }
+        /* key: se as premissas forem recarregadas com outra versao, o BP  */
+        /* e redesenhado do zero com os valores novos.                      */
+        return h(PainelBP, { key: premissasBP.versao || "bp", linhas: linhas, abertos: emAberto, aba: rota.bp });
+      }
       if (semMesSelecionado) {
         return h("div", { className: "flex items-center justify-center text-center py-16", style: { fontSize: 12, color: COR.faint } },
           "Nenhum mês selecionado. Abra \"Período\" no topo e marque pelo menos um.");
@@ -6007,98 +6060,31 @@
   /* Omie (taxa municipal com codigo de imposto, 2.14.93).                */
   var BP_CODIGO_IGNORADO_NO_REALIZADO = { 129: true, 197: true };
 
-  /* Valores de partida das premissas, lidos da BP_QUORUM_Oficial (aba    */
-  /* Premissas New para os drivers, abas Comunidade e Tech para os        */
-  /* lancamentos mes a mes). Um array de 36 meses por serie, jun/26 a     */
-  /* mai/29. O que Alex editar na grade fica guardado a parte, celula a   */
-  /* celula, por cima destes valores.                                     */
-  var BP_SERIES_PADRAO = {
-    membros_cto: [36,45,56,66,76,86,96,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100],
-    membros_ciso: [0,0,0,0,0,0,0,0,22,36,45,56,66,76,86,96,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100],
-    membros_cdo: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22,36,45,56,66,76,86,96,100,100,100,100,100,100,100,100,100,100,100],
-    preco_membership: [990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990,990],
-    membros_por_evento: [40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40],
-    ab_membro_quo: [251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251,251],
-    video_evento_quo: [1500,1500,1500,1500,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,4000,4000,4000,4000,4000],
-    equip_evento_quo: [800,800,800,800,800,800,800,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
-    eventos_recorrentes_custo: [0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    webpeak: [0,8000,8000,25000,8000,25000,8000,8000,8000,25000,8000,8000,25000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    cota1: [0,0,0,0,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000],
-    cota2: [0,0,0,0,0,0,0,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000],
-    cota3: [0,0,0,0,0,0,0,0,0,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000],
-    spot_qtd: [0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,1,0,0],
-    spot_preco: [20000,20000,20000,20000,25000,25000,25000,25000,25000,25000,25000,25000,25000,30000,30000,30000,35000,35000,35000,35000,35000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000,40000],
-    ab_membro_cli: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    video_evento_cli: [1500,1500,1500,1500,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,2000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,4000,4000,4000,4000,4000],
-    equip_evento_cli: [800,800,800,800,800,800,800,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
-    spot_eventos_custo_cli: [0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,1,0,0],
-    tier1_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    tier2_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    tier3_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    tier1_preco: [10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000,10000],
-    tier2_preco: [5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000,5000],
-    tier3_preco: [3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000],
-    house_aluguel_qtd: [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    house_aluguel_valor: [0,0,0,0,0,0,0,0,0,0,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000],
-    house_reforma_qtd: [0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    house_reforma_valor: [0,0,0,0,0,0,0,0,0,0,0,150000,150000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    surveys_qtd: [0,0,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1],
-    surveys_preco: [0,0,0,0,0,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000,70000],
-    qd_participantes: [0,0,0,0,0,0,0,0,0,0,0,0,300,0,0,0,0,0,0,0,0,0,0,0,300,0,0,0,0,0,0,0,0,0,0,0],
-    qd_ingresso: [0,0,0,0,0,0,0,0,0,0,0,0,470,0,0,0,0,0,0,0,0,0,0,0,470,0,0,0,0,0,0,0,0,0,0,0],
-    qd_cotas_qtd: [0,0,0,0,0,0,0,0,0,0,0,0,20,0,0,0,0,0,0,0,0,0,0,0,20,0,0,0,0,0,0,0,0,0,0,0],
-    qd_cota_valor: [0,0,0,0,0,0,0,0,0,0,0,0,40000,0,0,0,0,0,0,0,0,0,0,0,40000,0,0,0,0,0,0,0,0,0,0,0],
-    adv_advisors: [0,0,0,0,0,0,0,20,20,25,25,30,30,35,35,40,40,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45],
-    adv_pct_vendidas: [0,0,0,0,0,0,0,0.1,0.1,0.15,0.15,0.15,0.2,0.2,0.2,0.2,0.2,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.25],
-    adv_preco_hora: [0,0,0,0,0,0,0,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500,1500],
-    adv_share: [0,0,0,0,0,0,0,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
-    rv_avulso: [690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690,690],
-    rv_pacote: [4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700,4700],
-    rv_pct_pacote: [0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15,0.15],
-    rv_vendors_lanc: [1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000],
-    rv_vendors_novos: [30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30],
-    rv_reiv_m1: [0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2],
-    rv_reiv_m12: [0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6],
-    rv_conv_m1: [0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05],
-    rv_conv_m12: [0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
-    rv_buyers_lanc: [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100],
-    rv_buyers_novos: [150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150,150],
-    rv_bconv_m1: [0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02],
-    rv_bconv_m12: [0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08,0.08],
-    rv_buyer_preco: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    conversao_house: [0,0,0,0,0,0,0,0,0,0,0,0,0.1,0.1,0.1,0.1,0.1,0.1,0.2,0.2,0.2,0.2,0.2,0.2,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
-    l_till: [-4000,-4000,-4000,-4000,-4000,-4000,-4000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000],
-    l_alex: [0,0,0,0,0,0,0,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000],
-    l_cl: [0,0,0,0,0,0,0,0,0,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000,-20000],
-    l_video: [0,0,0,0,0,0,0,0,0,0,0,0,0,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000,-10000],
-    l_ferr_com: [0,-2000,-2000,-2000,-2000,-2000,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500,-4500],
-    l_jur_com: [0,0,0,0,0,0,0,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500,-500],
-    l_cont_com: [0,-360,-360,-360,-360,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450],
-    l_estudio: [0,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000],
-    l_pr: [0,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000],
-    l_impuls: [0,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000,-2000],
-    l_brindes: [0,-5000,-5000,-5000,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0,0,-5000,0],
-    l_comerciais: [0,0,0,0,0,0,0,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000,-5000],
-    l_roque: [0,0,0,0,0,0,0,0,0,0,0,0,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000,-40000],
-    l_ferr_tech: [0,0,0,0,0,0,-1000,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300,-3300],
-    l_jur_tech: [0,0,0,0,0,0,-10000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    l_cont_tech: [0,0,0,0,0,0,0,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450,-450],
-    l_cac_review: [0,0,0,0,0,0,0,-10000,-12150,-8712,-8152,-6528,-6672,-7425,-8820,-8738,-7770,-8925,-7665,-8435,-9275,-10220,-11235,-12355,-9065,-9520,-9975,-10500,-11025,-11550,-12145,-12740,-13405,-14070,-14770,0],
-    l_criativos: [0,0,0,0,0,0,-20000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    l_backup: [0,0,0,0,0,0,0,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200,-200],
-    l_infra: [0,0,0,0,0,0,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583,-583],
-    l_ia: [0,0,0,0,0,0,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,0],
-    l_apis: [0,0,0,0,0,0,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000,-1000]
-  };
+  /* Valores de partida das premissas (uma serie de 36 meses por item,   */
+  /* jun/26 a mai/29) e parametros escalares. Desde 12/10/2026 NAO ficam  */
+  /* neste arquivo, que e publico: vem do n8n (webhook painel-bp-premissas,*/
+  /* tabela 'QUORUM BP - Premissas'), so para quem tem o BP liberado.     */
+  /* bpAplicarPremissas preenche estas variaveis antes de qualquer tela   */
+  /* do BP ser desenhada. O que Alex editar na grade continua guardado no */
+  /* navegador, celula a celula, por cima destes valores.                 */
+  var BP_SERIES_PADRAO = null;
+  var BP_PARAMS_PADRAO = null;
+  var BP_PREMISSAS_VERSAO = "";
 
   /* Vertical dona de cada serie: na outra vertical ela vale zero. */
   var BP_SERIE_VERTICAL = {};
-  Object.keys(BP_SERIES_PADRAO).forEach(function (id) {
-    var tech = /^(rv_|adv_)/.test(id) ||
-      ["l_roque", "l_ferr_tech", "l_jur_tech", "l_cont_tech", "l_cac_review", "l_criativos",
-       "l_backup", "l_infra", "l_ia", "l_apis"].indexOf(id) >= 0;
-    BP_SERIE_VERTICAL[id] = tech ? "tech" : "com";
-  });
+  var BP_SERIES_TECH = ["l_roque", "l_ferr_tech", "l_jur_tech", "l_cont_tech", "l_cac_review", "l_criativos",
+    "l_backup", "l_infra", "l_ia", "l_apis"];
+  function bpAplicarPremissas(resposta) {
+    BP_SERIES_PADRAO = resposta.series;
+    BP_PARAMS_PADRAO = resposta.params;
+    BP_PREMISSAS_VERSAO = resposta.versao || "";
+    BP_SERIE_VERTICAL = {};
+    Object.keys(BP_SERIES_PADRAO).forEach(function (id) {
+      var tech = /^(rv_|adv_)/.test(id) || BP_SERIES_TECH.indexOf(id) >= 0;
+      BP_SERIE_VERTICAL[id] = tech ? "tech" : "com";
+    });
+  }
 
   /* Lancamentos fixos: serie -> linha do DRE onde entra. */
   var BP_LANCAMENTOS = {
@@ -6109,36 +6095,11 @@
     l_ia: 223, l_comerciais: 227, l_apis: 139
   };
 
-  /* Parametros escalares. Os marcados "online" nao existem na planilha:  */
-  /* sao decisoes de Alex so para o BP online.                           */
-  var BP_PARAMS_PADRAO = {
-    renovacao_prob: 1,         /* probabilidade de renovar cada cota a cada ciclo; 100%, igual a planilha (25/09/2026) */
-    renovacao_prazo: 12,       /* meses de cada ciclo de contrato de cota                 */
-    comissao_pct: 0.025,       /* comissao de socios advisors sobre receita liquida         */
-    comissao_inicio: 7,        /* mes em que a comissao comeca (indice 7 = jan/27), igual a planilha */
-    midia_pct: 0.0077,         /* impulsionamento = % da receita bruta da Comunidade */
-    qd_custo_pct: 0.70,        /* custo do evento aberto = % da receita liquida dele */
-    taxa_com: 0.002,           /* planilha: taxas bancarias, % da receita da Comunidade    */
-    taxa_tech: 0.03,           /* planilha: meios de pagamento, % da receita da Tech       */
-    horas_advisor: 8,          /* planilha: horas disponibilizadas por advisor no mes      */
-    review_lancamento: 7,      /* planilha: mes 1 do QR Review (indice 7 = jan/27)         */
-    mutuo_valor: 60000,        /* contrato v07                                             */
-    mutuo_mes: 3,              /* indice 3 = set/26                                        */
-    mutuo_carencia: 6,
-    mutuo_cdi: 0.105,          /* proxy de mercado, nao esta no contrato                   */
-    mutuo_prazo: 36,
-    dist_pct: 0.25,            /* online: distribuicao de lucros                            */
-    dist_periodo: 6,
-    conservador: 0.60,         /* online: fracao da receita no cenario conservador          */
-    caixa_minimo: 30000,
-    /* Chaves usadas so para conferir o motor contra a planilha. Nao      */
-    /* aparecem na tela: com elas em modo "planilha", o motor reproduz a  */
-    /* planilha exatamente, o que prova que a replica esta certa.         */
-    modo_midia: "pct",         /* "lanc" usa a serie l_impuls da planilha */
-    modo_qd: "liquido",        /* "bruto" usa 50% da receita bruta, como na planilha */
-    qd_bruto_pct: 0.50,
-    corrige_recorrente: true   /* false reproduz o erro de referencia da planilha */
-  };
+  /* Parametros escalares (BP_PARAMS_PADRAO, acima) tambem vem do n8n.    */
+  /* Os que so existem no online (distribuicao, conservador) e os que so  */
+  /* servem para conferir o motor contra a planilha (modo_midia, modo_qd, */
+  /* qd_bruto_pct, corrige_recorrente) estao descritos em BP_PARAMS_UI e  */
+  /* no CLAUDE.md.                                                         */
 
   /* Tabela do Anexo V (LC 123/2006, redacao LC 155/2016), a mesma da aba  */
   /* Impostos da planilha.                                                 */
@@ -6584,12 +6545,12 @@
   ];
 
   var BP_PARAMS_UI = [
-    ["renovacao_prob", "Probabilidade de renovação de cada cota Master, por ciclo", "pct", "100%, igual à planilha."],
+    ["renovacao_prob", "Probabilidade de renovação de cada cota Master, por ciclo", "pct", "Igual à planilha."],
     ["renovacao_prazo", "Duração do ciclo de contrato de cota (meses)", "qtd", ""],
     ["comissao_pct", "Comissão de sócios advisors, % da receita líquida", "pct", "Linha 2.12.98, nas duas verticais, igual à planilha."],
     ["comissao_inicio", "Comissão de sócios advisors: mês de início", "mes", "Igual à planilha."],
     ["midia_pct", "Mídia | Impulsionamento, % da receita bruta da Comunidade", "pct", "Igual à planilha (linha 210)."],
-    ["qd_custo_pct", "Custo dos eventos abertos, % da receita líquida do evento", "pct", "Igual à planilha (70% desde 25/09/2026)."],
+    ["qd_custo_pct", "Custo dos eventos abertos, % da receita líquida do evento", "pct", "Igual à planilha desde 25/09/2026."],
     ["taxa_com", "Taxas bancárias, % da receita da Comunidade", "pct", "Da planilha."],
     ["taxa_tech", "Meios de pagamento, % da receita da Tech", "pct", "Da planilha."],
     ["horas_advisor", "Horas disponibilizadas por advisor no mês", "qtd", "Da planilha."],
