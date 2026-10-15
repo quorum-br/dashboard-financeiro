@@ -6068,6 +6068,7 @@
     [235, "Juros Recebidos", "1.08.98", 2],
     [236, "Rendimentos de Aplicações", "1.08.99", 2],
     [237, "Multas Recebidas", "1.08.96", 2],
+    [237.3, "Estorno de Tarifas Bancárias", "1.08.95", 2],
     [237.5, "Demais receitas financeiras (realizado)", "", 2],
     [239, "Despesas Financeiras", "2.13", 1],
     [240, "IOF", "2.13.96", 2],
@@ -6146,12 +6147,17 @@
   /* Atualizado em 24/09/2026: entrou a linha 139 (APIs do Review), a      */
   /* aquisicao de midia passou para o Review e o trecho de marketing em    */
   /* diante desceu duas linhas.                                            */
+  /* Atualizado em 15/10/2026: entrou a linha 240 (1.08.95 Estorno de     */
+  /* Tarifas Bancarias, id 237.3) e da antiga 241 em diante tudo desceu   */
+  /* uma linha.                                                           */
   function bpLinhaPlanilha(id) {
     if (id <= 139) return id;
     if (id <= 202) return id - 1;
     if (id === 203) return 205;
     if (id <= 206) return id - 2;
-    return id + 2;
+    if (id <= 237) return id + 2;
+    if (id < 238) return id + 2.7;   /* 237.3 -> 240; 237.5 (residuo) -> 240,2, logo abaixo */
+    return id + 3;
   }
   BP_LINHAS.sort(function (a, b) { return bpLinhaPlanilha(a[0]) - bpLinhaPlanilha(b[0]); });
   var BP_LINHA = {};
@@ -6179,7 +6185,7 @@
     217: [218, 219, 222], 219: [220, 221], 222: [223],
     225: [226, 227],
     229: [150, 153],
-    232: [233, 239], 233: [234, 235, 236, 237], 239: [240, 241, 244, 245, 246], 241: [242, 243],
+    232: [233, 239], 233: [234, 235, 236, 237, 237.3], 239: [240, 241, 244, 245, 246], 241: [242, 243],
     248: [249, 253, 256], 249: [250, 251], 253: [254], 256: [257],
     259: [229, 232, 248],
     262: [263, 264],
@@ -7155,8 +7161,11 @@
 
   var BP_MODELO_URL = "bp_modelo_xlsx.json";
 
-  /* Linha da planilha -> identificador do motor (inverso de           */
-  /* bpLinhaPlanilha). null = linha so de formatacao (espacador etc.). */
+  /* Linha do molde -> identificador do motor. O molde (bp_modelo_xlsx) */
+  /* tem a numeracao da planilha de 24/09/2026, sem a linha 1.08.95: por */
+  /* isso esta funcao nao acompanha bpLinhaPlanilha, e a 1.08.95 entra   */
+  /* no export como linha inserida (INSERE_APOS_LINHA, depois da 239).   */
+  /* null = linha so de formatacao (espacador etc.).                     */
   function bpIdDaLinhaPlanilha(r) {
     var id;
     if (r <= 139) id = r;
@@ -7420,6 +7429,7 @@
     /* realizado tem esse tipo de lancamento.                                */
     var transfAtivo = (proj.cons[316] || []).some(function (v, i) { return tipos[i] === "R" && Math.abs(v || 0) >= 0.005; });
     var INSERE_APOS_LINHA = {
+      239: [{ id: 237.3, molde: 239 }],   /* 1.08.95, que o molde nao tem; estilo da 1.08.96 */
       293: [{ id: 292, molde: 293 }],
       318: transfAtivo ? [{ id: 316, molde: 302, rotulo: "(+/-) Transferências entre Contas e Não Classificados" }, { id: null, molde: 318 }] : []
     };
