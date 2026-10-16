@@ -5280,6 +5280,7 @@
         h(CartaoIndicador, {
           rotulo: "Conta corrente",
           valor: posicao.corrente,
+          tom: posicao.corrente < 0 ? "neg" : "pos",
           casas: 2, fundo: "caixa", compacto: true,
           sub: "saldo em " + rotuloMes(ultimoMes),
           ajuda: "Contas correntes e caixa (tipo CC e CX na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
@@ -5297,6 +5298,7 @@
         h(CartaoIndicador, {
           rotulo: "Caixa total",
           valor: posicao.total,
+          tom: posicao.total < 0 ? "neg" : "pos",
           casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           sub: "corrente + aplicações + caução",
           ajuda: "Conta corrente " + formatarNumero(posicao.corrente, 2)
