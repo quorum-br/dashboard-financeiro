@@ -909,19 +909,29 @@
     }, celulaRotulo, celulasMes, celulaAcumulado);
   }
 
+  /* Fundos dos cartoes do resumo: azul bem claro para resultado, areia  */
+  /* (dourado bem claro, da paleta) para caixa. Sem verde nem vermelho,  */
+  /* que ja sao a cor do valor positivo e negativo.                      */
+  var FUNDO_CARTAO = {
+    resultado: { bg: "#EEF3FA", borda: "#CCD9EA" },
+    caixa: { bg: "#F8F3E6", borda: "#E4D6B0" }
+  };
+
   /* Cartao de indicador do topo, com tooltip de ajuda no hover. */
   function CartaoIndicador(props) {
     var estadoHover = useState(false);
     var hover = estadoHover[0];
     var setHover = estadoHover[1];
     var corValor = props.tom === "neg" ? COR.coral : (props.tom === "pos" ? COR.mint : COR.text);
+    var fundo = FUNDO_CARTAO[props.fundo] || { bg: COR.surface, borda: COR.line };
 
     return h("div", {
-      className: "rounded px-4 py-3 relative",
+      className: "rounded relative " + (props.compacto ? "px-3 py-3" : "px-4 py-3"),
       style: {
-        background: COR.surface,
-        border: "1px solid " + (hover ? COR.brass : COR.line),
-        minHeight: 112
+        background: fundo.bg,
+        border: "1px solid " + (hover ? COR.brass : fundo.borda),
+        minHeight: props.compacto ? 104 : 112,
+        minWidth: 0
       },
       onMouseEnter: function () { setHover(true); },
       onMouseLeave: function () { setHover(false); }
@@ -943,10 +953,11 @@
       h("div", {
         className: "mt-1",
         style: {
-          fontSize: 24,
+          fontSize: props.compacto ? 20 : 24,
           color: corValor,
           fontWeight: 600,
-          fontVariantNumeric: "tabular-nums"
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap"
         }
       }, formatarNumero(props.valor, props.casas === undefined ? 0 : props.casas) + (props.sufixo || "")),
       props.sub && h("div", {
@@ -954,8 +965,12 @@
         style: { fontSize: 11, color: COR.faint }
       }, props.sub),
       props.ajuda && hover && h("div", {
-        className: "absolute left-0 right-0 rounded p-3 z-20",
+        className: "absolute rounded p-3 z-20",
         style: {
+          left: props.ajudaDireita ? "auto" : 0,
+          right: props.ajudaDireita ? 0 : "auto",
+          width: props.compacto ? 300 : "100%",
+          maxWidth: "80vw",
           top: "100%",
           marginTop: 6,
           background: COR.text,
@@ -3501,6 +3516,46 @@
     });
   }
 
+  /* Contas que nao sao aplicacao, caucao nem cartao: CC, CX e qualquer   */
+  /* outro tipo (ou conta sem tipo, que tambem vira achado). Ficam em      */
+  /* conta corrente para o caixa total sempre fechar com o saldo de todas  */
+  /* as contas.                                                            */
+  var TIPOS_FORA_DA_CONTA_CORRENTE = ["CA", "CV", "CR"];
+  function contasCorrentes(dados) {
+    return dados.contas.filter(function (conta) {
+      return TIPOS_FORA_DA_CONTA_CORRENTE.indexOf(dados.tipoConta[conta] || "") < 0;
+    });
+  }
+
+  /* Posicao de caixa no fim de um mes, pelo tipo da conta na Omie (nunca */
+  /* pelo nome): CA aplicacao, CV caucao, CR cartao, o resto conta        */
+  /* corrente. Caixa total = conta corrente + aplicacoes + caucao; caixa  */
+  /* livre = caixa total - caucao - fatura em aberto. O saldo da conta de */
+  /* cartao ja e negativo enquanto a fatura nao e paga, entao "cartao"    */
+  /* aqui e esse saldo (negativo) e o caixa total e o saldo de todas as   */
+  /* contas sem ele. Usada pelos cartoes, pela pagina Posicao de caixa e  */
+  /* pelo fluxo de caixa, para os tres mostrarem sempre os mesmos numeros.*/
+  function posicaoNoMes(dados, mes) {
+    function soma(contas) {
+      return contas.reduce(function (t, conta) { return t + ((dados.saldoConta[conta] || {})[mes] || 0); }, 0);
+    }
+    var grupos = {
+      corrente: contasCorrentes(dados),
+      aplicacoes: contasDoTipo(dados, ["CA"]),
+      garantia: contasDoTipo(dados, ["CV"]),
+      cartao: contasDoTipo(dados, ["CR"])
+    };
+    var corrente = soma(grupos.corrente), aplicacoes = soma(grupos.aplicacoes);
+    var garantia = soma(grupos.garantia), cartao = soma(grupos.cartao);
+    var total = corrente + aplicacoes + garantia;
+    return {
+      corrente: corrente, aplicacoes: aplicacoes, garantia: garantia, cartao: cartao,
+      total: total,
+      livre: total - garantia + cartao,
+      nomes: grupos
+    };
+  }
+
   function normalizarLinha(linha, indice) {
     var contraparte = resolverContraparte(linha);
     var idEstavel = linha.id || (linha.id_movimento ? "M" + linha.id_movimento : "L" + indice);
@@ -4618,18 +4673,39 @@
           }])
       });
 
-      var contasGarantia = contasDoTipo(dados, ["CV"]);
-      var linhaCaucao = escreverLinha("grupo", "   (-) Caução travada em garantia (saldo no fim do mês)", function (c) {
-        return contasGarantia.length
-          ? "-(" + contasGarantia.map(function (conta) { return saldoAcumuladoConta(conta, c); }).join("+") + ")"
+      /* Posicao no fim do mes por tipo de conta, mesma regra da tela      */
+      /* (posicaoNoMes): CA aplicacao, CV caucao, CR cartao, o resto conta */
+      /* corrente. Cada linha soma o saldo acumulado das contas do grupo.  */
+      var somaContasNoMes = function (contas, c) {
+        return contas.length
+          ? "(" + contas.map(function (conta) { return saldoAcumuladoConta(conta, c); }).join("+") + ")"
           : "0";
+      };
+      var contasGarantia = contasDoTipo(dados, ["CV"]);
+      var linhaCorrente = escreverLinha("grupo", "   Conta corrente", function (c) {
+        return somaContasNoMes(contasCorrentes(dados), c);
+      });
+      var linhaAplicacoes = escreverLinha("grupo", "   (+) Aplicações", function (c) {
+        return somaContasNoMes(contasDoTipo(dados, ["CA"]), c);
+      });
+      var linhaCaucaoEntra = escreverLinha("grupo", "   (+) Caução travada em garantia", function (c) {
+        return somaContasNoMes(contasGarantia, c);
+      });
+      var linhaCaixaTotal = escreverLinha("total", "(=) Caixa total", function (c) {
+        return c + linhaCorrente + "+" + c + linhaAplicacoes + "+" + c + linhaCaucaoEntra;
+      });
+      var linhaCaucao = escreverLinha("grupo", "   (-) Caução travada em garantia", function (c) {
+        return "-" + c + linhaCaucaoEntra;
+      });
+      var linhaFatura = escreverLinha("grupo", "   (-) Fatura de cartão em aberto", function (c) {
+        return somaContasNoMes(contasDoTipo(dados, ["CR"]), c);
       });
       var linhaCaixaLivre = escreverLinha("total", "(=) Caixa livre", function (c) {
-        return c + linhaSaldoAcumulado + "+" + c + linhaCaucao;
+        return c + linhaCaixaTotal + "+" + c + linhaCaucao + "+" + c + linhaFatura;
       });
 
-      /* Nestas duas o acumulado e a posicao do ultimo mes, nao a soma dos meses. */
-      [linhaCaucao, linhaCaixaLivre].forEach(function (numeroLinha) {
+      /* Nestas linhas o acumulado e a posicao do ultimo mes, nao a soma dos meses. */
+      [linhaCorrente, linhaAplicacoes, linhaCaucaoEntra, linhaCaixaTotal, linhaCaucao, linhaFatura, linhaCaixaLivre].forEach(function (numeroLinha) {
         var linha = abaQuorum.linhas.filter(function (l) { return l.r === numeroLinha; })[0];
         linha.celulas[linha.celulas.length - 1].f = col(COL_ACUMULADO - 1) + numeroLinha;
       });
@@ -4639,7 +4715,7 @@
         r: linhaAtual++,
         celulas: [{
           col: 3,
-          v: "Toda célula deste bloco é fórmula sobre a aba BD Contas. A caução sai porque está travada como garantia do cartão; a fatura de cartão já está deduzida no saldo acumulado.",
+          v: "Toda célula deste bloco é fórmula sobre a aba BD Contas. Cada conta entra pelo tipo cadastrado na Omie: conta corrente (CC, CX), aplicações (CA), caução (CV) e fatura de cartão (CR). Caixa total = saldo acumulado de todas as contas sem a fatura do cartão; caixa livre = caixa total menos caução e fatura.",
           s: 13
         }]
       });
@@ -4660,27 +4736,7 @@
     /* Posicao de caixa no ultimo mes, separando conta, cartao e caucao. */
     var posicao = useMemo(function () {
       if (!dados || !ultimoMes) return null;
-      var corrente = 0, cartao = 0, garantia = 0;
-      var nomes = { corrente: [], cartao: [], garantia: [] };
-
-      dados.contas.forEach(function (conta) {
-        var saldo = dados.saldoConta[conta][ultimoMes];
-        /* Pelo tipo do cadastro da Omie, nunca pelo nome: CV e caucao, CR */
-        /* e cartao; CC, CX e conta sem tipo contam como caixa.            */
-        var tipo = dados.tipoConta[conta] || "";
-        if (tipo === "CV") { garantia += saldo; nomes.garantia.push(conta); }
-        else if (tipo === "CR") { cartao += saldo; nomes.cartao.push(conta); }
-        else { corrente += saldo; nomes.corrente.push(conta); }
-      });
-
-      return {
-        corrente: corrente,
-        cartao: cartao,
-        garantia: garantia,
-        livre: corrente + cartao,
-        total: corrente + cartao + garantia,
-        nomes: nomes
-      };
+      return posicaoNoMes(dados, ultimoMes);
     }, [dados, ultimoMes]);
 
     /* Sem sessao confirmada pelo n8n, mostra a tela de login. */
@@ -5185,13 +5241,22 @@
     var receitaBrutaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.S.receita[mes]; }, 0);
     var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.ebitda[mes]; }, 0);
 
-    var cartoes = h("div", {
-      className: "pt-4 grid gap-3",
-      style: { gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }
-    },
+    /* Composicao de um grupo de contas para o "?" dos cartoes de caixa. */
+    function composicaoContas(contas) {
+      if (!contas.length) return "nenhuma conta deste tipo";
+      return contas.map(function (conta) {
+        return conta + " " + formatarNumero(dados.saldoConta[conta][ultimoMes] || 0, 2);
+      }).join("; ");
+    }
+
+    /* Sete cartoes numa linha so a partir de 1280 px de tela (xl); abaixo */
+    /* disso quebram. Resultado em azul claro, caixa em areia: fundo nunca */
+    /* verde nem vermelho, que ja sao a cor do valor positivo e negativo.  */
+    var cartoes = h("div", { className: "pt-4 grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7" },
       h(CartaoIndicador, {
         rotulo: "Receita bruta",
         valor: receitaBrutaPeriodo,
+        fundo: "resultado", compacto: true,
         sub: "no período carregado",
         ajuda: "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
       }),
@@ -5199,6 +5264,7 @@
         rotulo: "EBITDA",
         valor: ebitdaPeriodo,
         tom: ebitdaPeriodo < 0 ? "neg" : "pos",
+        fundo: "resultado", compacto: true,
         sub: "acumulado",
         ajuda: "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
       }),
@@ -5206,6 +5272,7 @@
         rotulo: "Lucro líquido",
         valor: ultimoMes ? dados.acumulado[ultimoMes] : 0,
         tom: ultimoMes && dados.acumulado[ultimoMes] < 0 ? "neg" : "pos",
+        fundo: "resultado", compacto: true,
         sub: "acumulado no período",
         ajuda: "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
       }),
@@ -5213,23 +5280,42 @@
         h(CartaoIndicador, {
           rotulo: "Conta corrente",
           valor: posicao.corrente,
-          casas: 2,
+          casas: 2, fundo: "caixa", compacto: true,
           sub: "saldo em " + rotuloMes(ultimoMes),
-          ajuda: "Saldo somado das contas correntes (" + (posicao.nomes.corrente.join(", ") || "nenhuma")
-            + ") no fim de " + rotuloMes(ultimoMes)
-            + ". É o dinheiro que está na conta hoje, sem descontar nada que já está comprometido."
+          ajuda: "Contas correntes e caixa (tipo CC e CX na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
+            + composicaoContas(posicao.nomes.corrente) + ". Não inclui aplicações, caução nem cartão."
+        }),
+        h(CartaoIndicador, {
+          rotulo: "Aplicações",
+          valor: posicao.aplicacoes,
+          casas: 2, fundo: "caixa", compacto: true,
+          sub: "saldo em " + rotuloMes(ultimoMes),
+          ajuda: "Contas de aplicação (tipo CA na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
+            + composicaoContas(posicao.nomes.aplicacoes)
+            + ". A transferência da conta corrente para a aplicação não é receita nem despesa; o rendimento lançado na aplicação entra no DRE em Receitas Financeiras."
+        }),
+        h(CartaoIndicador, {
+          rotulo: "Caixa total",
+          valor: posicao.total,
+          casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          sub: "corrente + aplicações + caução",
+          ajuda: "Conta corrente " + formatarNumero(posicao.corrente, 2)
+            + " + aplicações " + formatarNumero(posicao.aplicacoes, 2)
+            + " + caução " + formatarNumero(posicao.garantia, 2) + " (" + composicaoContas(posicao.nomes.garantia) + ")"
+            + " = " + formatarNumero(posicao.total, 2) + ". Todo o dinheiro da QUORUM, antes de descontar a fatura do cartão."
         }),
         h(CartaoIndicador, {
           rotulo: "Caixa livre",
           valor: posicao.livre,
-          casas: 2,
+          casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           tom: posicao.livre < 0 ? "neg" : "pos",
           sub: "o que sobra depois do já comprometido",
-          ajuda: "Conta corrente de " + formatarNumero(posicao.corrente, 2)
-            + " menos a fatura de cartão em aberto de " + formatarNumero(Math.abs(posicao.cartao), 2)
-            + ". A caução de " + formatarNumero(posicao.garantia, 2)
-            + " não entra aqui: o dinheiro já saiu da conta quando foi depositado na garantia, então o saldo acima já está líquido dela. Somando a caução, que é restituível, a posição total é "
-            + formatarNumero(posicao.total, 2) + "."
+          ajuda: "Caixa total " + formatarNumero(posicao.total, 2)
+            + " − caução " + formatarNumero(posicao.garantia, 2)
+            + " − fatura de cartão em aberto " + formatarNumero(Math.abs(posicao.cartao), 2)
+            + " (" + composicaoContas(posicao.nomes.cartao) + ")"
+            + " = " + formatarNumero(posicao.livre, 2)
+            + ". A caução sai porque está travada como garantia do cartão; volta se o cartão for encerrado."
         })
       )
     );
@@ -5327,24 +5413,30 @@
 
     function abaFluxoDeCaixa() {
       var saldoAcumulado = {};
-      var caucaoNegativa = {};
-      var caixaLivre = {};
-      var faturaCartao = {};
       var corrido = 0;
-
-      var contasCaucao = contasDoTipo(dados, ["CV"]);
-      var contasCartao = contasDoTipo(dados, ["CR"]);
+      /* Posicao no fim de cada mes, pela mesma regra dos cartoes do topo. */
+      var pos = {};
+      var linhaPos = { corrente: {}, aplicacoes: {}, garantia: {}, total: {}, garantiaSai: {}, cartao: {}, livre: {} };
       meses.forEach(function (mes) {
         corrido += dados.fcl[mes];
         saldoAcumulado[mes] = corrido;
-        caucaoNegativa[mes] = -contasCaucao
-          .reduce(function (soma, conta) { return soma + dados.saldoConta[conta][mes]; }, 0);
-        faturaCartao[mes] = contasCartao
-          .reduce(function (soma, conta) { return soma + dados.saldoConta[conta][mes]; }, 0);
-        caixaLivre[mes] = saldoAcumulado[mes] + caucaoNegativa[mes];
+        pos[mes] = posicaoNoMes(dados, mes);
+        linhaPos.corrente[mes] = pos[mes].corrente;
+        linhaPos.aplicacoes[mes] = pos[mes].aplicacoes;
+        linhaPos.garantia[mes] = pos[mes].garantia;
+        linhaPos.total[mes] = pos[mes].total;
+        linhaPos.garantiaSai[mes] = -pos[mes].garantia;
+        linhaPos.cartao[mes] = pos[mes].cartao;
+        linhaPos.livre[mes] = pos[mes].livre;
       });
-
-      var temCaucao = meses.some(function (mes) { return Math.abs(caucaoNegativa[mes]) > 0.005; });
+      /* Na coluna de acumulado, a posicao do ultimo mes, nao a soma. */
+      function linhaPosicao(chave, label, nivel) {
+        return h(LinhaTabela, {
+          key: chave, label: label, valores: linhaPos[chave],
+          meses: meses, nivel: nivel, casas: 2,
+          acumulado: ultimoMes ? linhaPos[chave][ultimoMes] : 0
+        });
+      }
 
       return h(Fragment, null,
         h(Tabela, null,
@@ -5361,16 +5453,13 @@
             meses: meses, nivel: "secao", casas: 2,
             acumulado: ultimoMes ? saldoAcumulado[ultimoMes] : 0
           }),
-          h(LinhaTabela, {
-            label: "(-) Caução travada em garantia (saldo no fim do mês)", valores: caucaoNegativa,
-            meses: meses, nivel: "grupo", casas: 2,
-            acumulado: ultimoMes ? caucaoNegativa[ultimoMes] : 0
-          }),
-          h(LinhaTabela, {
-            label: "(=) Caixa livre", valores: caixaLivre,
-            meses: meses, nivel: "total", casas: 2,
-            acumulado: ultimoMes ? caixaLivre[ultimoMes] : 0
-          }),
+          linhaPosicao("corrente", "Conta corrente", "grupo"),
+          linhaPosicao("aplicacoes", "(+) Aplicações", "grupo"),
+          linhaPosicao("garantia", "(+) Caução travada em garantia", "grupo"),
+          linhaPosicao("total", "(=) Caixa total", "total"),
+          linhaPosicao("garantiaSai", "(-) Caução travada em garantia", "grupo"),
+          linhaPosicao("cartao", "(-) Fatura de cartão em aberto", "grupo"),
+          linhaPosicao("livre", "(=) Caixa livre", "total"),
           h(LinhaTabela, {
             label: "Integridade: base menos fluxo", valores: dados.integridade,
             meses: meses, nivel: "pct", casas: 2
@@ -5386,14 +5475,13 @@
             lineHeight: 1.6
           }
         },
-          "O saldo acumulado soma as três contas. A ",
-          h("strong", null, "caução"),
-          temCaucao ? "" : " (hoje zerada)",
-          " sai porque o dinheiro está travado como garantia do cartão e só volta se o cartão for encerrado. A ",
-          h("strong", null, "fatura de cartão em aberto"),
-          ", hoje em ",
-          formatarNumero(ultimoMes ? faturaCartao[ultimoMes] : 0, 2),
-          ", não aparece como linha separada porque já está deduzida: o saldo da conta de cartão é negativo enquanto a fatura não é paga. As colunas de mês mostram a posição no fim de cada mês, não a variação, das três últimas linhas para baixo."
+          "O saldo acumulado soma todas as contas, inclusive a de cartão, que fica negativa enquanto a fatura não é paga. Cada conta entra pelo tipo cadastrado na Omie: ",
+          h("strong", null, "conta corrente"), " (CC e CX), ",
+          h("strong", null, "aplicações"), " (CA) e ",
+          h("strong", null, "caução"), " (CV) formam o caixa total, que é o saldo acumulado sem a fatura. O ",
+          h("strong", null, "caixa livre"),
+          " tira a caução, travada como garantia do cartão, e a fatura de cartão em aberto (CR). Transferência entre conta corrente e aplicação não é receita nem despesa. "
+          + "Da linha do saldo acumulado para baixo, as colunas de mês mostram a posição no fim de cada mês, não a variação."
         )
       );
     }
@@ -5672,17 +5760,19 @@
     function paginaPosicao() {
       if (!posicao) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem mês selecionado.");
       var linhasPosicao = [
-        ["Conta corrente e caixa", posicao.corrente, posicao.nomes.corrente.join(", "), "item"],
-        ["(-) Fatura de cartão em aberto", posicao.cartao, posicao.nomes.cartao.join(", "), "item"],
-        ["(=) Caixa livre", posicao.livre, "o que sobra depois do já comprometido", "total"],
-        ["(+) Caução travada em garantia", posicao.garantia, posicao.nomes.garantia.join(", ") + " · restituível, fora do caixa livre", "item"],
-        ["(=) Posição total", posicao.total, "caixa livre somado à caução", "total"]
+        ["Conta corrente", posicao.corrente, posicao.nomes.corrente.join(", ") || "nenhuma conta", "item"],
+        ["(+) Aplicações", posicao.aplicacoes, posicao.nomes.aplicacoes.join(", ") || "nenhuma conta", "item"],
+        ["(+) Caução travada em garantia", posicao.garantia, posicao.nomes.garantia.join(", ") || "nenhuma conta", "item"],
+        ["(=) Caixa total", posicao.total, "conta corrente + aplicações + caução", "total"],
+        ["(-) Caução travada em garantia", -posicao.garantia, "restituível, mas fora do caixa livre", "item"],
+        ["(-) Fatura de cartão em aberto", posicao.cartao, posicao.nomes.cartao.join(", ") || "nenhuma conta", "item"],
+        ["(=) Caixa livre", posicao.livre, "o que sobra depois do já comprometido", "total"]
       ];
       return h("div", null,
         h("div", { className: "rounded overflow-hidden", style: { background: COR.surface, border: "1px solid " + COR.line, maxWidth: 760 } },
           linhasPosicao.map(function (l) {
             var total = l[3] === "total";
-            return h("div", { key: l[0], className: "flex items-center px-4 py-2.5", style: {
+            return h("div", { key: l[0] + l[1], className: "flex items-center px-4 py-2.5", style: {
               gap: 12, borderBottom: "1px solid " + COR.lineSoft, background: total ? "rgba(138,106,22,0.08)" : "transparent" } },
               h("div", { style: { flex: 1, minWidth: 0 } },
                 h("div", { style: { fontSize: 12.5, fontWeight: total ? 700 : 500, color: total ? "#7A5C10" : COR.text } }, l[0]),
@@ -5691,8 +5781,9 @@
                 color: l[1] < 0 ? COR.coral : (total ? "#7A5C10" : COR.text) } }, formatarNumero(l[1], 2)));
           })),
         h("div", { className: "mt-3", style: { fontSize: 11, color: COR.faint, maxWidth: 760, lineHeight: 1.6 } },
-          "Saldos no fim de " + rotuloMes(ultimoMes) + ". Cada conta entra pelo tipo cadastrado na Omie: conta corrente e caixa somam o saldo, "
-          + "cartão de crédito é a fatura em aberto e conta garantia é a caução. A caução já saiu da conta corrente quando foi depositada.")
+          "Saldos no fim de " + rotuloMes(ultimoMes) + ". Cada conta entra pelo tipo cadastrado na Omie, nunca pelo nome: conta corrente e caixa (CC, CX) em conta corrente, "
+          + "conta de aplicação (CA) em aplicações, conta garantia (CV) na caução e cartão de crédito (CR) na fatura em aberto. Conta de aplicação nova entra sozinha. "
+          + "O caixa total é o saldo de todas as contas antes de descontar a fatura do cartão.")
       );
     }
 
@@ -5736,7 +5827,7 @@
       cc: "Receita, saída e resultado por centro de custo, no regime de " + nomeRegime + ".",
       proj: "Receita, saída e resultado por projeto, no regime de " + nomeRegime + ".",
       vertical: "DRE realizada por vertical, no regime de " + nomeRegime + ". Centro de custo com Insights, Review ou Advisory é Tech; o resto, inclusive sem centro, é Comunidade.",
-      posicao: "Quanto há em conta, quanto já está comprometido e a caução.",
+      posicao: "Quanto há em conta corrente, em aplicações e na caução, e quanto já está comprometido.",
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
       abertos: "",
       achados: "Conferências automáticas da base, da mais grave para a mais leve.",
