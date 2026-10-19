@@ -3575,6 +3575,11 @@
   /* partir dos lancamentos, nunca valor fixo.                           */
   var MUTUO_CONVERSIVEL_CATEGORIA = "1.11.95";
   var MUTUO_CONVERSIVEL_PROJETO = "Mútuo Conversível ACW Till 09/2026";
+  /* Saidas do projeto que contam como uso do mutuo: so categorias de DRE */
+  /* (impostos, custo, despesas e financeiras). Transferencias 0.01 e     */
+  /* movimentos 1.11, 2.16, 2.17 e 2.18 ficam fora (ajuste de Alex,       */
+  /* 19/10/2026).                                                        */
+  var MUTUO_SECOES_DE_USO = ["impostos", "custo", "despesas", "finRec", "finDesp"];
   /* Art. 26, par. 1o, (iii): recompras de quotas em curso. Sem fonte na */
   /* Omie; enquanto nao houver, a lista e mantida aqui, no codigo.       */
   /* Cada item: { descricao: "...", valor: 0 }.                          */
@@ -3589,13 +3594,15 @@
     if (meses.indexOf(mesAtual) < 0) meses.push(mesAtual);
     var fechados = dadosCaixa.meses.filter(function (m) { return m >= RESERVA_PRIMEIRO_MES && m < mesAtual; });
 
+    /* Custo com o sinal do DRE: negativo. */
     function custoDoMes(m) {
-      return -RESERVA_SECOES_DE_CUSTO.reduce(function (t, sec) { return t + ((dadosCaixa.S[sec[0]] || {})[m] || 0); }, 0);
+      return RESERVA_SECOES_DE_CUSTO.reduce(function (t, sec) { return t + ((dadosCaixa.S[sec[0]] || {})[m] || 0); }, 0);
     }
     /* Mutuo: entradas da categoria e saidas pagas do projeto ate o fim do mes. */
     var lancamentosMutuo = dadosCaixa.linhas.filter(function (l) {
       return l.dPag && (l.codigoCategoria === MUTUO_CONVERSIVEL_CATEGORIA
-        || (l.projeto === MUTUO_CONVERSIVEL_PROJETO && l.tipo === "pagar"));
+        || (l.projeto === MUTUO_CONVERSIVEL_PROJETO && l.tipo === "pagar"
+            && MUTUO_SECOES_DE_USO.indexOf(secaoDaLinha(l)) >= 0));
     }).sort(function (a, b) { return a.dPag - b.dPag; });
     function saldoMutuo(m) {
       return lancamentosMutuo.reduce(function (t, l) { return chaveMes(l.dPag) <= m ? t + l.valor : t; }, 0);
@@ -3607,20 +3614,20 @@
       var media = base.length ? base.reduce(function (t, f) { return t + custoDoMes(f); }, 0) / base.length : 0;
       /* Sem custo medio (meses antes da operacao) nao ha reserva a       */
       /* comparar: reserva, excedente e cobertura ficam vazios ("–").     */
-      var temBase = media > 0;
-      var reserva = temBase ? RESERVA_MESES_DE_CUSTO * media : null;
+      var temBase = media < 0;
+      var reserva = temBase ? RESERVA_MESES_DE_CUSTO * -media : null;
       var caixa = posicaoNoMes(dadosCaixa, m).livre;
       var excedente = temBase ? Math.max(0, caixa - reserva) : null;
       var mutuo = Math.max(0, saldoMutuo(m));
       var porSecao = {};
-      RESERVA_SECOES_DE_CUSTO.forEach(function (sec) { porSecao[sec[0]] = -((dadosCaixa.S[sec[0]] || {})[m] || 0); });
+      RESERVA_SECOES_DE_CUSTO.forEach(function (sec) { porSecao[sec[0]] = (dadosCaixa.S[sec[0]] || {})[m] || 0; });
       porMes[m] = {
         fechado: m < mesAtual,
         custo: custoDoMes(m), porSecao: porSecao,
         mesesNaMedia: base, media: media, reserva: reserva, caixa: caixa,
         excedente: excedente, mutuo: mutuo,
         excedenteLiquido: temBase ? Math.max(0, excedente - mutuo) : null,
-        cobertura: temBase ? caixa / media : null,
+        cobertura: temBase ? caixa / -media : null,
         reservaOk: temBase && caixa >= reserva
       };
     });
@@ -5905,7 +5912,7 @@
           ajuda: "Média do custo operacional pago nos " + hj.mesesNaMedia.length + " últimos meses fechados (" + nomesMedia(hj) + "). O mês corrente não entra porque ainda não fechou." }),
         h(CartaoIndicador, { rotulo: "Reserva exigida", valor: hj.reserva, casas: 2, fundo: "resultado", compacto: true,
           sub: RESERVA_MESES_DE_CUSTO + " × custo médio",
-          ajuda: RESERVA_MESES_DE_CUSTO + " × " + fmt(hj.media) + " = " + fmt(hj.reserva) + "." }),
+          ajuda: RESERVA_MESES_DE_CUSTO + " × " + fmt(Math.abs(hj.media)) + " (custo médio, em módulo) = " + fmt(hj.reserva) + "." }),
         h(CartaoIndicador, { rotulo: "Caixa considerado", valor: hj.caixa, casas: 2, fundo: "caixa", compacto: true,
           tom: hj.caixa < 0 ? "neg" : "pos", sub: "caixa livre hoje",
           ajuda: "Caixa livre: conta corrente + aplicações − fatura do cartão em aberto, sem a caução. Mesmo número do cartão Caixa livre do resumo." }),
@@ -5914,13 +5921,13 @@
           ajuda: "Máximo entre zero e (caixa considerado " + fmt(hj.caixa) + " − reserva exigida " + fmt(hj.reserva) + ")." }),
         h(CartaoIndicador, { rotulo: "Saldo do mútuo", valor: hj.mutuo, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           sub: "a utilizar",
-          ajuda: "Recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " menos as saídas pagas do projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\". Lista no fim da página." }),
+          ajuda: "Recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " menos as saídas pagas do projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\" em categorias de DRE. Lista no fim da página." }),
         h(CartaoIndicador, { rotulo: "Excedente líquido do mútuo", valor: hj.excedenteLiquido, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           tom: hj.excedenteLiquido > 0 ? "pos" : null, sub: "disponível para dividendos",
           ajuda: "Máximo entre zero e (Caixa Excedente " + fmt(hj.excedente) + " − saldo do mútuo " + fmt(hj.mutuo) + "). O contrato do mútuo veda usar esses recursos para dividendos." }),
         h(CartaoIndicador, { rotulo: "Cobertura", valor: hj.cobertura === null ? 0 : hj.cobertura, casas: 1, sufixo: " meses", fundo: "caixa", compacto: true, ajudaDireita: true,
           tom: hj.reservaOk ? "pos" : "neg", sub: "caixa ÷ custo médio",
-          ajuda: "Quantos meses de custo operacional médio o caixa considerado paga. A reserva exige " + RESERVA_MESES_DE_CUSTO + "." })
+          ajuda: "Caixa considerado ÷ custo operacional médio em módulo: quantos meses de custo o caixa paga. A reserva exige " + RESERVA_MESES_DE_CUSTO + "." })
       );
 
       /* Semaforo do Art. 26, par. 1o */
@@ -5965,9 +5972,9 @@
           h("td", { className: "py-2 " + (opc.sub ? "pl-7" : "pl-3"), style: { fontSize: 12, fontWeight: opc.total ? 700 : (opc.sub ? 400 : 500),
             color: opc.total ? "#7A5C10" : (opc.sub ? COR.dim : COR.text), whiteSpace: "nowrap" } }, rotulo),
           r.meses.map(function (m) {
-            var v = fn(r.porMes[m]), neg = typeof v === "number" && v < 0;
+            var v = fn(r.porMes[m]);
             return h("td", { key: m, className: "px-3 py-2 text-right whitespace-nowrap", style: Object.assign({ fontSize: 12,
-              fontWeight: opc.total ? 700 : 400, color: opc.cor ? opc.cor(r.porMes[m]) : (neg ? COR.coral : (opc.total ? "#7A5C10" : COR.text)) }, est.td) },
+              fontWeight: opc.total ? 700 : 400, color: opc.cor ? opc.cor(r.porMes[m]) : (opc.total ? "#7A5C10" : COR.text) }, est.td) },
               typeof v === "number" ? (opc.meses ? fmtMeses(v) : fmt(v)) : (v === null ? "–" : v));
           }));
       }
@@ -5992,7 +5999,7 @@
             linhaTab("Saldo do mútuo a utilizar", function (x) { return x.mutuo; }),
             linhaTab("Caixa Excedente líquido do mútuo", function (x) { return x.excedenteLiquido; }, { total: true }),
             linhaTab("Cobertura", function (x) { return x.cobertura; }, { meses: true }),
-            linhaTab("Reserva de " + RESERVA_MESES_DE_CUSTO + " meses", function (x) { return x.media > 0 ? (x.reservaOk ? "atendida" : "não atendida") : "–"; },
+            linhaTab("Reserva de " + RESERVA_MESES_DE_CUSTO + " meses", function (x) { return x.reserva !== null ? (x.reservaOk ? "atendida" : "não atendida") : "–"; },
               { cor: function (x) { return x.reservaOk ? COR.mint : COR.coral; } })
           )));
 
@@ -6004,14 +6011,14 @@
         return sec[1] + ": " + (grupos.join("; ") || "nenhum grupo no catálogo");
       });
       var itens = [
-        ["Custo operacional do mês", "Todas as linhas de saída do DRE acima do EBITDA, em regime de caixa (pago): " + gruposCusto.join(" · ") + ". Fica fora tudo o que está abaixo do EBITDA (resultado financeiro, IR/CSLL) e os movimentos que não são DRE (mútuo, adiantamentos, devoluções, aplicações, transferências e distribuições a sócios)."],
+        ["Custo operacional do mês", "Todas as linhas de saída do DRE acima do EBITDA, em regime de caixa (pago), com o sinal do DRE (negativo): " + gruposCusto.join(" · ") + ". Fica fora tudo o que está abaixo do EBITDA (resultado financeiro, IR/CSLL) e os movimentos que não são DRE (mútuo, adiantamentos, devoluções, aplicações, transferências e distribuições a sócios)."],
         ["Custo operacional médio", "Média dos " + RESERVA_MESES_NA_MEDIA + " últimos meses fechados. Mês fechado é mês anterior ao corrente; enquanto houver menos de " + RESERVA_MESES_NA_MEDIA + ", a média usa os que existem (a linha \"Meses na média\" mostra quais)."],
-        ["Reserva exigida", RESERVA_MESES_DE_CUSTO + " × custo operacional médio (Art. 3º e Art. 26, §1º, i)."],
+        ["Reserva exigida", RESERVA_MESES_DE_CUSTO + " × custo operacional médio em módulo (Art. 3º e Art. 26, §1º, i)."],
         ["Caixa considerado", "Caixa livre no fim do mês (no mês corrente, hoje): conta corrente + aplicações − fatura do cartão em aberto, sem a caução."],
         ["Caixa Excedente", "Máximo entre zero e (caixa considerado − reserva exigida). Art. 3º."],
-        ["Saldo do mútuo a utilizar", "Valor recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " (Mútuo Conversível - Captação) menos a soma das saídas pagas marcadas com o projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\" na Omie, até o fim do mês. Calculado dos lançamentos, nunca valor fixo."],
+        ["Saldo do mútuo a utilizar", "Valor recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " (Mútuo Conversível - Captação) menos a soma das saídas pagas marcadas com o projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\" na Omie, até o fim do mês, só em categorias de DRE (impostos, custo, despesas e resultado financeiro); transferências 0.01 e movimentos 1.11, 2.16, 2.17 e 2.18 não contam. Calculado dos lançamentos, nunca valor fixo."],
         ["Caixa Excedente líquido do mútuo", "Máximo entre zero e (Caixa Excedente − saldo do mútuo a utilizar). O contrato do mútuo veda usar esses recursos para dividendos."],
-        ["Cobertura", "Caixa considerado ÷ custo operacional médio, em meses."],
+        ["Cobertura", "Caixa considerado ÷ custo operacional médio em módulo, em meses."],
         ["Obrigações vencidas", "Títulos a pagar em aberto na Omie com vencimento anterior a hoje (Art. 26, §1º, ii)."],
         ["Recompras em curso", "Sem fonte na Omie; lista mantida no código do painel (Art. 26, §1º, iii)."]
       ];
