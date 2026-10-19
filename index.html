@@ -3556,6 +3556,92 @@
     };
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Reserva de caixa (Acordo de Socios v02: Art. 3o, Caixa Excedente;  */
+  /* Art. 26, par. 1o, condicoes para distribuir acima de 25% do lucro). */
+  /* Definicoes de Alex em 19/10/2026, escritas tambem na propria tela.  */
+  /* ------------------------------------------------------------------ */
+  var RESERVA_MESES_DE_CUSTO = 6;          /* reserva exigida = 6 x custo medio */
+  var RESERVA_MESES_NA_MEDIA = 3;          /* media dos 3 ultimos meses fechados */
+  var RESERVA_PRIMEIRO_MES = "2026-06";
+  /* Custo operacional = secoes do DRE acima do EBITDA, sem a receita.   */
+  var RESERVA_SECOES_DE_CUSTO = [
+    ["impostos", "Impostos e deduções sobre a receita"],
+    ["custo", "Custo dos serviços prestados"],
+    ["despesas", "Despesas operacionais"]
+  ];
+  /* Mutuo conversivel: o que entrou na categoria de captacao, menos as  */
+  /* saidas pagas marcadas com o projeto do mutuo na Omie. Sempre a      */
+  /* partir dos lancamentos, nunca valor fixo.                           */
+  var MUTUO_CONVERSIVEL_CATEGORIA = "1.11.95";
+  var MUTUO_CONVERSIVEL_PROJETO = "Mútuo Conversível ACW Till 09/2026";
+  /* Art. 26, par. 1o, (iii): recompras de quotas em curso. Sem fonte na */
+  /* Omie; enquanto nao houver, a lista e mantida aqui, no codigo.       */
+  /* Cada item: { descricao: "...", valor: 0 }.                          */
+  var RECOMPRAS_EM_CURSO = [];
+
+  /* dadosCaixa: calcular() em regime de caixa (pago). hoje: Date.        */
+  /* abertos: titulos em aberto como vieram da base (sem pagamento).     */
+  function calcularReserva(dadosCaixa, abertos, hoje) {
+    var mesAtual = chaveMes(hoje);
+    var hojeTexto = hoje.getFullYear() + "-" + String(hoje.getMonth() + 1).padStart(2, "0") + "-" + String(hoje.getDate()).padStart(2, "0");
+    var meses = dadosCaixa.meses.filter(function (m) { return m >= RESERVA_PRIMEIRO_MES && m <= mesAtual; });
+    if (meses.indexOf(mesAtual) < 0) meses.push(mesAtual);
+    var fechados = dadosCaixa.meses.filter(function (m) { return m >= RESERVA_PRIMEIRO_MES && m < mesAtual; });
+
+    function custoDoMes(m) {
+      return -RESERVA_SECOES_DE_CUSTO.reduce(function (t, sec) { return t + ((dadosCaixa.S[sec[0]] || {})[m] || 0); }, 0);
+    }
+    /* Mutuo: entradas da categoria e saidas pagas do projeto ate o fim do mes. */
+    var lancamentosMutuo = dadosCaixa.linhas.filter(function (l) {
+      return l.dPag && (l.codigoCategoria === MUTUO_CONVERSIVEL_CATEGORIA
+        || (l.projeto === MUTUO_CONVERSIVEL_PROJETO && l.tipo === "pagar"));
+    }).sort(function (a, b) { return a.dPag - b.dPag; });
+    function saldoMutuo(m) {
+      return lancamentosMutuo.reduce(function (t, l) { return chaveMes(l.dPag) <= m ? t + l.valor : t; }, 0);
+    }
+
+    var porMes = {};
+    meses.forEach(function (m) {
+      var base = fechados.filter(function (f) { return m === mesAtual ? f < m : f <= m; }).slice(-RESERVA_MESES_NA_MEDIA);
+      var media = base.length ? base.reduce(function (t, f) { return t + custoDoMes(f); }, 0) / base.length : 0;
+      /* Sem custo medio (meses antes da operacao) nao ha reserva a       */
+      /* comparar: reserva, excedente e cobertura ficam vazios ("–").     */
+      var temBase = media > 0;
+      var reserva = temBase ? RESERVA_MESES_DE_CUSTO * media : null;
+      var caixa = posicaoNoMes(dadosCaixa, m).livre;
+      var excedente = temBase ? Math.max(0, caixa - reserva) : null;
+      var mutuo = Math.max(0, saldoMutuo(m));
+      var porSecao = {};
+      RESERVA_SECOES_DE_CUSTO.forEach(function (sec) { porSecao[sec[0]] = -((dadosCaixa.S[sec[0]] || {})[m] || 0); });
+      porMes[m] = {
+        fechado: m < mesAtual,
+        custo: custoDoMes(m), porSecao: porSecao,
+        mesesNaMedia: base, media: media, reserva: reserva, caixa: caixa,
+        excedente: excedente, mutuo: mutuo,
+        excedenteLiquido: temBase ? Math.max(0, excedente - mutuo) : null,
+        cobertura: temBase ? caixa / media : null,
+        reservaOk: temBase && caixa >= reserva
+      };
+    });
+
+    /* Art. 26, par. 1o, (ii): titulos a pagar em aberto com vencimento   */
+    /* anterior a hoje.                                                  */
+    var vencidas = (abertos || []).filter(function (l) {
+      return l.tipo === "pagar" && l.vencimento && l.vencimento < hojeTexto;
+    }).map(function (l) {
+      return { vencimento: l.vencimento, categoria: l.categoria, contraparte: l.contraparte || "",
+        documento: l.documento || "", valor: Number(l.valor_aberto || l.valor_titulo || 0) };
+    }).sort(function (a, b) { return a.vencimento < b.vencimento ? -1 : 1; });
+
+    return {
+      meses: meses, mesAtual: mesAtual, porMes: porMes, hoje: porMes[mesAtual],
+      lancamentosMutuo: lancamentosMutuo, vencidas: vencidas,
+      totalVencidas: vencidas.reduce(function (t, v) { return t + v.valor; }, 0),
+      recompras: RECOMPRAS_EM_CURSO
+    };
+  }
+
   function normalizarLinha(linha, indice) {
     var contraparte = resolverContraparte(linha);
     var idEstavel = linha.id || (linha.id_movimento ? "M" + linha.id_movimento : "L" + indice);
@@ -3856,6 +3942,7 @@
     { id: "premissas", cat: "Planejamento", rotulo: "Premissas e parâmetros", hash: "planejamento/premissas", tela: "bp", icone: "ajustes", bp: "premissas" },
     { id: "achados", cat: "Controle", rotulo: "Achados", hash: "controle/achados", tela: "financeiro", icone: "alerta" },
     { id: "exportacoes", cat: "Controle", rotulo: "Exportações", hash: "controle/exportacoes", tela: "financeiro", icone: "baixar" },
+    { id: "reserva", cat: "Governança", rotulo: "Reserva de caixa", hash: "governanca/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
     { id: "acessos", cat: "Administração", rotulo: "Acessos", hash: "administracao/acessos", tela: "admin", icone: "pessoas" }
   ];
   var ROTA_INICIAL = "dre";
@@ -3894,6 +3981,7 @@
     alerta: "M12 4l9 16H3zM12 10v4M12 17v1",
     baixar: "M12 4v11M7 10l5 5 5-5M5 20h14",
     pessoas: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 .5 3 2.5 3 5",
+    escudo: "M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6zM9 12l2 2 4-4",
     menu: "M4 6h16M4 12h16M4 18h16",
     recolher: "M15 6l-6 6 6 6",
     expandir: "M9 6l6 6-6 6"
@@ -4325,6 +4413,16 @@
         cons: dados
       };
     }, [linhas, regime, dados]);
+    /* Reserva de caixa: sempre em regime de caixa, com copia das linhas  */
+    /* (calcular grava a data do regime em cada linha).                  */
+    var reserva = useMemo(function () {
+      if (!linhas) return null;
+      var copia = linhas.map(function (l) { return Object.assign({}, l); });
+      var dadosCaixa = calcular(copia, "caixa");
+      dadosCaixa.linhas = copia;
+      return calcularReserva(dadosCaixa, emAberto, new Date());
+    }, [linhas, emAberto]);
+
     var estVisaoVertical = useState(function () {
       var salva = armazenamento.getItem("quorum_visao_vertical");
       return salva === "com" || salva === "tech" ? salva : "lado";
@@ -5045,7 +5143,9 @@
     /* funcoes de cada aba continuam as mesmas e leem esta variavel.     */
     var rota = rotaPorId(rotaId) || rotaPorId(ROTA_INICIAL);
     var aba = rota.id;
-    var naTelaFinanceira = rota.tela === "financeiro";
+    /* Telas com semFiltros (Reserva de caixa) usam sempre caixa e a base */
+    /* inteira: nao mostram Competencia/Caixa nem Periodo.                */
+    var naTelaFinanceira = rota.tela === "financeiro" && !rota.semFiltros;
     var rotasLiberadas = ROTAS.filter(function (r) { return rotaPermitida(r, usuario); });
     /* Titulo da aba do navegador acompanha a tela (sem hook: este trecho */
     /* fica depois dos retornos antecipados de login e carga).            */
@@ -5789,6 +5889,163 @@
       );
     }
 
+    /* Reserva de caixa: Caixa Excedente (Art. 3o) e as tres condicoes do */
+    /* Art. 26, par. 1o. Numeros de calcularReserva, sempre em caixa.      */
+    function paginaReserva() {
+      if (!reserva || !reserva.hoje) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem base carregada.");
+      var r = reserva, hj = r.hoje;
+      var fmt = function (v) { return formatarNumero(v, 2); };
+      var fmtMeses = function (v) { return v === null ? "–" : formatarNumero(v, 1).replace(/,0$/, "") + " meses"; };
+      var nomesMedia = function (x) { return x.mesesNaMedia.map(rotuloMes).join(", ") || "nenhum mês fechado"; };
+      var rotHoje = rotuloMes(r.mesAtual);
+
+      var cartoesReserva = h("div", { className: "grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 mb-5" },
+        h(CartaoIndicador, { rotulo: "Custo operacional médio", valor: hj.media, casas: 2, fundo: "resultado", compacto: true,
+          sub: "média de " + nomesMedia(hj),
+          ajuda: "Média do custo operacional pago nos " + hj.mesesNaMedia.length + " últimos meses fechados (" + nomesMedia(hj) + "). O mês corrente não entra porque ainda não fechou." }),
+        h(CartaoIndicador, { rotulo: "Reserva exigida", valor: hj.reserva, casas: 2, fundo: "resultado", compacto: true,
+          sub: RESERVA_MESES_DE_CUSTO + " × custo médio",
+          ajuda: RESERVA_MESES_DE_CUSTO + " × " + fmt(hj.media) + " = " + fmt(hj.reserva) + "." }),
+        h(CartaoIndicador, { rotulo: "Caixa considerado", valor: hj.caixa, casas: 2, fundo: "caixa", compacto: true,
+          tom: hj.caixa < 0 ? "neg" : "pos", sub: "caixa livre hoje",
+          ajuda: "Caixa livre: conta corrente + aplicações − fatura do cartão em aberto, sem a caução. Mesmo número do cartão Caixa livre do resumo." }),
+        h(CartaoIndicador, { rotulo: "Caixa Excedente", valor: hj.excedente, casas: 2, fundo: "caixa", compacto: true,
+          tom: hj.excedente > 0 ? "pos" : null, sub: "acima da reserva",
+          ajuda: "Máximo entre zero e (caixa considerado " + fmt(hj.caixa) + " − reserva exigida " + fmt(hj.reserva) + ")." }),
+        h(CartaoIndicador, { rotulo: "Saldo do mútuo", valor: hj.mutuo, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          sub: "a utilizar",
+          ajuda: "Recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " menos as saídas pagas do projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\". Lista no fim da página." }),
+        h(CartaoIndicador, { rotulo: "Excedente líquido do mútuo", valor: hj.excedenteLiquido, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          tom: hj.excedenteLiquido > 0 ? "pos" : null, sub: "disponível para dividendos",
+          ajuda: "Máximo entre zero e (Caixa Excedente " + fmt(hj.excedente) + " − saldo do mútuo " + fmt(hj.mutuo) + "). O contrato do mútuo veda usar esses recursos para dividendos." }),
+        h(CartaoIndicador, { rotulo: "Cobertura", valor: hj.cobertura === null ? 0 : hj.cobertura, casas: 1, sufixo: " meses", fundo: "caixa", compacto: true, ajudaDireita: true,
+          tom: hj.reservaOk ? "pos" : "neg", sub: "caixa ÷ custo médio",
+          ajuda: "Quantos meses de custo operacional médio o caixa considerado paga. A reserva exige " + RESERVA_MESES_DE_CUSTO + "." })
+      );
+
+      /* Semaforo do Art. 26, par. 1o */
+      function farol(ok, titulo, texto, extra) {
+        return h("div", { className: "flex px-4 py-3", style: { gap: 12, borderBottom: "1px solid " + COR.lineSoft } },
+          h("span", { className: "rounded-full", style: { width: 12, height: 12, marginTop: 4, flex: "none", background: ok ? COR.mint : COR.coral } }),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontSize: 12.5, fontWeight: 600, color: COR.text } }, titulo,
+              h("span", { style: { marginLeft: 8, fontWeight: 700, color: ok ? COR.mint : COR.coral } }, ok ? "atendida" : "não atendida")),
+            h("div", { style: { fontSize: 11.5, color: COR.dim, lineHeight: 1.55 } }, texto),
+            extra || null));
+      }
+      var listaVencidas = r.vencidas.length > 0 && h("table", { className: "mt-2", style: { fontSize: 11.5, borderCollapse: "collapse" } },
+        h("tbody", null, r.vencidas.map(function (v, i) {
+          return h("tr", { key: i },
+            h("td", { className: "pr-4" }, v.vencimento.split("-").reverse().join("/")),
+            h("td", { className: "pr-4" }, v.contraparte),
+            h("td", { className: "pr-4" }, v.categoria),
+            h("td", { className: "text-right", style: { fontVariantNumeric: "tabular-nums" } }, fmt(v.valor)));
+        })));
+      var semaforo = h("div", { className: "rounded overflow-hidden mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("div", { className: "px-4 py-2 uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint, background: COR.ink } },
+          "Art. 26, §1º · distribuição acima de 25% do lucro"),
+        farol(hj.reservaOk, "(i) Reserva operacional de no mínimo " + RESERVA_MESES_DE_CUSTO + " meses de custos",
+          "Caixa considerado de " + fmt(hj.caixa) + " contra reserva exigida de " + fmt(hj.reserva) + ": cobertura de " + fmtMeses(hj.cobertura) + "."),
+        farol(r.vencidas.length === 0, "(ii) Nenhuma obrigação vencida e não paga",
+          r.vencidas.length === 0
+            ? "Nenhum título a pagar em aberto com vencimento anterior a hoje."
+            : r.vencidas.length + " título(s) a pagar vencido(s) e em aberto, total de " + fmt(r.totalVencidas) + ":",
+          listaVencidas),
+        farol(r.recompras.length === 0, "(iii) Nenhuma recompra de quotas em curso que comprometa o caixa",
+          r.recompras.length === 0
+            ? "Nenhuma. Não há fonte para isso na Omie: a lista é mantida no código do painel (RECOMPRAS_EM_CURSO) e precisa ser atualizada à mão se uma recompra começar."
+            : r.recompras.map(function (x) { return x.descricao + " (" + fmt(x.valor) + ")"; }).join("; ") + ". Lista mantida no código do painel (RECOMPRAS_EM_CURSO).")
+      );
+
+      /* Tabela mes a mes: registro do calculo mensal */
+      var est = { th: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim }, td: { fontVariantNumeric: "tabular-nums" } };
+      function linhaTab(rotulo, fn, opc) {
+        opc = opc || {};
+        return h("tr", { style: { background: opc.total ? "rgba(138,106,22,0.08)" : "transparent", borderBottom: "1px solid " + COR.lineSoft } },
+          h("td", { className: "py-2 " + (opc.sub ? "pl-7" : "pl-3"), style: { fontSize: 12, fontWeight: opc.total ? 700 : (opc.sub ? 400 : 500),
+            color: opc.total ? "#7A5C10" : (opc.sub ? COR.dim : COR.text), whiteSpace: "nowrap" } }, rotulo),
+          r.meses.map(function (m) {
+            var v = fn(r.porMes[m]), neg = typeof v === "number" && v < 0;
+            return h("td", { key: m, className: "px-3 py-2 text-right whitespace-nowrap", style: Object.assign({ fontSize: 12,
+              fontWeight: opc.total ? 700 : 400, color: opc.cor ? opc.cor(r.porMes[m]) : (neg ? COR.coral : (opc.total ? "#7A5C10" : COR.text)) }, est.td) },
+              typeof v === "number" ? (opc.meses ? fmtMeses(v) : fmt(v)) : (v === null ? "–" : v));
+          }));
+      }
+      var tabela = h("div", { className: "rounded overflow-x-auto mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+          h("thead", null, h("tr", { style: { background: COR.ink } },
+            h("th", { className: "pl-3 py-2 text-left uppercase", style: est.th }, "Linha"),
+            r.meses.map(function (m) {
+              return h("th", { key: m, className: "px-3 py-2 text-right uppercase whitespace-nowrap", style: est.th },
+                rotuloMes(m) + (m === r.mesAtual ? " · hoje" : ""));
+            }))),
+          h("tbody", null,
+            linhaTab("Custo operacional do mês (pago)", function (x) { return x.custo; }),
+            RESERVA_SECOES_DE_CUSTO.map(function (sec) {
+              return h(Fragment, { key: sec[0] }, linhaTab(sec[1], function (x) { return x.porSecao[sec[0]]; }, { sub: true }));
+            }),
+            linhaTab("Meses na média", function (x) { return x.mesesNaMedia.map(rotuloMes).join(", ") || "–"; }, { sub: true }),
+            linhaTab("Custo operacional médio", function (x) { return x.media; }),
+            linhaTab("Reserva exigida (" + RESERVA_MESES_DE_CUSTO + " × média)", function (x) { return x.reserva; }),
+            linhaTab("Caixa considerado (caixa livre)", function (x) { return x.caixa; }),
+            linhaTab("Caixa Excedente", function (x) { return x.excedente; }, { total: true }),
+            linhaTab("Saldo do mútuo a utilizar", function (x) { return x.mutuo; }),
+            linhaTab("Caixa Excedente líquido do mútuo", function (x) { return x.excedenteLiquido; }, { total: true }),
+            linhaTab("Cobertura", function (x) { return x.cobertura; }, { meses: true }),
+            linhaTab("Reserva de " + RESERVA_MESES_DE_CUSTO + " meses", function (x) { return x.media > 0 ? (x.reservaOk ? "atendida" : "não atendida") : "–"; },
+              { cor: function (x) { return x.reservaOk ? COR.mint : COR.coral; } })
+          )));
+
+      /* Como e calculado */
+      var gruposCusto = RESERVA_SECOES_DE_CUSTO.map(function (sec) {
+        var grupos = (SECAO_POR_CHAVE[sec[0]] || { groups: [] }).groups.map(function (g) {
+          var cod = CODIGO_DO_GRUPO.get(g); return (cod ? cod + " " : "") + g;
+        }).sort();
+        return sec[1] + ": " + (grupos.join("; ") || "nenhum grupo no catálogo");
+      });
+      var itens = [
+        ["Custo operacional do mês", "Todas as linhas de saída do DRE acima do EBITDA, em regime de caixa (pago): " + gruposCusto.join(" · ") + ". Fica fora tudo o que está abaixo do EBITDA (resultado financeiro, IR/CSLL) e os movimentos que não são DRE (mútuo, adiantamentos, devoluções, aplicações, transferências e distribuições a sócios)."],
+        ["Custo operacional médio", "Média dos " + RESERVA_MESES_NA_MEDIA + " últimos meses fechados. Mês fechado é mês anterior ao corrente; enquanto houver menos de " + RESERVA_MESES_NA_MEDIA + ", a média usa os que existem (a linha \"Meses na média\" mostra quais)."],
+        ["Reserva exigida", RESERVA_MESES_DE_CUSTO + " × custo operacional médio (Art. 3º e Art. 26, §1º, i)."],
+        ["Caixa considerado", "Caixa livre no fim do mês (no mês corrente, hoje): conta corrente + aplicações − fatura do cartão em aberto, sem a caução."],
+        ["Caixa Excedente", "Máximo entre zero e (caixa considerado − reserva exigida). Art. 3º."],
+        ["Saldo do mútuo a utilizar", "Valor recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " (Mútuo Conversível - Captação) menos a soma das saídas pagas marcadas com o projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\" na Omie, até o fim do mês. Calculado dos lançamentos, nunca valor fixo."],
+        ["Caixa Excedente líquido do mútuo", "Máximo entre zero e (Caixa Excedente − saldo do mútuo a utilizar). O contrato do mútuo veda usar esses recursos para dividendos."],
+        ["Cobertura", "Caixa considerado ÷ custo operacional médio, em meses."],
+        ["Obrigações vencidas", "Títulos a pagar em aberto na Omie com vencimento anterior a hoje (Art. 26, §1º, ii)."],
+        ["Recompras em curso", "Sem fonte na Omie; lista mantida no código do painel (Art. 26, §1º, iii)."]
+      ];
+      var comoCalcula = h("div", { className: "rounded px-4 py-3 mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Como é calculado"),
+        itens.map(function (it, i) {
+          return h("div", { key: i, style: { fontSize: 11.5, lineHeight: 1.6, color: COR.dim, marginBottom: 4 } },
+            h("strong", { style: { color: COR.text } }, (i + 1) + ". " + it[0] + ": "), it[1]);
+        }),
+        h("div", { style: { fontSize: 11, color: COR.faint, marginTop: 6 } },
+          "Base: Acordo de Sócios v02. Art. 3º, Caixa Excedente: caixa que ultrapassa 6 meses de custos operacionais médios dos últimos 3 meses, calculado mensalmente. Art. 26, §1º: distribuição acima de 25% do lucro só com (i) reserva operacional de no mínimo 6 meses de custos, (ii) nenhuma obrigação vencida e não paga e (iii) nenhuma recompra de quotas em curso que comprometa o caixa.")
+      );
+
+      var mutuoLista = h("div", { className: "rounded px-4 py-3", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Lançamentos do mútuo conversível"),
+        h("table", { style: { fontSize: 11.5, borderCollapse: "collapse" } },
+          h("tbody", null,
+            r.lancamentosMutuo.map(function (l, i) {
+              return h("tr", { key: i, style: { borderBottom: "1px solid " + COR.lineSoft } },
+                h("td", { className: "pr-4 py-1" }, l.dPag.toLocaleDateString("pt-BR")),
+                h("td", { className: "pr-4 py-1" }, l.codigoCategoria + " " + l.categoria),
+                h("td", { className: "pr-4 py-1" }, l.contraparte),
+                h("td", { className: "py-1 text-right", style: { fontVariantNumeric: "tabular-nums", color: l.valor < 0 ? COR.coral : COR.text } }, fmt(l.valor)));
+            }),
+            h("tr", null,
+              h("td", { className: "pr-4 pt-2", colSpan: 3, style: { fontWeight: 700 } }, "Saldo a utilizar"),
+              h("td", { className: "pt-2 text-right", style: { fontWeight: 700, fontVariantNumeric: "tabular-nums" } }, fmt(hj.mutuo))))));
+
+      return h("div", null,
+        h("div", { className: "mb-3", style: { fontSize: 11.5, color: COR.faint } },
+          "Posição de hoje (" + rotHoje + ", mês em curso). Os meses anteriores são o registro do cálculo no fim de cada mês."),
+        cartoesReserva, semaforo, tabela, comoCalcula, mutuoLista);
+    }
+
     /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
     function paginaExportacoes() {
       function exportarBP() {
@@ -5834,6 +6091,7 @@
       abertos: "",
       achados: "Conferências automáticas da base, da mais grave para a mais leve.",
       exportacoes: "Arquivos para levar o painel para fora.",
+      reserva: "Caixa Excedente e condições para distribuir acima de 25% do lucro (Acordo de Sócios v02, Art. 3º e Art. 26, §1º). Sempre em regime de caixa, com a base inteira.",
       "bp-cons": "Comunidade + Tech, 36 meses: realizado da Omie em competência e projeção.",
       "bp-com": "Vertical Comunidade, 36 meses.",
       "bp-tech": "Vertical Tech (Insights, Review e Advisory), 36 meses.",
@@ -5865,6 +6123,7 @@
       }
       if (aba === "posicao") return paginaPosicao();
       if (aba === "exportacoes") return paginaExportacoes();
+      if (aba === "reserva") return paginaReserva();
       if (aba === "dre") return abaDRE();
       if (aba === "caixa") return abaFluxoDeCaixa();
       if (aba === "proj" || aba === "cc") return abaDimensao();
