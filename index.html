@@ -3008,6 +3008,160 @@
   }
 
 
+  /* Grafico 9 (Fase 3, 20/10/2026): concentracao da receita bruta LTM.  */
+  /* Mesmo agrupamento por cliente do grafico 2 (nome so quando veio do  */
+  /* cadastro; o resto e "sem cliente identificado"). Para cada mes      */
+  /* exibido, a janela de ate 12 meses terminando nele (como o grafico   */
+  /* 3): barras = clientes identificados com receita na janela; linhas = */
+  /* participacao do maior cliente e dos 3 maiores no total da receita   */
+  /* bruta da janela (o total inclui a receita sem cliente identificado).*/
+  var COR_LINHA_TOP3 = "#1F5FA0";
+  function concentracaoLTM(dados, mesInicioHistorico, mesAlvo) {
+    var gruposReceita = (dados.secoesDre ? dados.secoesDre[0].groups : SECOES_DRE[0].groups);
+    var partesAlvo = mesAlvo.split("-"), partesIni = mesInicioHistorico.split("-");
+    var idxAlvo = Number(partesAlvo[0]) * 12 + Number(partesAlvo[1]) - 1;
+    var idxIni = Number(partesIni[0]) * 12 + Number(partesIni[1]) - 1;
+    var nMeses = Math.min(12, idxAlvo - idxIni + 1);
+    var primeiro = idxAlvo - nMeses + 1;
+    var mesPrimeiro = Math.floor(primeiro / 12) + "-" + String((primeiro % 12) + 1).padStart(2, "0");
+    var total = 0, porCliente = new Map();
+    dados.usadas.forEach(function (l) {
+      if (gruposReceita.indexOf(l.grupo) < 0) return;
+      var mes = chaveMes(l.dataRegime);
+      if (!mes || mes < mesPrimeiro || mes > mesAlvo) return;
+      total += l.valor;
+      if (l.contraOrigem !== "cadastro") return;
+      porCliente.set(l.contraparte, (porCliente.get(l.contraparte) || 0) + l.valor);
+    });
+    var valores = Array.from(porCliente.values()).filter(function (v) { return v > 0.005; }).sort(function (a, b) { return b - a; });
+    return {
+      total: total, ativos: valores.length, completo: nMeses >= 12,
+      maior: total > 0 && valores.length ? valores[0] / total : null,
+      top3: total > 0 && valores.length ? valores.slice(0, 3).reduce(function (t, v) { return t + v; }, 0) / total : null
+    };
+  }
+
+  function GraficoConcentracao(props) {
+    var dados = props.dados;
+    var regime = props.regime;
+    var baseHistorico = props.todosMeses && props.todosMeses.length ? props.todosMeses : props.meses;
+    var mesInicioHistorico = baseHistorico.length ? baseHistorico[0] : null;
+    var mesesValidos = props.meses.slice();
+    var conc = {};
+    mesesValidos.forEach(function (mes) { conc[mes] = concentracaoLTM(dados, mesInicioHistorico, mes); });
+    var maiorBarra = mesesValidos.reduce(function (m, mes) { return Math.max(m, conc[mes].ativos); }, 0);
+    var temParcial = mesesValidos.some(function (mes) { return !conc[mes].completo; });
+
+    var moldura = {
+      className: "rounded overflow-hidden mx-auto",
+      style: { background: COR.surface, border: "1px solid " + COR.line, maxWidth: 1080, width: "100%" }
+    };
+    if (!mesesValidos.length || maiorBarra <= 0) {
+      return h("div", moldura,
+        h("div", { className: "flex items-center justify-center", style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint } },
+          "Sem receita atribuída a cliente no período para montar o gráfico."));
+    }
+
+    var margem = { topo: 148, direita: 92, baixo: 192, esquerda: 132 };
+    var RECUO_TITULO = 56;
+    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
+    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
+    var baseY = margem.topo + alturaPlot;
+    /* Faixa das linhas mais alta e com folga maior ate as barras (pedido */
+    /* de Alex, 20/10/2026): os rotulos da linha dourada, que ficam abaixo */
+    /* dos pontos, quase encostavam nos valores das colunas.              */
+    var yTopoFaixaLinha = margem.topo + 4;
+    var ALTURA_FAIXA_LINHA = 110;
+    var yBaseFaixaLinha = yTopoFaixaLinha + ALTURA_FAIXA_LINHA;
+    var topoParaBarras = yBaseFaixaLinha + 86;
+    var alturaDisponivelBarras = baseY - topoParaBarras;
+    /* Contagem de clientes: escala em passos inteiros (com poucos clientes */
+    /* a escala padrao dava 0,5 e o eixo repetia "2, 2, 1, 1").           */
+    var escala = escalaBonita(Math.max(maiorBarra, 1), 4);
+    if (escala.passo < 1) escala = { topo: Math.max(1, Math.ceil(maiorBarra)), passo: 1 };
+    var alturaDeBarra = function (valor) { return (valor / escala.topo) * alturaDisponivelBarras; };
+    var faixa = larguraPlot / mesesValidos.length;
+    var larguraColuna = Math.min(72, faixa * 0.62);
+
+    var grade = [];
+    for (var v = 0; v <= escala.topo + 0.0001; v += escala.passo) {
+      var y = baseY - alturaDeBarra(v);
+      grade.push(h("line", { key: "g" + v, x1: margem.esquerda, y1: y, x2: margem.esquerda + larguraPlot, y2: y,
+        stroke: v === 0 ? COR.line : COR.lineSoft, strokeWidth: v === 0 ? 1.5 : 1 }));
+      grade.push(h("text", { key: "r" + v, x: margem.esquerda - 16, y: y + 5, textAnchor: "end",
+        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, v === 0 ? "0" : formatarNumero(v, 0)));
+    }
+
+    var barras = [], centros = {};
+    var fonteRotuloMes = mesesValidos.length > 15 ? 12 : 15;
+    var fonteValorBarra = mesesValidos.length > 15 ? 13 : 16;
+    mesesValidos.forEach(function (mes, i) {
+      var centro = margem.esquerda + faixa * i + faixa / 2;
+      centros[mes] = centro;
+      var c = conc[mes], altura = alturaDeBarra(c.ativos), topo = baseY - altura;
+      barras.push(h("rect", { key: "b" + mes, x: centro - larguraColuna / 2, y: topo, width: larguraColuna, height: altura,
+        fill: "#16497A", fillOpacity: c.completo ? 1 : 0.45 }));
+      barras.push(h("text", { key: "t" + mes, x: centro, y: topo - 10, textAnchor: "middle",
+        style: { fontSize: fonteValorBarra, fill: c.completo ? COR.text : COR.faint, fontWeight: 600, fontVariantNumeric: "tabular-nums" } },
+        formatarNumero(c.ativos, 0) + (c.completo ? "" : " *")));
+      barras.push(h("text", { key: "m" + mes, x: centro, y: baseY + 28, textAnchor: "middle",
+        style: { fontSize: fonteRotuloMes, fill: COR.dim } }, rotuloMes(mes)));
+    });
+
+    /* Duas linhas de participacao na faixa de cima, escala comum. */
+    var todos = [];
+    mesesValidos.forEach(function (mes) { todos.push(conc[mes].maior, conc[mes].top3); });
+    var escalaPct = escalaPercentual(todos);
+    var yDoPct = function (p) { return yBaseFaixaLinha - ((p - escalaPct.piso) / (escalaPct.teto - escalaPct.piso)) * ALTURA_FAIXA_LINHA; };
+    var fonteRotuloLinha = mesesValidos.length > 15 ? 11 : 13;
+    var linhasPct = [];
+    [["top3", COR_LINHA_TOP3, -14], ["maior", COR.brass, 22]].forEach(function (cfg) {
+      var chave = cfg[0], cor = cfg[1], dy = cfg[2];
+      var pts = mesesValidos.filter(function (mes) { return conc[mes][chave] !== null; })
+        .map(function (mes) { return { x: centros[mes], y: yDoPct(conc[mes][chave]), p: conc[mes][chave], mes: mes }; });
+      if (pts.length > 1) linhasPct.push(h("polyline", { key: "l" + chave, points: pts.map(function (q) { return q.x + "," + q.y; }).join(" "),
+        fill: "none", stroke: cor, strokeWidth: 2 }));
+      pts.forEach(function (q) {
+        linhasPct.push(h("text", { key: "pt" + chave + q.mes, x: q.x, y: q.y + dy, textAnchor: "middle",
+          style: { fontSize: fonteRotuloLinha, fill: cor, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, formatarPercentual(q.p)));
+        linhasPct.push(h("circle", { key: "pc" + chave + q.mes, cx: q.x, cy: q.y, r: 4.5, fill: COR.surface, stroke: cor, strokeWidth: 2.25 }));
+      });
+    });
+
+    var LEGENDA_FONTE = 14;
+    var itens = [
+      { tipo: "barra", rotulo: "Clientes ativos no LTM", cor: "#16497A" },
+      { tipo: "linha", rotulo: "% do maior cliente", cor: COR.brass },
+      { tipo: "linha", rotulo: "% dos 3 maiores", cor: COR_LINHA_TOP3 }
+    ];
+    itens.forEach(function (it) { it.largura = 18 + 10 + larguraAproximada(it.rotulo, LEGENDA_FONTE) + 22; });
+    var larguraLegenda = itens.reduce(function (t, it) { return t + it.largura; }, 0);
+    var xCursor = (SLIDE.largura - larguraLegenda) / 2, yLegenda = baseY + 66, legenda = [];
+    itens.forEach(function (it, i) {
+      if (it.tipo === "barra") legenda.push(h("rect", { key: "lb" + i, x: xCursor, y: yLegenda - 12, width: 18, height: 14, rx: 2, fill: it.cor }));
+      else {
+        legenda.push(h("line", { key: "ll" + i, x1: xCursor, y1: yLegenda - 5, x2: xCursor + 18, y2: yLegenda - 5, stroke: it.cor, strokeWidth: 2 }));
+        legenda.push(h("circle", { key: "lc" + i, cx: xCursor + 9, cy: yLegenda - 5, r: 4, fill: COR.surface, stroke: it.cor, strokeWidth: 2 }));
+      }
+      legenda.push(h("text", { key: "lt" + i, x: xCursor + 28, y: yLegenda, style: { fontSize: LEGENDA_FONTE, fill: COR.dim } }, it.rotulo));
+      xCursor += it.largura;
+    });
+
+    var periodo = rotuloMes(mesesValidos[0]) + " a " + rotuloMes(mesesValidos[mesesValidos.length - 1]);
+    return h("div", moldura,
+      h("svg", { viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura, width: "100%", preserveAspectRatio: "xMidYMid meet",
+        style: { display: "block", background: COR.surface } },
+        h("text", { x: RECUO_TITULO, y: 68, style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" } }, "CONCENTRAÇÃO DE RECEITA"),
+        h("text", { x: RECUO_TITULO, y: 98, style: { fontSize: 15, fill: COR.faint } },
+          periodo + " · regime de " + (regime === "caixa" ? "caixa" : "competência") + " · participação na receita bruta dos últimos 12 meses"),
+        h("image", { href: LOGO_QUORUM, x: MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO, width: TAMANHO_LOGO, height: TAMANHO_LOGO }),
+        h("text", { x: SLIDE.largura - MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "end",
+          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 9)),
+        temParcial && h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
+          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "* janela parcial, ainda sem 12 meses completos de histórico"),
+        grade, barras, linhasPct, legenda));
+  }
+
 
   /* ------------------------------------------------------------------ */
   /* 9. GERADOR DE XLSX                                                  */
@@ -6041,7 +6195,7 @@
     /* Aba: apresentacao (RI)                                           */
     /* ---------------------------------------------------------------- */
 
-    /* Exporta a apresentacao de resultados (.pptx): os mesmos 8 graficos */
+    /* Exporta a apresentacao de resultados (.pptx): os mesmos 9 graficos */
     /* da aba abaixo, com o regime e o periodo selecionados no topo.     */
     function exportarApresentacao() {
       if (gerandoApres || !meses.length) return;
@@ -6066,7 +6220,8 @@
         h(GraficoWaterfallDRE, {
           dados: dados, meses: meses, regime: regime, numero: 8, ateFluxoCaixa: true,
           titulo: "FLUXO DE CAIXA LIVRE"
-        })
+        }),
+        h(GraficoConcentracao, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 9 })
       );
     }
 
@@ -6308,7 +6463,7 @@
       var itens = [
         { titulo: "Excel do Financeiro", texto: "DRE e fluxo de caixa do realizado, no regime (" + (regime === "caixa" ? "caixa" : "competência") + ") e no período selecionados no topo. Três abas, tudo em fórmula sobre a base de lançamentos.",
           botao: "Exportar XLSX", acao: function () { exportarXlsx(); }, ocupado: false },
-        { titulo: "Apresentação de resultados", texto: "Os 8 gráficos da Apresentação em .pptx, no modelo da QUORUM, no regime e no período selecionados no topo.",
+        { titulo: "Apresentação de resultados", texto: "Os 9 gráficos da Apresentação em .pptx, no modelo da QUORUM, no regime e no período selecionados no topo.",
           botao: gerandoApres ? "Gerando apresentação..." : "Exportar apresentação", acao: exportarApresentacao, ocupado: gerandoApres || !meses.length },
         temBP && { titulo: "Excel do Business Plan", texto: premissasBP.estado === "erro" ? premissasBP.msg
             : "O BP no cenário base, 7 abas no formato da BP_QUORUM_Oficial, tudo em fórmula, com as premissas e os parâmetros gravados neste navegador.",
@@ -8538,11 +8693,11 @@
   /* ------------------------------------------------------------------ */
   /* 11-E. EXPORTACAO DA APRESENTACAO DE RESULTADOS (.pptx)              */
   /* Botao "Exportar apresentacao" da tela Financeiro. Usa o molde       */
-  /* apresentacao_modelo.json (o .pptx em base64: capa, separador, 8     */
+  /* apresentacao_modelo.json (o .pptx em base64: capa, separador, 9     */
   /* slides de grafico e                                                 */
   /* contracapa, sem nenhum numero: o repositorio e publico) e so        */
   /* sobrescreve nele as imagens ppt/media/grafico{n}.svg/.png e o       */
-  /* marcador {{PERIODO}} do separador. Os 8 graficos sao os mesmos da   */
+  /* marcador {{PERIODO}} do separador. Os 9 graficos sao os mesmos da   */
   /* aba Apresentacao, com o regime e o periodo do topo da tela, mas     */
   /* recoloridos para fundo escuro SO no arquivo: a tela segue clara.    */
   /* O grafico vai como SVG (o PowerPoint desenha com a Calibri dele,    */
@@ -8579,7 +8734,8 @@
     "#8A6A16": "#F2C75C",   /* percentuais */
     "#B23A2F": "#FF8B7B",   /* negativo */
     "#FFFFFF": "#0B0F17",   /* valor dentro de barra (a barra fica clara) */
-    "#0B1A2B": "#0B0F17"    /* valor dentro de segmento que ja era claro */
+    "#0B1A2B": "#0B0F17",   /* valor dentro de segmento que ja era claro */
+    "#1F5FA0": "#8EC3EE"    /* percentual dos 3 maiores clientes (grafico 9) */
   };
   var APRES_PREENCHIMENTO = {
     "#0A2A47": "#E8EEF5", "#16497A": "#BFD9F0", "#A6CFE8": "#7FB2DB",
@@ -8593,6 +8749,7 @@
     "#CBD3DE": "#C9D1DC",   /* eixo zero */
     "#7A8598": "#A9B1BD",   /* conectores do waterfall */
     "#8A6A16": "#F2C75C",   /* linha de % */
+    "#1F5FA0": "#8EC3EE",   /* linha dos 3 maiores clientes (grafico 9) */
     "#FFFFFF": "none"       /* separacao entre segmentos: sem contorno sobre a marca d'agua */
   };
   var APRES_CINZA_PARCIAL = "#A3AAB5";   /* barra parcial do LTM, solida */
@@ -8736,7 +8893,8 @@
       h(GraficoLucroBruto, Object.assign({ numero: 5 }, props)),
       h(GraficoEBITDA, Object.assign({ numero: 6 }, props)),
       h(GraficoWaterfallDRE, Object.assign({ numero: 7 }, props)),
-      h(GraficoWaterfallDRE, Object.assign({ numero: 8, ateFluxoCaixa: true, titulo: "FLUXO DE CAIXA LIVRE" }, props))
+      h(GraficoWaterfallDRE, Object.assign({ numero: 8, ateFluxoCaixa: true, titulo: "FLUXO DE CAIXA LIVRE" }, props)),
+      h(GraficoConcentracao, Object.assign({ numero: 9, todosMeses: ctx.todosMeses }, props))
     ];
     var periodo = ctx.meses.length
       ? rotuloMes(ctx.meses[0]) + " a " + rotuloMes(ctx.meses[ctx.meses.length - 1])
