@@ -3585,6 +3585,119 @@
   /* Cada item: { descricao: "...", valor: 0 }.                          */
   var RECOMPRAS_EM_CURSO = [];
 
+  /* ------------------------------------------------------------------ */
+  /* Projecao de 13 semanas (Compromissos futuros > 13 semanas, Fase 2,  */
+  /* 20/10/2026). Semanas de segunda a domingo, a partir da corrente.    */
+  /* Saldo inicial = caixa livre de hoje. Entradas e saidas = titulos em */
+  /* aberto pelo vencimento; vencidos e nao pagos caem na semana 1.      */
+  /* Cartao: estimativa = media mensal dos gastos em contas CR nos 3     */
+  /* meses fechados, lancada no dia de vencimento da fatura (o dia mais  */
+  /* frequente dos pagamentos 2.17.94; empate: o mais recente). A fatura */
+  /* em aberto hoje ja esta descontada no caixa livre e e paga no        */
+  /* proximo vencimento, entao a estimativa comeca no vencimento         */
+  /* seguinte (ciclo seguinte), para nao contar duas vezes.             */
+  /* ------------------------------------------------------------------ */
+  var PROJECAO_SEMANAS = 13;
+  var CATEGORIA_PAGAMENTO_FATURA = "2.17.94";
+  function dataSemHora(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function textoData(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+
+  function calcularProjecao13(linhasCaixa, abertos, hoje, caixaHoje, reservaExigida, mesesBase) {
+    var dia0 = dataSemHora(hoje), hojeTexto = textoData(dia0);
+    var inicio = new Date(dia0); inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7));
+    var semanas = [];
+    for (var i = 0; i < PROJECAO_SEMANAS; i++) {
+      var ini = new Date(inicio); ini.setDate(inicio.getDate() + 7 * i);
+      var fim = new Date(ini); fim.setDate(ini.getDate() + 6);
+      semanas.push({ ini: ini, fim: fim, iniTexto: textoData(ini), fimTexto: textoData(fim),
+        entradas: 0, saidas: 0, vencidos: 0, valorVencido: 0, cartao: 0, itens: [] });
+    }
+    var ultimoDia = semanas[semanas.length - 1].fimTexto;
+
+    /* Titulos em aberto. */
+    var depois = { qtd: 0, valor: 0 };
+    var temReceber = false;
+    (abertos || []).forEach(function (l) {
+      var valor = Number(l.valor_aberto || l.valor_titulo || 0);
+      if (l.tipo === "receber") temReceber = true;
+      var venc = l.vencimento || "";
+      var vencido = venc && venc < hojeTexto;
+      var sem = null;
+      if (!venc || vencido) sem = semanas[0];
+      else if (venc <= ultimoDia) sem = semanas.filter(function (s) { return venc >= s.iniTexto && venc <= s.fimTexto; })[0];
+      if (!sem) { depois.qtd++; depois.valor += valor; return; }
+      if (valor >= 0) sem.entradas += valor; else sem.saidas += valor;
+      if (vencido) { sem.vencidos++; sem.valorVencido += valor; }
+      sem.itens.push({ vencimento: venc, tipo: l.tipo, contraparte: l.contraparte || "", categoria: l.categoria || "", valor: valor, vencido: vencido });
+    });
+
+    /* Cartao: gasto medio mensal em contas CR nos meses fechados em que a */
+    /* conta de cartao ja tinha movimento, ate os 3 ultimos (ajuste de     */
+    /* Alex, 20/10/2026): mes anterior a existencia da conta nao entra     */
+    /* como zero.                                                          */
+    var mesAtual = chaveMes(dia0);
+    var mesesComCartao = {};
+    linhasCaixa.forEach(function (l) {
+      if (l.dPag && l.contaTipo === "CR") { var mc = chaveMes(l.dPag); if (mc < mesAtual) mesesComCartao[mc] = true; }
+    });
+    var mesesCartao = Object.keys(mesesComCartao).sort().slice(-RESERVA_MESES_NA_MEDIA);
+    var gastoPorMes = {};
+    mesesCartao.forEach(function (m) { gastoPorMes[m] = 0; });
+    var diasFatura = {};
+    linhasCaixa.forEach(function (l) {
+      if (!l.dPag) return;
+      if (l.codigoCategoria === CATEGORIA_PAGAMENTO_FATURA && l.tipo === "pagar") {
+        var d = l.dPag.getDate();
+        diasFatura[d] = diasFatura[d] || { n: 0, ultimo: 0 };
+        diasFatura[d].n++; diasFatura[d].ultimo = Math.max(diasFatura[d].ultimo, l.dPag.getTime());
+      }
+      var m = chaveMes(l.dPag);
+      if (l.contaTipo === "CR" && l.valor < 0 && gastoPorMes.hasOwnProperty(m)
+          && String(l.codigoCategoria).indexOf("0.") !== 0 && String(l.codigoCategoria).indexOf("2.17") !== 0) {
+        gastoPorMes[m] += l.valor;
+      }
+    });
+    var nBase = mesesCartao.length;
+    var cartaoMedio = nBase ? Object.keys(gastoPorMes).reduce(function (t, m) { return t + gastoPorMes[m]; }, 0) / nBase : 0;
+    var diaFatura = null;
+    Object.keys(diasFatura).forEach(function (d) {
+      var x = diasFatura[d];
+      if (diaFatura === null || x.n > diasFatura[diaFatura].n || (x.n === diasFatura[diaFatura].n && x.ultimo > diasFatura[diaFatura].ultimo)) diaFatura = d;
+    });
+    var vencimentosCartao = [], proximaFatura = null;
+    if (diaFatura !== null && cartaoMedio < 0) {
+      var dd = Number(diaFatura);
+      for (var k = 0; k < 6; k++) {
+        var v = new Date(dia0.getFullYear(), dia0.getMonth() + k, dd);
+        if (v < dia0) continue;
+        if (!proximaFatura) { proximaFatura = v; continue; }   /* fatura em aberto: ja no caixa livre */
+        var vt = textoData(v);
+        var sem = semanas.filter(function (s) { return vt >= s.iniTexto && vt <= s.fimTexto; })[0];
+        if (!sem) continue;
+        sem.saidas += cartaoMedio; sem.cartao += cartaoMedio;
+        sem.itens.push({ vencimento: vt, tipo: "cartao", contraparte: "", categoria: "Fatura do cartão (estimativa)", valor: cartaoMedio, vencido: false });
+        vencimentosCartao.push(v);
+      }
+    }
+
+    /* Saldos e destaques. */
+    var saldo = caixaHoje, primeiraAbaixo = null;
+    semanas.forEach(function (s, i) {
+      s.saldoInicial = saldo;
+      s.saldoFinal = saldo + s.entradas + s.saidas;
+      saldo = s.saldoFinal;
+      s.negativo = s.saldoFinal < 0;
+      if (primeiraAbaixo === null && reservaExigida !== null && s.saldoFinal < reservaExigida) primeiraAbaixo = i;
+      s.itens.sort(function (a, b) { return a.vencimento < b.vencimento ? -1 : 1; });
+    });
+    return {
+      semanas: semanas, caixaHoje: caixaHoje, reservaExigida: reservaExigida, primeiraAbaixo: primeiraAbaixo,
+      temReceber: temReceber, depois: depois,
+      cartao: { medio: cartaoMedio, gastoPorMes: gastoPorMes, meses: mesesCartao, dia: diaFatura === null ? null : Number(diaFatura),
+        diasPagos: diasFatura, proximaFatura: proximaFatura, vencimentos: vencimentosCartao }
+    };
+  }
+
   /* dadosCaixa: calcular() em regime de caixa (pago). hoje: Date.        */
   /* abertos: titulos em aberto como vieram da base (sem pagamento).     */
   function calcularReserva(dadosCaixa, abertos, hoje) {
@@ -4454,8 +4567,18 @@
       var copia = linhas.map(function (l) { return Object.assign({}, l); });
       var dadosCaixa = calcular(copia, "caixa");
       dadosCaixa.linhas = copia;
-      return calcularReserva(dadosCaixa, emAberto, new Date());
+      var hoje = new Date();
+      var res = calcularReserva(dadosCaixa, emAberto, hoje);
+      if (res.hoje) {
+        res.projecao = calcularProjecao13(copia, emAberto, hoje, res.hoje.caixa, res.hoje.reserva, res.hoje.mesesNaMedia);
+      }
+      return res;
     }, [linhas, emAberto]);
+    var estVisaoCompromissos = useState(function () {
+      return armazenamento.getItem("quorum_visao_compromissos") === "semanas" ? "semanas" : "lista";
+    });
+    var visaoCompromissos = estVisaoCompromissos[0], setVisaoCompromissos = estVisaoCompromissos[1];
+    useEffect(function () { armazenamento.setItem("quorum_visao_compromissos", visaoCompromissos); }, [visaoCompromissos]);
 
     var estVisaoVertical = useState(function () {
       var salva = armazenamento.getItem("quorum_visao_vertical");
@@ -5798,7 +5921,73 @@
     /* Aba: compromissos futuros                                        */
     /* ---------------------------------------------------------------- */
 
+    /* Seletor Lista | 13 semanas no topo de Compromissos futuros. */
     function abaCompromissos() {
+      var seletor = h("div", { className: "flex rounded overflow-hidden mb-3", style: { border: "1px solid " + COR.line, width: "fit-content" } },
+        [["lista", "Lista"], ["semanas", "13 semanas"]].map(function (par) {
+          var ativo = visaoCompromissos === par[0];
+          return h("button", { key: par[0], onClick: function () { setVisaoCompromissos(par[0]); },
+            className: "px-3 py-1.5", style: { fontSize: 12, fontWeight: ativo ? 600 : 400,
+              background: ativo ? COR.brass : COR.surface, color: ativo ? "#FFFFFF" : COR.dim } }, par[1]);
+        }));
+      return h("div", null, seletor, visaoCompromissos === "semanas" ? abaProjecao13() : abaCompromissosLista());
+    }
+
+    function abaProjecao13() {
+      var pj = reserva && reserva.projecao;
+      if (!pj) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem base carregada.");
+      var fmt = function (v) { return formatarNumero(v, 2); };
+      var curto = function (d) { return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"); };
+      var c = pj.cartao;
+      var explicaCartao = c.dia === null
+        ? "Sem pagamento de fatura (" + CATEGORIA_PAGAMENTO_FATURA + ") no histórico: não há como estimar o cartão."
+        : "Estimativa: média mensal dos gastos nas contas de cartão (tipo CR, sem transferências 0.x nem 2.17) nos meses fechados em que a conta de cartão já tinha movimento, até os 3 últimos: "
+          + c.meses.map(function (m) { return rotuloMes(m) + " " + fmt(c.gastoPorMes[m]); }).join("; ") + ". Média = " + fmt(c.medio)
+          + ", lançada no dia " + c.dia + " de cada mês, o dia mais frequente dos pagamentos de fatura (" + CATEGORIA_PAGAMENTO_FATURA + "; empate, o mais recente)."
+          + (c.proximaFatura ? " A fatura que vence em " + curto(c.proximaFatura) + " é a que está em aberto hoje e já foi descontada no caixa livre; por isso a estimativa começa no vencimento seguinte." : "");
+      var est = { th: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, fontWeight: 400 } };
+      var linhas13 = pj.semanas.map(function (s, i) {
+        var abaixo = i === pj.primeiraAbaixo;
+        var fundo = s.negativo ? "rgba(178,58,47,0.22)" : (abaixo ? "rgba(178,58,47,0.08)" : "transparent");
+        var corSaldo = s.negativo ? COR.coral : (abaixo ? COR.coral : COR.text);
+        var marcas = [];
+        if (s.vencidos) marcas.push(h("span", { key: "v", className: "rounded px-1.5 ml-2", style: { fontSize: 10, background: COR.coralSoft, color: COR.coral } }, "vencido"));
+        if (s.cartao) marcas.push(h("span", { key: "c", className: "rounded px-1.5 ml-2", title: explicaCartao, style: { fontSize: 10, background: COR.brassSoft, color: COR.brass, cursor: "help" } }, "cartão · estimativa ?"));
+        if (abaixo && !s.negativo) marcas.push(h("span", { key: "r", className: "ml-2", style: { fontSize: 10, color: COR.coral } }, "abaixo da reserva"));
+        if (s.negativo) marcas.push(h("span", { key: "n", className: "ml-2", style: { fontSize: 10, color: COR.coral, fontWeight: 700 } }, "saldo negativo"));
+        var detalhe = s.itens.map(function (it) {
+          return (it.vencido ? "vencido " : "") + it.vencimento.split("-").reverse().slice(0, 2).join("/") + " " + (it.contraparte || it.categoria) + " " + fmt(it.valor);
+        }).join(" · ");
+        return h("tr", { key: i, style: { background: fundo, borderBottom: "1px solid " + COR.lineSoft } },
+          h("td", { className: "py-2 pl-3 pr-2" },
+            h("div", { style: { fontSize: 12, color: COR.text, fontWeight: 500 } }, (i + 1) + ". " + curto(s.ini) + " a " + curto(s.fim), marcas),
+            detalhe && h("div", { style: { fontSize: 10.5, color: COR.faint, marginTop: 2 } }, detalhe)),
+          [s.entradas, s.saidas, s.saldoInicial].map(function (v, k) {
+            return h("td", { key: k, className: "py-2 px-3 text-right whitespace-nowrap", style: { fontSize: 12, fontVariantNumeric: "tabular-nums", color: COR.text } }, fmt(v));
+          }),
+          h("td", { className: "py-2 px-3 text-right whitespace-nowrap", style: { fontSize: 12, fontVariantNumeric: "tabular-nums", fontWeight: 700, color: corSaldo } }, fmt(s.saldoFinal)));
+      });
+      return h("div", null,
+        !pj.temReceber && h("div", { className: "rounded px-4 py-3 mb-3", style: { fontSize: 12, background: COR.brassSoft, border: "1px solid " + COR.brass, color: "#7A5C10" } },
+          "Sem contas a receber lançadas na Omie: a projeção mostra só as saídas."),
+        h("div", { className: "mb-3", style: { fontSize: 11.5, color: COR.faint, lineHeight: 1.6 } },
+          "Semanas de segunda a domingo, a partir da semana corrente. Saldo inicial da semana 1 = caixa livre de hoje (" + fmt(pj.caixaHoje)
+          + ", o mesmo do cartão Caixa livre). Entradas e saídas: títulos em aberto na Omie pela data de vencimento; vencidos e não pagos entram na semana 1. "
+          + "Em vermelho, a primeira semana que fecha abaixo da reserva exigida (" + (pj.reservaExigida === null ? "–" : fmt(pj.reservaExigida)) + "); em vermelho forte, saldo negativo."),
+        h("div", { className: "rounded overflow-x-auto", style: { background: COR.surface, border: "1px solid " + COR.line } },
+          h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+            h("thead", null, h("tr", { style: { background: COR.ink } },
+              ["Semana", "Entradas", "Saídas", "Saldo inicial", "Saldo final"].map(function (t, k) {
+                return h("th", { key: t, className: (k ? "px-3 text-right" : "pl-3 text-left") + " py-2 uppercase whitespace-nowrap", style: est.th }, t);
+              }))),
+            h("tbody", null, linhas13))),
+        h("div", { className: "mt-3", style: { fontSize: 11, color: COR.faint, lineHeight: 1.6 } },
+          h("strong", { style: { color: COR.dim } }, "Cartão (estimativa): "), explicaCartao,
+          pj.depois.qtd ? " Depois da semana " + PROJECAO_SEMANAS + " ficam " + pj.depois.qtd + " título(s) em aberto, total de " + fmt(pj.depois.valor) + ", fora desta projeção." : "")
+      );
+    }
+
+    function abaCompromissosLista() {
       var colunas = ["Vencimento", "Categoria", "Contraparte", "Projeto", "Valor"];
 
       return h("div", { className: "space-y-2" },
