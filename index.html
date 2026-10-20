@@ -959,7 +959,7 @@
           fontVariantNumeric: "tabular-nums",
           whiteSpace: "nowrap"
         }
-      }, formatarNumero(props.valor, props.casas === undefined ? 0 : props.casas) + (props.sufixo || "")),
+      }, props.valorTexto ? props.valorTexto : formatarNumero(props.valor, props.casas === undefined ? 0 : props.casas) + (props.sufixo || "")),
       props.sub && h("div", {
         className: "mt-1 leading-snug",
         style: { fontSize: 11, color: COR.faint }
@@ -3608,6 +3608,12 @@
       return lancamentosMutuo.reduce(function (t, l) { return chaveMes(l.dPag) <= m ? t + l.valor : t; }, 0);
     }
 
+    /* Burn liquido do mes: entradas e saidas das secoes do DRE em caixa,  */
+    /* ou seja, o lucro liquido de caixa. Fica fora tudo o que nao e DRE:  */
+    /* transferencias 0.x, fatura 2.17, aplicacoes 2.18, mutuo (1.11,     */
+    /* inclusive a captacao 1.11.95) e distribuicoes 2.16.                 */
+    function burnDoMes(m) { return dadosCaixa.lucroLiquido[m] || 0; }
+
     var porMes = {};
     meses.forEach(function (m) {
       var base = fechados.filter(function (f) { return m === mesAtual ? f < m : f <= m; }).slice(-RESERVA_MESES_NA_MEDIA);
@@ -3628,7 +3634,9 @@
         excedente: excedente, mutuo: mutuo,
         excedenteLiquido: temBase ? Math.max(0, excedente - mutuo) : null,
         cobertura: temBase ? caixa / -media : null,
-        reservaOk: temBase && caixa >= reserva
+        reservaOk: temBase && caixa >= reserva,
+        burn: burnDoMes(m),
+        burnMedio: base.length ? base.reduce(function (t, f) { return t + burnDoMes(f); }, 0) / base.length : null
       };
     });
 
@@ -3641,7 +3649,26 @@
         documento: l.documento || "", valor: Number(l.valor_aberto || l.valor_titulo || 0) };
     }).sort(function (a, b) { return a.vencimento < b.vencimento ? -1 : 1; });
 
+    /* Runway de hoje (estimativas). Liquido: caixa / |burn medio|, so se ha */
+    /* queima. O "sem receita" e a propria cobertura (caixa / |custo medio|),*/
+    /* por isso nao tem cartao proprio: a data limite sai da cobertura.     */
+    var hj = porMes[mesAtual];
+    var runway = { liquido: null, semQueima: false, semReceita: null, dataLimite: null };
+    if (hj) {
+      if (hj.burnMedio !== null && hj.burnMedio >= 0) runway.semQueima = true;
+      else if (hj.burnMedio !== null) runway.liquido = hj.caixa / -hj.burnMedio;
+      runway.semReceita = hj.cobertura;
+      if (runway.semReceita !== null) {
+        var meses_ = Math.max(0, runway.semReceita);
+        var inteiros = Math.floor(meses_);
+        var limite = new Date(hoje.getFullYear(), hoje.getMonth() + inteiros, hoje.getDate());
+        limite.setDate(limite.getDate() + Math.round((meses_ - inteiros) * 30.44));
+        runway.dataLimite = limite;
+      }
+    }
+
     return {
+      runway: runway,
       meses: meses, mesAtual: mesAtual, porMes: porMes, hoje: porMes[mesAtual],
       lancamentosMutuo: lancamentosMutuo, vencidas: vencidas,
       totalVencidas: vencidas.reduce(function (t, v) { return t + v.valor; }, 0),
@@ -3939,7 +3966,7 @@
     { id: "caixa", cat: "Resultado e Caixa", rotulo: "Fluxo de caixa", hash: "resultado-e-caixa/fluxo", tela: "financeiro", icone: "fluxo", resumo: true },
     { id: "apres", cat: "Resultado e Caixa", rotulo: "Gráficos", hash: "resultado-e-caixa/graficos", tela: "financeiro", icone: "slides" },
     { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
-    { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva de caixa", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
+    { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva e runway", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
     { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
     { id: "cc", cat: "Resultado e Caixa", rotulo: "Resultado por Centro de Custo", hash: "resultado-e-caixa/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
     { id: "proj", cat: "Resultado e Caixa", rotulo: "Resultado por Projeto", hash: "resultado-e-caixa/projeto", tela: "financeiro", icone: "pasta", resumo: true },
@@ -5930,6 +5957,29 @@
           ajuda: "Caixa considerado ÷ custo operacional médio em módulo: quantos meses de custo o caixa paga. A reserva exige " + RESERVA_MESES_DE_CUSTO + "." })
       );
 
+      /* Runway: quanto tempo o caixa livre de hoje dura (estimativas). */
+      var rw = r.runway;
+      var mesesBurn = nomesMedia(hj);
+      var blocoRunway = h("div", { className: "mb-5" },
+        h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Runway"),
+        h("div", { className: "grid gap-2 grid-cols-1 sm:grid-cols-3" },
+          h(CartaoIndicador, { rotulo: "Burn líquido mensal", valor: hj.burnMedio === null ? 0 : hj.burnMedio, casas: 2, fundo: "resultado", compacto: true,
+            tom: hj.burnMedio === null ? null : (hj.burnMedio < 0 ? "neg" : "pos"),
+            sub: "média de " + mesesBurn,
+            ajuda: "Média dos " + hj.mesesNaMedia.length + " últimos meses fechados (" + mesesBurn + ") de entradas operacionais + saídas operacionais, em regime de caixa: todas as linhas do DRE, ou seja, o lucro líquido de caixa do mês. Ficam fora transferências 0.x, fatura de cartão 2.17, aplicações e resgates 2.18, mútuo e demais movimentos do passivo 1.11 (inclusive a captação do mútuo conversível 1.11.95) e distribuições 2.16. Negativo é queima; positivo é geração de caixa. Média dos 3 últimos meses fechados: olha para trás e não capta compromissos que começaram depois (por exemplo, contratos novos de despesa fixa). A visão para frente está em Compromissos futuros > 13 semanas." }),
+          h(CartaoIndicador, { rotulo: "Runway líquido", valor: rw.liquido === null ? 0 : rw.liquido, casas: 1, sufixo: rw.semQueima ? "" : " meses",
+            fundo: "caixa", compacto: true,
+            valorTexto: rw.semQueima ? "sem queima" : null,
+            sub: "estimativa",
+            ajuda: rw.semQueima
+              ? "Estimativa. O burn líquido médio é positivo (" + fmt(hj.burnMedio) + "): nos últimos meses fechados o caixa operacional gerou dinheiro, então não há queima a projetar."
+              : "Estimativa. Caixa livre de hoje " + fmt(hj.caixa) + " ÷ |burn líquido médio| " + fmt(Math.abs(hj.burnMedio || 0)) + "." }),
+          h(CartaoIndicador, { rotulo: "Data limite", valor: 0, fundo: "caixa", compacto: true, ajudaDireita: true,
+            valorTexto: rw.dataLimite ? rotuloMes(chaveMes(rw.dataLimite)) : "–",
+            sub: "estimativa · sem receita",
+            ajuda: "Estimativa. Hoje + cobertura (" + (rw.semReceita === null ? "–" : formatarNumero(rw.semReceita, 1)) + " meses), em mês/ano. A cobertura (cartão acima) é o runway sem receita: caixa livre de hoje ÷ |custo operacional médio|, quanto tempo o caixa paga os custos se nenhuma receita entrar." })
+        ));
+
       /* Semaforo do Art. 26, par. 1o */
       function farol(ok, titulo, texto, extra) {
         return h("div", { className: "flex px-4 py-3", style: { gap: 12, borderBottom: "1px solid " + COR.lineSoft } },
@@ -5999,6 +6049,7 @@
             linhaTab("Saldo do mútuo a utilizar", function (x) { return x.mutuo; }),
             linhaTab("Caixa Excedente líquido do mútuo", function (x) { return x.excedenteLiquido; }, { total: true }),
             linhaTab("Cobertura", function (x) { return x.cobertura; }, { meses: true }),
+            linhaTab("Burn líquido (lucro líquido de caixa)", function (x) { return x.burn; }),
             linhaTab("Reserva de " + RESERVA_MESES_DE_CUSTO + " meses", function (x) { return x.reserva !== null ? (x.reservaOk ? "atendida" : "não atendida") : "–"; },
               { cor: function (x) { return x.reservaOk ? COR.mint : COR.coral; } })
           )));
@@ -6020,6 +6071,9 @@
         ["Caixa Excedente líquido do mútuo", "Máximo entre zero e (Caixa Excedente − saldo do mútuo a utilizar). O contrato do mútuo veda usar esses recursos para dividendos."],
         ["Cobertura", "Caixa considerado ÷ custo operacional médio em módulo, em meses."],
         ["Obrigações vencidas", "Títulos a pagar em aberto na Omie com vencimento anterior a hoje (Art. 26, §1º, ii)."],
+        ["Burn líquido mensal", "Média dos 3 últimos meses fechados de entradas + saídas operacionais em regime de caixa: todas as linhas do DRE (o lucro líquido de caixa). Fora: transferências 0.x, fatura de cartão 2.17, aplicações 2.18, movimentos do passivo 1.11 (inclusive a captação do mútuo conversível 1.11.95) e distribuições 2.16. Negativo é queima."],
+        ["Runway líquido (estimativa)", "Caixa livre de hoje ÷ |burn líquido mensal|, em meses. Se o burn for positivo, \"sem queima\"."],
+        ["Data limite (estimativa)", "Hoje + cobertura, em mês/ano. A cobertura é o runway sem receita: caixa livre de hoje ÷ |custo operacional médio|, o cenário conservador, sem nenhuma entrada."],
         ["Recompras em curso", "Sem fonte na Omie; lista mantida no código do painel (Art. 26, §1º, iii)."]
       ];
       var comoCalcula = h("div", { className: "rounded px-4 py-3 mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
@@ -6050,7 +6104,7 @@
       return h("div", null,
         h("div", { className: "mb-3", style: { fontSize: 11.5, color: COR.faint } },
           "Posição de hoje (" + rotHoje + ", mês em curso). Os meses anteriores são o registro do cálculo no fim de cada mês."),
-        cartoesReserva, semaforo, tabela, comoCalcula, mutuoLista);
+        cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista);
     }
 
     /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
