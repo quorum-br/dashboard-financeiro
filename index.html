@@ -3852,6 +3852,71 @@
     };
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Prazos e atrasos (Fase 4, 20/10/2026). So titulos (linha com id de  */
+  /* titulo da Omie; sem movimentos avulsos, sem as linhas de encargo    */
+  /* "-ENC-" e sem nada pago em conta de cartao CR) em categorias do DRE */
+  /* (receita, impostos, custo, despesas, resultado financeiro e outras):*/
+  /* mutuo e adiantamentos (1.11), distribuicoes (2.16), devolucoes e    */
+  /* fatura de cartao (2.17), aplicacoes (2.18) e transferencias (0.x)   */
+  /* nao sao prazo comercial. Periodo: mes do pagamento no filtro do     */
+  /* topo. Media ponderada pelo valor pago.                              */
+  /* ------------------------------------------------------------------ */
+  var PRAZOS_SECOES = ["receita", "impostos", "custo", "despesas", "finRec", "finDesp", "outrasRec", "outrasDesp", "impLucro"];
+  var DIA_MS = 86400000;
+  function diasEntre(a, b) { return Math.round((dataSemHora(b) - dataSemHora(a)) / DIA_MS); }
+
+  function calcularPrazos(linhas, abertos, meses, hoje) {
+    var noPeriodo = {};
+    (meses || []).forEach(function (m) { noPeriodo[m] = true; });
+    var titulos = linhas.filter(function (l) {
+      return l.dPag && l.idTitulo && String(l.idTitulo).indexOf("-ENC-") < 0 && l.contaTipo !== "CR"
+        && PRAZOS_SECOES.indexOf(secaoDaLinha(l)) >= 0 && noPeriodo[chaveMes(l.dPag)];
+    }).map(function (l) {
+      return { tipo: l.tipo, contraparte: l.contraparte || "Sem contraparte", valor: Math.abs(l.valor),
+        prazo: l.dEmi ? diasEntre(l.dEmi, l.dPag) : null,
+        atraso: l.dVenc ? diasEntre(l.dVenc, l.dPag) : null };
+    });
+    function medias(lista) {
+      var comPrazo = lista.filter(function (t) { return t.prazo !== null; });
+      var peso = comPrazo.reduce(function (s, t) { return s + t.valor; }, 0);
+      var atrasados = lista.filter(function (t) { return t.atraso !== null && t.atraso > 0; });
+      var pesoAt = atrasados.reduce(function (s, t) { return s + t.valor; }, 0);
+      return {
+        qtd: lista.length,
+        valor: lista.reduce(function (s, t) { return s + t.valor; }, 0),
+        prazo: peso ? comPrazo.reduce(function (s, t) { return s + t.valor * t.prazo; }, 0) / peso : null,
+        atraso: pesoAt ? atrasados.reduce(function (s, t) { return s + t.valor * t.atraso; }, 0) / pesoAt : null,
+        qtdAtrasados: atrasados.length,
+        comVencimento: lista.filter(function (t) { return t.atraso !== null; }).length,
+        maiorAtraso: atrasados.reduce(function (m, t) { return Math.max(m, t.atraso); }, 0)
+      };
+    }
+    var receber = medias(titulos.filter(function (t) { return t.tipo === "receber"; }));
+    var pagar = medias(titulos.filter(function (t) { return t.tipo === "pagar"; }));
+    var grupos = {};
+    titulos.forEach(function (t) {
+      var chave = t.tipo + "||" + t.contraparte;
+      (grupos[chave] = grupos[chave] || { tipo: t.tipo, contraparte: t.contraparte, lista: [] }).lista.push(t);
+    });
+    var porContraparte = Object.keys(grupos).map(function (k) {
+      var g = grupos[k]; var m = medias(g.lista);
+      return { tipo: g.tipo, contraparte: g.contraparte, qtd: m.qtd, valor: m.valor, prazo: m.prazo, atraso: m.atraso, maiorAtraso: m.maiorAtraso };
+    }).sort(function (a, b) { return a.tipo === b.tipo ? b.valor - a.valor : (a.tipo === "receber" ? -1 : 1); });
+
+    /* Vencidos em aberto: todo titulo sem pagamento com vencimento antes  */
+    /* de hoje, qualquer categoria (obrigacao e obrigacao), sem periodo.  */
+    var hojeTexto = textoData(dataSemHora(hoje));
+    var vencidos = (abertos || []).filter(function (l) { return l.vencimento && l.vencimento < hojeTexto; }).map(function (l) {
+      var v = l.vencimento.split("-");
+      return { tipo: l.tipo, contraparte: l.contraparte || "Sem contraparte", categoria: l.categoria || "", vencimento: l.vencimento,
+        dias: diasEntre(new Date(+v[0], +v[1] - 1, +v[2]), hoje), valor: Number(l.valor_aberto || l.valor_titulo || 0) };
+    }).sort(function (a, b) { return b.dias - a.dias; });
+    var totalVencido = function (tipo) { return vencidos.filter(function (v) { return v.tipo === tipo; }).reduce(function (s, v) { return s + v.valor; }, 0); };
+    return { receber: receber, pagar: pagar, porContraparte: porContraparte, vencidos: vencidos,
+      vencidoReceber: totalVencido("receber"), vencidoPagar: totalVencido("pagar") };
+  }
+
   /* dadosCaixa: calcular() em regime de caixa (pago). hoje: Date.        */
   /* abertos: titulos em aberto como vieram da base (sem pagamento).     */
   function calcularReserva(dadosCaixa, abertos, hoje) {
@@ -4243,6 +4308,7 @@
     { id: "bp-tech", cat: "Planejamento", grupo: "Business Plan", rotulo: "Tech", hash: "planejamento/bp/tech", tela: "bp", icone: "grafico", bp: "tech" },
     { id: "premissas", cat: "Planejamento", rotulo: "Premissas e parâmetros", hash: "planejamento/premissas", tela: "bp", icone: "ajustes", bp: "premissas" },
     { id: "achados", cat: "Controle", rotulo: "Achados", hash: "controle/achados", tela: "financeiro", icone: "alerta" },
+    { id: "prazos", cat: "Controle", rotulo: "Prazos e atrasos", hash: "controle/prazos", tela: "financeiro", icone: "relogio", semRegime: true },
     { id: "exportacoes", cat: "Controle", rotulo: "Exportações", hash: "controle/exportacoes", tela: "financeiro", icone: "baixar" },
     { id: "acessos", cat: "Administração", rotulo: "Acessos", hash: "administracao/acessos", tela: "admin", icone: "pessoas" }
   ];
@@ -4283,6 +4349,7 @@
     baixar: "M12 4v11M7 10l5 5 5-5M5 20h14",
     pessoas: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 .5 3 2.5 3 5",
     escudo: "M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6zM9 12l2 2 4-4",
+    relogio: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
     menu: "M4 6h16M4 12h16M4 18h16",
     recolher: "M15 6l-6 6 6 6",
     expandir: "M9 6l6 6-6 6"
@@ -5590,7 +5657,7 @@
       !celular && h("div", { className: "ml-3", style: { fontSize: 12, color: COR.faint, whiteSpace: "nowrap" } },
         rota.cat, " › ", rota.grupo ? rota.grupo + " › " : "", h("span", { style: { color: COR.text, fontWeight: 600 } }, rota.rotulo)),
       h("div", { className: "flex-1" }),
-      !celular && naTelaFinanceira && seletorRegime,
+      !celular && naTelaFinanceira && !rota.semRegime && seletorRegime,
       !celular && naTelaFinanceira && seletorPeriodo,
       !celular && seloBase,
       !celular && atualizadoEm && h("span", { style: { fontSize: 11, color: COR.mint, whiteSpace: "nowrap" } },
@@ -5611,7 +5678,7 @@
       className: "flex flex-wrap items-center",
       style: { gap: 8, padding: "8px 12px", background: COR.surface, borderBottom: "1px solid " + COR.line }
     },
-      naTelaFinanceira && seletorRegime,
+      naTelaFinanceira && !rota.semRegime && seletorRegime,
       naTelaFinanceira && seletorPeriodo,
       seloBase,
       botaoAtualizar
@@ -6451,6 +6518,70 @@
         cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista);
     }
 
+    /* Prazos e atrasos (Fase 4). */
+    function paginaPrazos() {
+      var pz = calcularPrazos(linhas, emAberto, meses, new Date());
+      var fmt = function (v) { return formatarNumero(v, 2); };
+      var dias = function (v) {
+        if (v === null) return "–";
+        var arred = Math.round(v * 10) / 10;
+        if (arred === 0) return "0 dias";
+        var txt = arred.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+        return txt + (arred === 1 ? " dia" : " dias");
+      };
+      var regraTitulos = " Só títulos da Omie pagos no período do topo (pela data de pagamento), em categorias do DRE; ficam de fora movimentos sem título, encargos, pagamentos no cartão, mútuo e adiantamentos (1.11), distribuições (2.16), devoluções e fatura (2.17), aplicações (2.18) e transferências (0.x). Média ponderada pelo valor pago.";
+      var cart = h("div", { className: "grid gap-2 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 mb-5" },
+        h(CartaoIndicador, { rotulo: "PMR", valor: 0, valorTexto: dias(pz.receber.prazo), fundo: "resultado", compacto: true,
+          sub: "prazo médio de recebimento · " + pz.receber.qtd + " título(s)",
+          ajuda: "Prazo médio de recebimento: data de pagamento − data de emissão nos títulos a receber." + regraTitulos }),
+        h(CartaoIndicador, { rotulo: "PMP", valor: 0, valorTexto: dias(pz.pagar.prazo), fundo: "resultado", compacto: true,
+          sub: "prazo médio de pagamento · " + pz.pagar.qtd + " título(s)",
+          ajuda: "Prazo médio de pagamento: data de pagamento − data de emissão nos títulos a pagar." + regraTitulos }),
+        h(CartaoIndicador, { rotulo: "Atraso no recebimento", valor: 0, valorTexto: pz.receber.qtdAtrasados ? dias(pz.receber.atraso) : "sem atraso", fundo: "resultado", compacto: true,
+          sub: pz.receber.qtdAtrasados + " de " + pz.receber.comVencimento + " título(s) com atraso",
+          ajuda: "Média de (data de pagamento − vencimento), ponderada pelo valor, só nos títulos a receber pagos depois do vencimento." + regraTitulos }),
+        h(CartaoIndicador, { rotulo: "Atraso no pagamento", valor: 0, valorTexto: pz.pagar.qtdAtrasados ? dias(pz.pagar.atraso) : "sem atraso", fundo: "resultado", compacto: true, ajudaDireita: true,
+          sub: pz.pagar.qtdAtrasados + " de " + pz.pagar.comVencimento + " título(s) com atraso",
+          ajuda: "Média de (data de pagamento − vencimento), ponderada pelo valor, só nos títulos a pagar pagos depois do vencimento." + regraTitulos }),
+        h(CartaoIndicador, { rotulo: "Vencido a receber", valor: pz.vencidoReceber, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          sub: "em aberto hoje",
+          ajuda: "Soma dos títulos a receber em aberto na Omie com vencimento anterior a hoje, de qualquer categoria. Não depende do período do topo." }),
+        h(CartaoIndicador, { rotulo: "Vencido a pagar", valor: pz.vencidoPagar, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          sub: "em aberto hoje",
+          ajuda: "Soma dos títulos a pagar em aberto na Omie com vencimento anterior a hoje, de qualquer categoria. Não depende do período do topo." })
+      );
+      var est = { th: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, fontWeight: 400 }, td: { fontSize: 12, fontVariantNumeric: "tabular-nums" } };
+      function tabela(titulo, colunas, linhasTab, vazio) {
+        return h("div", { className: "rounded overflow-x-auto mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
+          h("div", { className: "px-4 py-2 uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, titulo),
+          linhasTab.length === 0
+            ? h("div", { className: "px-4 pb-3", style: { fontSize: 12, color: COR.faint } }, vazio)
+            : h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+                h("thead", null, h("tr", { style: { background: COR.ink } }, colunas.map(function (c, k) {
+                  return h("th", { key: k, className: (c[1] ? "px-3 text-right" : "pl-4 pr-3 text-left") + " py-2 uppercase whitespace-nowrap", style: est.th }, c[0]);
+                }))),
+                h("tbody", null, linhasTab.map(function (cel, i) {
+                  return h("tr", { key: i, style: { borderBottom: "1px solid " + COR.lineSoft } }, cel.map(function (v, k) {
+                    return h("td", { key: k, className: (colunas[k][1] ? "px-3 text-right" : "pl-4 pr-3") + " py-2 whitespace-nowrap", style: Object.assign({ color: COR.text }, est.td) }, v);
+                  }));
+                }))));
+      }
+      var linhasCp = pz.porContraparte.map(function (c) {
+        return [c.tipo === "receber" ? "Receber" : "Pagar", c.contraparte, String(c.qtd), fmt(c.valor), dias(c.prazo),
+          c.atraso === null ? "sem atraso" : dias(c.atraso), c.maiorAtraso ? dias(c.maiorAtraso) : "–"];
+      });
+      var linhasVenc = pz.vencidos.map(function (v) {
+        return [v.tipo === "receber" ? "Receber" : "Pagar", v.contraparte, v.categoria, v.vencimento.split("-").reverse().join("/"), dias(v.dias), fmt(v.valor)];
+      });
+      return h("div", null, cart,
+        tabela("Por contraparte · títulos pagos no período",
+          [["Tipo"], ["Contraparte"], ["Títulos", 1], ["Valor pago", 1], ["Prazo médio", 1], ["Atraso médio", 1], ["Maior atraso", 1]],
+          linhasCp, "Nenhum título pago no período do topo."),
+        tabela("Vencidos em aberto · hoje",
+          [["Tipo"], ["Contraparte"], ["Categoria"], ["Vencimento", 1], ["Dias de atraso", 1], ["Valor", 1]],
+          linhasVenc, "Nenhum título em aberto com vencimento anterior a hoje."));
+    }
+
     /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
     function paginaExportacoes() {
       function exportarBP() {
@@ -6495,6 +6626,7 @@
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
       abertos: "",
       achados: "Conferências automáticas da base, da mais grave para a mais leve.",
+      prazos: "Prazo médio de recebimento e de pagamento e atrasos, dos títulos pagos no período do topo (pela data de pagamento), e o que está vencido em aberto hoje.",
       exportacoes: "Arquivos para levar o painel para fora.",
       reserva: "Caixa Excedente e condições para distribuir acima de 25% do lucro (Acordo de Sócios v02, Art. 3º e Art. 26, §1º). Sempre em regime de caixa, com a base inteira.",
       "bp-cons": "Comunidade + Tech, 36 meses: realizado da Omie em competência e projeção.",
@@ -6534,6 +6666,7 @@
       if (aba === "proj" || aba === "cc") return abaDimensao();
       if (aba === "vertical") return paginaVertical();
       if (aba === "achados") return abaAchados();
+      if (aba === "prazos") return paginaPrazos();
       if (aba === "abertos") return abaCompromissos();
       if (aba === "apres") return abaApresentacao();
       return null;
