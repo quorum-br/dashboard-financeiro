@@ -3917,6 +3917,131 @@
       vencidoReceber: totalVencido("receber"), vencidoPagar: totalVencido("pagar") };
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Fiscal (Simples) (Fase 5, 21/10/2026). Estimativa gerencial: o     */
+  /* valor oficial do DAS e o da contabilidade (TKS).                    */
+  /* ------------------------------------------------------------------ */
+  /* VALIDAR com a TKS se a opcao e competencia ou caixa. */
+  var REGIME_SIMPLES = "competencia";
+  /* Inicio de atividade da QUORUM (06/2026), usado na regra do RBT12.   */
+  var INICIO_ATIVIDADE = "2026-06";
+  /* Receita bruta para o Simples: grupos de receita 1.x, exceto 1.08    */
+  /* (receitas financeiras) e 1.11 (movimentacoes do passivo).           */
+  var GRUPOS_FORA_DA_RECEITA_SIMPLES = ["1.08", "1.11"];
+  /* DAS lancado: categoria do Simples Nacional, pela competencia.       */
+  var CATEGORIA_DAS = "2.14.99";
+  /* Folha do Fator R: salarios e pro-labore, 13o, ferias, rescisoes,   */
+  /* adiantamento, pensao e IRRF retidos, FGTS e INSS. Ficam fora os     */
+  /* beneficios (2.08.86 a 2.08.90). VALIDAR NA FONTE com a TKS.         */
+  var CATEGORIAS_FOLHA_FATOR_R = ["2.08.91", "2.08.92", "2.08.93", "2.08.94", "2.08.95", "2.08.96", "2.08.97", "2.08.98", "2.08.99"];
+  var FATOR_R_LIMITE = 0.28;
+  /* VALIDAR NA FONTE: LC 123, Anexos III e V, com a TKS. */
+  var SIMPLES_ANEXO_III = [
+    { ate: 180000, nominal: 0.06, deducao: 0 },
+    { ate: 360000, nominal: 0.112, deducao: 9360 },
+    { ate: 720000, nominal: 0.135, deducao: 17640 },
+    { ate: 1800000, nominal: 0.16, deducao: 35640 },
+    { ate: 3600000, nominal: 0.21, deducao: 125640 },
+    { ate: 4800000, nominal: 0.33, deducao: 648000 }
+  ];
+  var SIMPLES_ANEXO_V = [
+    { ate: 180000, nominal: 0.155, deducao: 0 },
+    { ate: 360000, nominal: 0.18, deducao: 4500 },
+    { ate: 720000, nominal: 0.195, deducao: 9900 },
+    { ate: 1800000, nominal: 0.205, deducao: 17100 },
+    { ate: 3600000, nominal: 0.23, deducao: 62100 },
+    { ate: 4800000, nominal: 0.305, deducao: 540000 }
+  ];
+  /* VALIDAR NA FONTE (Vigo/TKS): no ano-calendario de inicio de         */
+  /* atividade, o teste de excesso de sublimite e de teto e proporcional */
+  /* aos meses de atividade, e nao sobre o RBT12 anualizado.             */
+  var SIMPLES_SUBLIMITE = 3600000, SIMPLES_TETO = 4800000;
+
+  function faixaSimples(rbt12) {
+    for (var i = 0; i < SIMPLES_ANEXO_III.length; i++) if (rbt12 <= SIMPLES_ANEXO_III[i].ate) return i;
+    return null;   /* acima do teto */
+  }
+  /* Aliquota efetiva = (RBT12 x nominal - deducao) / RBT12. Com RBT12   */
+  /* zero (primeiro mes sem receita), vale a nominal da 1a faixa.        */
+  function aliquotaEfetiva(tabela, rbt12) {
+    var f = faixaSimples(rbt12);
+    if (f === null) return null;
+    if (rbt12 <= 0) return tabela[0].nominal;
+    return (rbt12 * tabela[f].nominal - tabela[f].deducao) / rbt12;
+  }
+
+  function mesesEntre(ini, fim) {
+    var out = [], a = +ini.slice(0, 4), m = +ini.slice(5, 7);
+    while (true) {
+      var k = a + "-" + String(m).padStart(2, "0");
+      if (k > fim) break;
+      out.push(k); m++; if (m > 12) { m = 1; a++; }
+    }
+    return out;
+  }
+
+  /* linhas: lancamentos pagos (normalizados); abertos: titulos sem      */
+  /* pagamento (como vieram da base). Em competencia, receita emitida e  */
+  /* ainda nao recebida entra no mes de emissao (VALIDAR com a TKS).     */
+  /* O DAS do mes e o lancado em 2.14.99 com emissao naquele mes          */
+  /* (VALIDAR com a TKS). Decisoes de Alex em 21/10/2026.                 */
+  function calcularFiscal(linhas, abertos, hoje) {
+    var mesAtual = chaveMes(hoje);
+    var meses = mesesEntre(INICIO_ATIVIDADE, mesAtual);
+    var receita = {}, das = {}, folha = {};
+    meses.forEach(function (m) { receita[m] = 0; das[m] = 0; folha[m] = 0; });
+    function mesDe(dEmi, dPag) {
+      var d = REGIME_SIMPLES === "caixa" ? dPag : (dEmi || dPag);
+      return d ? chaveMes(d) : null;
+    }
+    function ehReceita(codGrupo) {
+      return String(codGrupo).indexOf("1.") === 0 && GRUPOS_FORA_DA_RECEITA_SIMPLES.indexOf(codGrupo) < 0;
+    }
+    linhas.forEach(function (l) {
+      var m = mesDe(l.dEmi, l.dPag);
+      if (!m || !receita.hasOwnProperty(m)) return;
+      var cg = l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || "";
+      if (ehReceita(cg)) receita[m] += l.valor;
+      if (l.codigoCategoria === CATEGORIA_DAS) das[m] += l.valor;
+      if (CATEGORIAS_FOLHA_FATOR_R.indexOf(l.codigoCategoria) >= 0) folha[m] += l.valor;
+    });
+    if (REGIME_SIMPLES !== "caixa") {
+      (abertos || []).forEach(function (l) {
+        if (l.tipo !== "receber" || !l.emissao) return;
+        var m = l.emissao.slice(0, 7);
+        if (receita.hasOwnProperty(m) && ehReceita(l.codigo_grupo || "")) receita[m] += Number(l.valor_titulo || 0);
+      });
+    }
+    /* RBT12 com a regra de inicio de atividade.                          */
+    /* VALIDAR NA FONTE: LC 123, art. 18, par. 2o (Vigo/TKS).              */
+    /* 1o mes: receita do proprio mes x 12; com menos de 12 meses: media  */
+    /* dos meses anteriores ao mes de apuracao x 12; depois: soma dos 12  */
+    /* meses anteriores. A folha do Fator R usa a mesma janela. Junho/26 */
+    /* (sem receita) conta como mes de atividade na media (VALIDAR com a  */
+    /* TKS).                                                             */
+    function janela(serie, i) {
+      if (i === 0) return { valor: serie[meses[0]] * 12, regra: "receita do próprio mês × 12" };
+      var anteriores = meses.slice(Math.max(0, i - 12), i);
+      var soma = anteriores.reduce(function (t, m) { return t + serie[m]; }, 0);
+      if (i < 12) return { valor: soma / anteriores.length * 12, regra: "média de " + anteriores.length + " mês(es) anteriores × 12" };
+      return { valor: soma, regra: "soma dos 12 meses anteriores" };
+    }
+    var porMes = {};
+    meses.forEach(function (m, i) {
+      var r = janela(receita, i), f = janela(folha, i);
+      var rbt12 = r.valor, folha12 = -f.valor || 0;   /* folha vem negativa (saida); "|| 0" evita o -0 */
+      var iii = aliquotaEfetiva(SIMPLES_ANEXO_III, rbt12), v = aliquotaEfetiva(SIMPLES_ANEXO_V, rbt12);
+      var efetiva = receita[m] > 0 && das[m] !== 0 ? -das[m] / receita[m] : null;
+      porMes[m] = {
+        receita: receita[m], rbt12: rbt12, regra: r.regra, faixa: faixaSimples(rbt12),
+        estIII: iii, estV: v, das: das[m], efetiva: efetiva,
+        destaque: efetiva !== null && iii !== null && v !== null && Math.abs(efetiva - iii) > 0.01 && Math.abs(efetiva - v) > 0.01,
+        folha12: folha12, fatorR: rbt12 > 0 ? folha12 / rbt12 : null
+      };
+    });
+    return { meses: meses, mesAtual: mesAtual, porMes: porMes, hoje: porMes[mesAtual] };
+  }
+
   /* dadosCaixa: calcular() em regime de caixa (pago). hoje: Date.        */
   /* abertos: titulos em aberto como vieram da base (sem pagamento).     */
   function calcularReserva(dadosCaixa, abertos, hoje) {
@@ -4309,6 +4434,7 @@
     { id: "premissas", cat: "Planejamento", rotulo: "Premissas e parâmetros", hash: "planejamento/premissas", tela: "bp", icone: "ajustes", bp: "premissas" },
     { id: "achados", cat: "Controle", rotulo: "Achados", hash: "controle/achados", tela: "financeiro", icone: "alerta" },
     { id: "prazos", cat: "Controle", rotulo: "Prazos e atrasos", hash: "controle/prazos", tela: "financeiro", icone: "relogio", semRegime: true },
+    { id: "fiscal", cat: "Controle", rotulo: "Fiscal (Simples)", hash: "controle/fiscal", tela: "financeiro", icone: "recibo", semFiltros: true },
     { id: "exportacoes", cat: "Controle", rotulo: "Exportações", hash: "controle/exportacoes", tela: "financeiro", icone: "baixar" },
     { id: "acessos", cat: "Administração", rotulo: "Acessos", hash: "administracao/acessos", tela: "admin", icone: "pessoas" }
   ];
@@ -4350,6 +4476,7 @@
     pessoas: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 .5 3 2.5 3 5",
     escudo: "M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6zM9 12l2 2 4-4",
     relogio: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+    recibo: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h4",
     menu: "M4 6h16M4 12h16M4 18h16",
     recolher: "M15 6l-6 6 6 6",
     expandir: "M9 6l6 6-6 6"
@@ -6518,6 +6645,61 @@
         cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista);
     }
 
+    /* Fiscal (Simples) (Fase 5). */
+    function paginaFiscal() {
+      var fz = calcularFiscal(linhas, emAberto, new Date());
+      var hj = fz.hoje;
+      var fmt = function (v) { return formatarNumero(v, 2); };
+      var pct = function (v) { return v === null ? "–" : (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%"; };
+      var nomeFaixa = function (f) { return f === null ? "acima do teto" : (f + 1) + "ª faixa · até " + formatarNumero(SIMPLES_ANEXO_III[f].ate, 0); };
+      var aviso = h("div", { className: "rounded px-4 py-3 mb-4", style: { fontSize: 12, background: COR.brassSoft, border: "1px solid " + COR.brass, color: "#7A5C10" } },
+        "Estimativa gerencial. O enquadramento por linha de receita está em aberto e o valor oficial do DAS é o da contabilidade (TKS).");
+      var regraRbt = "RBT12 de " + rotuloMes(fz.mesAtual) + ": " + hj.regra + " (início de atividade em " + rotuloMes(INICIO_ATIVIDADE)
+        + "; no 1º mês, a receita do próprio mês × 12; com menos de 12 meses, a média dos meses anteriores × 12; depois, a soma dos 12 meses anteriores). Receita bruta para o Simples: grupos 1.x, exceto 1.08 e 1.11, em regime de "
+        + (REGIME_SIMPLES === "caixa" ? "caixa" : "competência (emissão; títulos emitidos e ainda não recebidos entram no mês de emissão)") + ".";
+      var cart = h("div", { className: "grid gap-2 grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 mb-5" },
+        h(CartaoIndicador, { rotulo: "RBT12", valor: hj.rbt12, casas: 2, fundo: "resultado", compacto: true, sub: "estimativa · " + rotuloMes(fz.mesAtual), ajuda: "Estimativa. " + regraRbt }),
+        h(CartaoIndicador, { rotulo: "Faixa", valor: 0, valorTexto: hj.faixa === null ? "acima do teto" : (hj.faixa + 1) + "ª", fundo: "resultado", compacto: true,
+          sub: hj.faixa === null ? "" : "até " + formatarNumero(SIMPLES_ANEXO_III[hj.faixa].ate, 0),
+          ajuda: "Faixa do RBT12 nas tabelas dos Anexos III e V (mesmos limites)." }),
+        h(CartaoIndicador, { rotulo: "Alíquota efetiva III", valor: 0, valorTexto: pct(hj.estIII), fundo: "resultado", compacto: true, sub: "estimativa · Anexo III",
+          ajuda: "Estimativa. (RBT12 × alíquota nominal − parcela a deduzir) ÷ RBT12, na faixa do Anexo III. Tabelas a validar na fonte (LC 123) com a TKS." }),
+        h(CartaoIndicador, { rotulo: "Alíquota efetiva V", valor: 0, valorTexto: pct(hj.estV), fundo: "resultado", compacto: true, sub: "estimativa · Anexo V",
+          ajuda: "Estimativa. (RBT12 × alíquota nominal − parcela a deduzir) ÷ RBT12, na faixa do Anexo V. Tabelas a validar na fonte (LC 123) com a TKS." }),
+        h(CartaoIndicador, { rotulo: "Até o sublimite", valor: SIMPLES_SUBLIMITE - hj.rbt12, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          sub: "sublimite " + formatarNumero(SIMPLES_SUBLIMITE, 0), ajuda: "Sublimite de " + fmt(SIMPLES_SUBLIMITE) + " − RBT12 estimado." }),
+        h(CartaoIndicador, { rotulo: "Até o teto", valor: SIMPLES_TETO - hj.rbt12, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          sub: "teto " + formatarNumero(SIMPLES_TETO, 0), ajuda: "Teto do Simples de " + fmt(SIMPLES_TETO) + " − RBT12 estimado." }),
+        h(CartaoIndicador, { rotulo: "Fator R", valor: 0, valorTexto: pct(hj.fatorR), fundo: "caixa", compacto: true, ajudaDireita: true,
+          tom: hj.fatorR !== null && hj.fatorR < FATOR_R_LIMITE ? "neg" : (hj.fatorR !== null ? "pos" : null),
+          sub: hj.fatorR !== null && hj.fatorR < FATOR_R_LIMITE ? "abaixo de 28%: atividades sujeitas ao fator R vão para o Anexo V" : "estimativa",
+          ajuda: "Estimativa. Folha dos 12 meses (" + fmt(hj.folha12) + ", mesma janela e mesma regra do RBT12) ÷ RBT12. Folha: categorias " + CATEGORIAS_FOLHA_FATOR_R.join(", ")
+            + " (salários e pró-labore, 13º, férias, rescisões, adiantamento, pensão e IRRF retidos, FGTS e INSS; benefícios fora). Abaixo de 28%: atividades sujeitas ao fator R vão para o Anexo V." })
+      );
+      var est = { th: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, fontWeight: 400 } };
+      var cols = ["Mês", "Receita bruta", "RBT12", "Faixa", "Alíq. estimada III", "Alíq. estimada V", "DAS lançado", "Alíq. efetiva realizada"];
+      var tabela = h("div", { className: "rounded overflow-x-auto mb-3", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+          h("thead", null, h("tr", { style: { background: COR.ink } }, cols.map(function (c, k) {
+            return h("th", { key: k, className: (k ? "px-3 text-right" : "pl-4 pr-3 text-left") + " py-2 uppercase whitespace-nowrap", style: est.th }, c);
+          }))),
+          h("tbody", null, fz.meses.map(function (m) {
+            var x = fz.porMes[m];
+            var vals = [rotuloMes(m) + (m === fz.mesAtual ? " · em curso" : ""), fmt(x.receita), fmt(x.rbt12), x.faixa === null ? "acima do teto" : (x.faixa + 1) + "ª",
+              pct(x.estIII), pct(x.estV), fmt(x.das), pct(x.efetiva)];
+            return h("tr", { key: m, style: { borderBottom: "1px solid " + COR.lineSoft, background: x.destaque ? "rgba(178,58,47,0.08)" : "transparent" } },
+              vals.map(function (v, k) {
+                return h("td", { key: k, className: (k ? "px-3 text-right" : "pl-4 pr-3") + " py-2 whitespace-nowrap",
+                  style: { fontSize: 12, fontVariantNumeric: "tabular-nums", color: k === 7 && x.destaque ? COR.coral : COR.text, fontWeight: k === 7 && x.destaque ? 700 : 400 } }, v);
+              }));
+          }))));
+      var nota = h("div", { style: { fontSize: 11, color: COR.faint, lineHeight: 1.6 } },
+        "RBT12 de cada mês com a regra de início de atividade (VALIDAR NA FONTE: LC 123, art. 18, §2º, com a Vigo/TKS). Alíquotas estimadas: (RBT12 × nominal − parcela a deduzir) ÷ RBT12 (VALIDAR NA FONTE: LC 123, Anexos III e V, com a TKS). "
+        + "DAS lançado: categoria " + CATEGORIA_DAS + " pela competência (emissão do DAS). Alíquota efetiva realizada = DAS ÷ receita do mês. Em vermelho, mês em que a efetiva realizada se afasta mais de 1 ponto percentual das duas estimativas. "
+        + "Regime da receita para o Simples: " + (REGIME_SIMPLES === "caixa" ? "caixa" : "competência") + " (VALIDAR com a TKS se a opção é competência ou caixa).");
+      return h("div", null, aviso, cart, tabela, nota);
+    }
+
     /* Prazos e atrasos (Fase 4). */
     function paginaPrazos() {
       var pz = calcularPrazos(linhas, emAberto, meses, new Date());
@@ -6626,6 +6808,7 @@
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
       abertos: "",
       achados: "Conferências automáticas da base, da mais grave para a mais leve.",
+      fiscal: "Simples Nacional: RBT12, faixa, alíquotas estimadas dos Anexos III e V, Fator R e o DAS lançado, mês a mês desde o início da atividade. Regime da receita: " + (REGIME_SIMPLES === "caixa" ? "caixa" : "competência") + ", fixo.",
       prazos: "Prazo médio de recebimento e de pagamento e atrasos, dos títulos pagos no período do topo (pela data de pagamento), e o que está vencido em aberto hoje.",
       exportacoes: "Arquivos para levar o painel para fora.",
       reserva: "Caixa Excedente e condições para distribuir acima de 25% do lucro (Acordo de Sócios v02, Art. 3º e Art. 26, §1º). Sempre em regime de caixa, com a base inteira.",
@@ -6667,6 +6850,7 @@
       if (aba === "vertical") return paginaVertical();
       if (aba === "achados") return abaAchados();
       if (aba === "prazos") return paginaPrazos();
+      if (aba === "fiscal") return paginaFiscal();
       if (aba === "abertos") return abaCompromissos();
       if (aba === "apres") return abaApresentacao();
       return null;
