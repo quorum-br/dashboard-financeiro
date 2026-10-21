@@ -4446,7 +4446,15 @@
     /* Ordem e agrupamento definidos por Alex em 11/10/2026, depois de    */
     /* navegar na primeira versao: o resumo (faixa da base e cartoes) fica */
     /* no topo das telas marcadas com resumo: true, e nao e tela propria.  */
-    { id: "dre", cat: "Resultado e Caixa", rotulo: "DRE", hash: "resultado-e-caixa/dre", tela: "financeiro", icone: "tabela", resumo: true },
+    /* DRE como grupo (pedido de Alex, 21/10/2026), no mesmo desenho do   */
+    /* Business Plan: Consolidado (a DRE de sempre, mesmo endereco),      */
+    /* Comunidade e Tech (calculo por vertical, bpVerticalDoCentro) e o   */
+    /* Comparativo lado a lado, que substitui a tela Resultado por        */
+    /* Vertical.                                                          */
+    { id: "dre", cat: "Resultado e Caixa", grupo: "DRE", rotulo: "Consolidado", hash: "resultado-e-caixa/dre", tela: "financeiro", icone: "tabela", resumo: true },
+    { id: "dre-com", cat: "Resultado e Caixa", grupo: "DRE", rotulo: "Comunidade", hash: "resultado-e-caixa/dre/comunidade", tela: "financeiro", icone: "tabela", resumo: true, vertical: "com" },
+    { id: "dre-tech", cat: "Resultado e Caixa", grupo: "DRE", rotulo: "Tech", hash: "resultado-e-caixa/dre/tech", tela: "financeiro", icone: "tabela", resumo: true, vertical: "tech" },
+    { id: "dre-comp", cat: "Resultado e Caixa", grupo: "DRE", rotulo: "Comparativo", hash: "resultado-e-caixa/dre/comparativo", tela: "financeiro", icone: "tabela", resumo: true },
     { id: "caixa", cat: "Resultado e Caixa", rotulo: "Fluxo de caixa", hash: "resultado-e-caixa/fluxo", tela: "financeiro", icone: "fluxo", resumo: true },
     { id: "apres", cat: "Resultado e Caixa", rotulo: "Gráficos", hash: "resultado-e-caixa/graficos", tela: "financeiro", icone: "slides" },
     { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
@@ -4454,7 +4462,6 @@
     { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
     { id: "cc", cat: "Resultado e Caixa", rotulo: "Resultado por Centro de Custo", hash: "resultado-e-caixa/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
     { id: "proj", cat: "Resultado e Caixa", rotulo: "Resultado por Projeto", hash: "resultado-e-caixa/projeto", tela: "financeiro", icone: "pasta", resumo: true },
-    { id: "vertical", cat: "Resultado e Caixa", rotulo: "Resultado por Vertical", hash: "resultado-e-caixa/vertical", tela: "financeiro", icone: "vertical", resumo: true },
     { id: "bp-cons", cat: "Planejamento", grupo: "Business Plan", rotulo: "Consolidado", hash: "planejamento/bp/consolidado", tela: "bp", icone: "grafico", bp: "cons" },
     { id: "bp-com", cat: "Planejamento", grupo: "Business Plan", rotulo: "Comunidade", hash: "planejamento/bp/comunidade", tela: "bp", icone: "grafico", bp: "com" },
     { id: "bp-tech", cat: "Planejamento", grupo: "Business Plan", rotulo: "Tech", hash: "planejamento/bp/tech", tela: "bp", icone: "grafico", bp: "tech" },
@@ -4468,10 +4475,12 @@
   var ROTA_INICIAL = "dre";
 
   function rotaPorId(id) { return ROTAS.filter(function (r) { return r.id === id; })[0] || null; }
+  /* Enderecos antigos que levam a uma tela nova (favoritos). */
+  var ENDERECOS_ANTIGOS = { "resultado-e-caixa/vertical": "dre-comp" };
   function rotaDoEndereco() {
     var trecho = String(window.location.hash || "").replace(/^#\/?/, "").replace(/\/+$/, "");
     var achada = ROTAS.filter(function (r) { return r.hash === trecho; })[0];
-    return achada ? achada.id : null;
+    return achada ? achada.id : (ENDERECOS_ANTIGOS[trecho] || null);
   }
   /* A pagina so mostra o que o n8n liberou para a pessoa; o n8n confere */
   /* de novo em cada pedido de dados.                                    */
@@ -4960,13 +4969,6 @@
     var estOrigemCompromissos = useState("todos");
     var origemCompromissos = estOrigemCompromissos[0], setOrigemCompromissos = estOrigemCompromissos[1];
     useEffect(function () { armazenamento.setItem("quorum_visao_compromissos", visaoCompromissos); }, [visaoCompromissos]);
-
-    var estVisaoVertical = useState(function () {
-      var salva = armazenamento.getItem("quorum_visao_vertical");
-      return salva === "com" || salva === "tech" ? salva : "lado";
-    });
-    var visaoVertical = estVisaoVertical[0], setVisaoVertical = estVisaoVertical[1];
-    useEffect(function () { armazenamento.setItem("quorum_visao_vertical", visaoVertical); }, [visaoVertical]);
 
     /* ---------------------------------------------------------------- */
     /* Exportacao: tres abas, todas as celulas em formula sobre BD Contas */
@@ -5629,25 +5631,30 @@
       return rows;
     }
 
-    function paginaVertical() {
+    /* DRE de uma vertical (subtelas DRE > Comunidade e DRE > Tech): mesma */
+    /* tabela da DRE, com os valores do calculo daquela vertical; clicar    */
+    /* numa linha abre os lancamentos so daquela vertical.                 */
+    function dreVertical(v) {
+      var rows = especDRE();
+      var d = dadosVertical[v];
+      return h(Tabela, null, rows.map(function (r) {
+        var valores = r.serie(d);
+        if (r.ocultavel && !mostrarZeradas && !temValor(valores)) return null;
+        var acumulado = r.acum ? r.acum(d) : (r.acumFinal ? (ultimoMes ? d.acumulado[ultimoMes] : 0) : undefined);
+        return h(LinhaTabela, {
+          key: r.key, label: r.label, valores: valores, meses: meses, nivel: r.nivel, formato: r.formato, acumulado: acumulado,
+          aoAbrir: r.filtro && (!r.item || temValor(valores))
+            ? abrirGaveta(r.label + " · " + NOME_VERTICAL[v], Object.assign({}, r.filtro, { vertical: v })) : undefined,
+          sufixo: r.inativa ? h("span", { style: { fontSize: 10, color: COR.faint } }, "  inativa") : null
+        });
+      }));
+    }
+
+    /* DRE > Comparativo: Comunidade, Tech e Consolidado lado a lado, no   */
+    /* total do periodo (a antiga visao "Todas" de Resultado por Vertical).*/
+    function comparativoVertical() {
       var rows = especDRE();
       var dv = dadosVertical;
-      if (visaoVertical !== "lado") {
-        var v = visaoVertical, d = dv[v];
-        var filtroV = v === "cons" ? {} : { vertical: v };
-        return h(Tabela, null, rows.map(function (r) {
-          var valores = r.serie(d);
-          if (r.ocultavel && !mostrarZeradas && !temValor(valores)) return null;
-          var acumulado = r.acum ? r.acum(d) : (r.acumFinal ? (ultimoMes ? d.acumulado[ultimoMes] : 0) : undefined);
-          return h(LinhaTabela, {
-            key: r.key, label: r.label, valores: valores, meses: meses, nivel: r.nivel, formato: r.formato, acumulado: acumulado,
-            aoAbrir: r.filtro && (!r.item || temValor(valores))
-              ? abrirGaveta(r.label + (v === "cons" ? "" : " · " + NOME_VERTICAL[v]), Object.assign({}, r.filtro, filtroV)) : undefined,
-            sufixo: r.inativa ? h("span", { style: { fontSize: 10, color: COR.faint } }, "  inativa") : null
-          });
-        }));
-      }
-      /* Lado a lado: total do periodo selecionado em cada vertical. */
       var ordem = ["com", "tech", "cons"];
       function totalPeriodo(r, d) {
         if (r.acum) return r.acum(d);
@@ -5900,8 +5907,15 @@
       )
     );
 
-    var receitaBrutaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.S.receita[mes]; }, 0);
-    var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dados.ebitda[mes]; }, 0);
+    /* Nas subtelas DRE > Comunidade e DRE > Tech, Receita bruta, EBITDA e */
+    /* Lucro liquido seguem a vertical; os cartoes de caixa continuam da   */
+    /* empresa inteira (caixa nao e segregado por vertical).               */
+    var verticalDoResumo = (rotaPorId(rotaId) || {}).vertical || null;
+    var dadosResumo = verticalDoResumo && dadosVertical ? dadosVertical[verticalDoResumo] : dados;
+    var sufixoVertical = verticalDoResumo ? " · " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") : "";
+    var notaCaixaVertical = verticalDoResumo ? "Empresa inteira: caixa não é segregado por vertical, este cartão é o mesmo em todas as telas. " : "";
+    var receitaBrutaPeriodo = meses.reduce(function (soma, mes) { return soma + dadosResumo.S.receita[mes]; }, 0);
+    var ebitdaPeriodo = meses.reduce(function (soma, mes) { return soma + dadosResumo.ebitda[mes]; }, 0);
 
     /* Composicao de um grupo de contas para o "?" dos cartoes de caixa. */
     function composicaoContas(contas) {
@@ -5919,24 +5933,24 @@
         rotulo: "Receita bruta",
         valor: receitaBrutaPeriodo,
         fundo: "resultado", compacto: true,
-        sub: "no período carregado",
-        ajuda: "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
+        sub: "no período carregado" + sufixoVertical,
+        ajuda: (verticalDoResumo ? "Só a vertical " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") + ". " : "") + "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
       }),
       h(CartaoIndicador, {
         rotulo: "EBITDA",
         valor: ebitdaPeriodo,
         tom: ebitdaPeriodo < 0 ? "neg" : "pos",
         fundo: "resultado", compacto: true,
-        sub: "acumulado",
-        ajuda: "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
+        sub: "acumulado" + sufixoVertical,
+        ajuda: (verticalDoResumo ? "Só a vertical " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") + ". " : "") + "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
       }),
       h(CartaoIndicador, {
         rotulo: "Lucro líquido",
-        valor: ultimoMes ? dados.acumulado[ultimoMes] : 0,
-        tom: ultimoMes && dados.acumulado[ultimoMes] < 0 ? "neg" : "pos",
+        valor: ultimoMes ? dadosResumo.acumulado[ultimoMes] : 0,
+        tom: ultimoMes && dadosResumo.acumulado[ultimoMes] < 0 ? "neg" : "pos",
         fundo: "resultado", compacto: true,
-        sub: "acumulado no período",
-        ajuda: "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
+        sub: "acumulado no período" + sufixoVertical,
+        ajuda: (verticalDoResumo ? "Só a vertical " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") + ". " : "") + "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
       }),
       posicao && h(Fragment, null,
         h(CartaoIndicador, {
@@ -5945,7 +5959,7 @@
           tom: posicao.corrente < 0 ? "neg" : "pos",
           casas: 2, fundo: "caixa", compacto: true,
           sub: "saldo em " + rotuloMes(ultimoMes),
-          ajuda: "Contas correntes e caixa (tipo CC e CX na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
+          ajuda: notaCaixaVertical + "Contas correntes e caixa (tipo CC e CX na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
             + composicaoContas(posicao.nomes.corrente) + ". Não inclui aplicações, caução nem cartão."
         }),
         h(CartaoIndicador, {
@@ -5953,7 +5967,7 @@
           valor: posicao.aplicacoes,
           casas: 2, fundo: "caixa", compacto: true,
           sub: "saldo em " + rotuloMes(ultimoMes),
-          ajuda: "Contas de aplicação (tipo CA na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
+          ajuda: notaCaixaVertical + "Contas de aplicação (tipo CA na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
             + composicaoContas(posicao.nomes.aplicacoes)
             + ". A transferência da conta corrente para a aplicação não é receita nem despesa; o rendimento lançado na aplicação entra no DRE em Receitas Financeiras."
         }),
@@ -5963,7 +5977,7 @@
           tom: posicao.total < 0 ? "neg" : "pos",
           casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           sub: "corrente + aplicações + caução",
-          ajuda: "Conta corrente " + formatarNumero(posicao.corrente, 2)
+          ajuda: notaCaixaVertical + "Conta corrente " + formatarNumero(posicao.corrente, 2)
             + " + aplicações " + formatarNumero(posicao.aplicacoes, 2)
             + " + caução " + formatarNumero(posicao.garantia, 2) + " (" + composicaoContas(posicao.nomes.garantia) + ")"
             + " = " + formatarNumero(posicao.total, 2) + ". Todo o dinheiro da QUORUM, antes de descontar a fatura do cartão."
@@ -5974,7 +5988,7 @@
           casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           tom: posicao.livre < 0 ? "neg" : "pos",
           sub: "o que sobra depois do já comprometido",
-          ajuda: "Caixa total " + formatarNumero(posicao.total, 2)
+          ajuda: notaCaixaVertical + "Caixa total " + formatarNumero(posicao.total, 2)
             + " − caução " + formatarNumero(posicao.garantia, 2)
             + " − fatura de cartão em aberto " + formatarNumero(Math.abs(posicao.cartao), 2)
             + " (" + composicaoContas(posicao.nomes.cartao) + ")"
@@ -6884,7 +6898,9 @@
       dre: "Resultado no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos por trás dela.",
       cc: "Receita, saída e resultado por centro de custo, no regime de " + nomeRegime + ".",
       proj: "Receita, saída e resultado por projeto, no regime de " + nomeRegime + ".",
-      vertical: "DRE realizada por vertical, no regime de " + nomeRegime + ". Centro de custo com Insights, Review ou Advisory é Tech; o resto, inclusive sem centro, é Comunidade.",
+      "dre-com": "DRE da vertical Comunidade, no regime de " + nomeRegime + ": lançamentos de centro de custo sem Insights, Review ou Advisory, inclusive sem centro · clique em qualquer linha para ver os lançamentos.",
+      "dre-tech": "DRE da vertical Tech, no regime de " + nomeRegime + ": lançamentos de centro de custo com Insights, Review ou Advisory · clique em qualquer linha para ver os lançamentos.",
+      "dre-comp": "Comunidade, Tech e Consolidado lado a lado, no regime de " + nomeRegime + ". Centro de custo com Insights, Review ou Advisory é Tech; o resto, inclusive sem centro, é Comunidade.",
       posicao: "Quanto há em conta corrente, em aplicações e na caução, e quanto já está comprometido.",
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
       abertos: "",
@@ -6928,7 +6944,9 @@
       if (aba === "dre") return abaDRE();
       if (aba === "caixa") return abaFluxoDeCaixa();
       if (aba === "proj" || aba === "cc") return abaDimensao();
-      if (aba === "vertical") return paginaVertical();
+      if (aba === "dre-com") return dreVertical("com");
+      if (aba === "dre-tech") return dreVertical("tech");
+      if (aba === "dre-comp") return comparativoVertical();
       if (aba === "achados") return abaAchados();
       if (aba === "prazos") return paginaPrazos();
       if (aba === "fiscal") return paginaFiscal();
@@ -6938,7 +6956,7 @@
     }
 
     var contagens = { achados: achadosTela.length, abertos: emAberto ? emAberto.length : 0 };
-    var mostrarFerramentas = (aba === "dre" || aba === "caixa" || aba === "vertical") && !semMesSelecionado;
+    var mostrarFerramentas = (aba === "dre" || aba === "dre-com" || aba === "dre-tech" || aba === "dre-comp" || aba === "caixa") && !semMesSelecionado;
     var lateral = (!celular || menuAberto) && h(BarraLateral, {
       rotas: rotasLiberadas, atual: rota.id, contagens: contagens, recolhida: menuRecolhido, celular: celular,
       aoNavegar: navegar, aoRecolher: function () { setMenuRecolhido(!menuRecolhido); }
@@ -6976,13 +6994,6 @@
             h("div", { style: { flex: "1 1 320px", minWidth: 0 } },
               h("h1", { style: { margin: 0, fontSize: 20, fontWeight: 600 } }, tituloDaRota(rota)),
               DESCRICAO[rota.id] && h("div", { style: { fontSize: 12, color: COR.faint, marginTop: 2 } }, DESCRICAO[rota.id])),
-            aba === "vertical" && !semMesSelecionado && h("div", { className: "flex rounded overflow-hidden", style: { border: "1px solid " + COR.line } },
-              [["lado", "Todas"], ["com", "Comunidade"], ["tech", "Tech"]].map(function (par) {
-                var ativo = visaoVertical === par[0];
-                return h("button", { key: par[0], onClick: function () { setVisaoVertical(par[0]); }, className: "px-3 py-1.5",
-                  title: par[0] === "lado" ? "Comunidade, Tech e Consolidado lado a lado, no total do período" : "Mês a mês da vertical escolhida",
-                  style: { fontSize: 11, background: ativo ? COR.brass : "transparent", color: ativo ? "#FFFFFF" : COR.dim, fontWeight: ativo ? 600 : 400 } }, par[1]);
-              })),
             mostrarFerramentas && ferramentasTabela),
           conteudoDaRota()
         )
