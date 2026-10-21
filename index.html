@@ -3781,6 +3781,59 @@
   function dataSemHora(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
   function textoData(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 
+  /* ------------------------------------------------------------------ */
+  /* Dias uteis (Parte C, 21/10/2026). Vencimento que cai em sabado,     */
+  /* domingo ou dia sem expediente bancario so pode ser pago no dia util  */
+  /* seguinte: o "vencimento efetivo" e esse dia. Usado nos atrasos, nos  */
+  /* vencidos em aberto (inclusive previsao de OS e obrigacao vencida da */
+  /* Reserva) e na semana da projecao de 13 semanas.                    */
+  /* VALIDAR no calendario Febraban; feriados municipais de Sao Paulo    */
+  /* fora por enquanto.                                                  */
+  /* ------------------------------------------------------------------ */
+  var FERIADOS_NACIONAIS_FIXOS = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25"];
+  /* Feriados moveis, em dias a partir do domingo de Pascoa: segunda e   */
+  /* terca de Carnaval, Sexta-feira Santa e Corpus Christi.              */
+  var FERIADOS_MOVEIS_DESDE_PASCOA = [-48, -47, -2, 60];
+  /* Domingo de Pascoa (algoritmo de Meeus/Jones/Butcher, calendario     */
+  /* gregoriano).                                                        */
+  function domingoDePascoa(ano) {
+    var a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4;
+    var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), hh = (19 * a + b - d - g + 15) % 30;
+    var i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - hh - k) % 7, m = Math.floor((a + 11 * hh + 22 * l) / 451);
+    var mes = Math.floor((hh + l - 7 * m + 114) / 31), dia = ((hh + l - 7 * m + 114) % 31) + 1;
+    return new Date(ano, mes - 1, dia);
+  }
+  var cacheFeriados = {};
+  function feriadosDoAno(ano) {
+    if (cacheFeriados[ano]) return cacheFeriados[ano];
+    var lista = {};
+    FERIADOS_NACIONAIS_FIXOS.forEach(function (md) { lista[ano + "-" + md] = true; });
+    var pascoa = domingoDePascoa(ano);
+    FERIADOS_MOVEIS_DESDE_PASCOA.forEach(function (n) {
+      var d = new Date(pascoa); d.setDate(d.getDate() + n); lista[textoData(d)] = true;
+    });
+    cacheFeriados[ano] = lista;
+    return lista;
+  }
+  function ehDiaUtil(d) {
+    var dia = d.getDay();
+    return dia !== 0 && dia !== 6 && !feriadosDoAno(d.getFullYear())[textoData(d)];
+  }
+  /* Recebe Date ou texto "AAAA-MM-DD"; devolve Date do dia util. */
+  function vencimentoEfetivo(venc) {
+    var d = typeof venc === "string" ? new Date(+venc.slice(0, 4), +venc.slice(5, 7) - 1, +venc.slice(8, 10)) : dataSemHora(venc);
+    for (var n = 0; n < 15 && !ehDiaUtil(d); n++) d.setDate(d.getDate() + 1);
+    return d;
+  }
+  function vencimentoEfetivoTexto(venc) { return venc ? textoData(vencimentoEfetivo(venc)) : ""; }
+  /* "10/10 · útil 13/10" quando o vencimento foi deslocado. */
+  function rotuloVencimento(venc, comAno) {
+    if (!venc) return "–";
+    var ef = vencimentoEfetivoTexto(venc);
+    var fmtD = function (t) { var p = t.split("-"); return p[2] + "/" + p[1] + (comAno ? "/" + p[0] : ""); };
+    return ef === venc ? fmtD(venc) : fmtD(venc) + " · útil " + fmtD(ef);
+  }
+
   function calcularProjecao13(linhasCaixa, abertos, hoje, caixaHoje, reservaExigida, mesesBase) {
     var dia0 = dataSemHora(hoje), hojeTexto = textoData(dia0);
     var inicio = new Date(dia0); inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7));
@@ -3800,7 +3853,8 @@
     (abertos || []).forEach(function (l) {
       var valor = Number(l.valor_aberto || l.valor_titulo || 0);
       if (l.tipo === "receber") temReceber = true;
-      var venc = l.vencimento || "";
+      var vencOriginal = l.vencimento || "";
+      var venc = vencimentoEfetivoTexto(vencOriginal);   /* semana pelo dia util */
       var vencido = venc && venc < hojeTexto;
       var sem = null;
       if (!venc || vencido) sem = semanas[0];
@@ -3808,7 +3862,7 @@
       if (!sem) { depois.qtd++; depois.valor += valor; return; }
       if (valor >= 0) sem.entradas += valor; else sem.saidas += valor;
       if (vencido) { sem.vencidos++; sem.valorVencido += valor; }
-      sem.itens.push({ vencimento: venc, tipo: l.tipo, contraparte: l.contraparte || "", categoria: l.categoria || "", valor: valor, vencido: vencido, previsto: ehPrevisaoOS(l) });
+      sem.itens.push({ vencimento: venc, vencimentoOriginal: vencOriginal, tipo: l.tipo, contraparte: l.contraparte || "", categoria: l.categoria || "", valor: valor, vencido: vencido, previsto: ehPrevisaoOS(l) });
       if (l.tipo === "receber") { if (ehPrevisaoOS(l)) receber13.previsoes += valor; else receber13.titulos += valor; }
     });
 
@@ -3852,11 +3906,11 @@
         var v = new Date(dia0.getFullYear(), dia0.getMonth() + k, dd);
         if (v < dia0) continue;
         if (!proximaFatura) { proximaFatura = v; continue; }   /* fatura em aberto: ja no caixa livre */
-        var vt = textoData(v);
+        var vtOriginal = textoData(v), vt = vencimentoEfetivoTexto(vtOriginal);   /* fatura em dia nao util: dia util seguinte */
         var sem = semanas.filter(function (s) { return vt >= s.iniTexto && vt <= s.fimTexto; })[0];
         if (!sem) continue;
         sem.saidas += cartaoMedio; sem.cartao += cartaoMedio;
-        sem.itens.push({ vencimento: vt, tipo: "cartao", contraparte: "", categoria: "Fatura do cartão (estimativa)", valor: cartaoMedio, vencido: false });
+        sem.itens.push({ vencimento: vt, vencimentoOriginal: vtOriginal, tipo: "cartao", contraparte: "", categoria: "Fatura do cartão (estimativa)", valor: cartaoMedio, vencido: false });
         vencimentosCartao.push(v);
       }
     }
@@ -3902,7 +3956,7 @@
     }).map(function (l) {
       return { tipo: l.tipo, contraparte: l.contraparte || "Sem contraparte", valor: Math.abs(l.valor),
         prazo: l.dEmi ? diasEntre(l.dEmi, l.dPag) : null,
-        atraso: l.dVenc ? diasEntre(l.dVenc, l.dPag) : null };
+        atraso: l.dVenc ? diasEntre(vencimentoEfetivo(l.dVenc), l.dPag) : null };   /* dia util; so conta se positivo */
     });
     function medias(lista) {
       var comPrazo = lista.filter(function (t) { return t.prazo !== null; });
@@ -3934,10 +3988,10 @@
     /* Vencidos em aberto: todo titulo sem pagamento com vencimento antes  */
     /* de hoje, qualquer categoria (obrigacao e obrigacao), sem periodo.  */
     var hojeTexto = textoData(dataSemHora(hoje));
-    var vencidos = (abertos || []).filter(function (l) { return l.vencimento && l.vencimento < hojeTexto && !ehPrevisaoOS(l); }).map(function (l) {
-      var v = l.vencimento.split("-");
+    /* Vencido so depois do vencimento efetivo (dia util). */
+    var vencidos = (abertos || []).filter(function (l) { return l.vencimento && vencimentoEfetivoTexto(l.vencimento) < hojeTexto && !ehPrevisaoOS(l); }).map(function (l) {
       return { tipo: l.tipo, contraparte: l.contraparte || "Sem contraparte", categoria: l.categoria || "", vencimento: l.vencimento,
-        dias: diasEntre(new Date(+v[0], +v[1] - 1, +v[2]), hoje), valor: Number(l.valor_aberto || l.valor_titulo || 0) };
+        dias: diasEntre(vencimentoEfetivo(l.vencimento), hoje), valor: Number(l.valor_aberto || l.valor_titulo || 0) };
     }).sort(function (a, b) { return b.dias - a.dias; });
     var totalVencido = function (tipo) { return vencidos.filter(function (v) { return v.tipo === tipo; }).reduce(function (s, v) { return s + v.valor; }, 0); };
     return { receber: receber, pagar: pagar, porContraparte: porContraparte, vencidos: vencidos,
@@ -4127,7 +4181,7 @@
     /* Art. 26, par. 1o, (ii): titulos a pagar em aberto com vencimento   */
     /* anterior a hoje.                                                  */
     var vencidas = (abertos || []).filter(function (l) {
-      return l.tipo === "pagar" && l.vencimento && l.vencimento < hojeTexto && !ehPrevisaoOS(l);
+      return l.tipo === "pagar" && l.vencimento && vencimentoEfetivoTexto(l.vencimento) < hojeTexto && !ehPrevisaoOS(l);
     }).map(function (l) {
       return { vencimento: l.vencimento, categoria: l.categoria, contraparte: l.contraparte || "",
         documento: l.documento || "", valor: Number(l.valor_aberto || l.valor_titulo || 0) };
@@ -5374,7 +5428,7 @@
       if (!dados) return [];
       var hojeTexto = textoData(dataSemHora(new Date()));
       var previsoesVencidas = (emAberto || []).filter(function (l) {
-        return ehPrevisaoOS(l) && l.vencimento && l.vencimento < hojeTexto;
+        return ehPrevisaoOS(l) && l.vencimento && vencimentoEfetivoTexto(l.vencimento) < hojeTexto;
       });
       var extras = [];
       if (previsoesVencidas.length) {
@@ -5385,7 +5439,7 @@
           detalhe: previsoesVencidas.length + " previsão(ões) de faturamento de OS com vencimento antes de hoje, somando "
             + formatarNumero(previsoesVencidas.reduce(function (t, l) { return t + Number(l.valor_titulo || 0); }, 0), 2) + ": "
             + previsoesVencidas.map(function (l) {
-              return (l.contraparte || "sem contraparte") + " (vencimento " + l.vencimento.split("-").reverse().join("/") + ", " + formatarNumero(Number(l.valor_titulo || 0), 2) + ")";
+              return (l.contraparte || "sem contraparte") + " (vencimento " + rotuloVencimento(l.vencimento, true) + ", " + formatarNumero(Number(l.valor_titulo || 0), 2) + ")";
             }).join("; ") + ". Fature a OS na Omie ou ajuste a previsão."
         });
       }
@@ -6375,7 +6429,7 @@
         if (abaixo && !s.negativo) marcas.push(h("span", { key: "r", className: "ml-2", style: { fontSize: 10, color: COR.coral } }, "abaixo da reserva"));
         if (s.negativo) marcas.push(h("span", { key: "n", className: "ml-2", style: { fontSize: 10, color: COR.coral, fontWeight: 700 } }, "saldo negativo"));
         var detalhe = s.itens.map(function (it) {
-          return (it.vencido ? "vencido " : "") + it.vencimento.split("-").reverse().slice(0, 2).join("/") + " " + (it.contraparte || it.categoria) + " " + fmt(it.valor)
+          return (it.vencido ? "vencido " : "") + rotuloVencimento(it.vencimentoOriginal || it.vencimento) + " " + (it.contraparte || it.categoria) + " " + fmt(it.valor)
             + (it.previsto ? " (previsto (OS))" : "");
         }).join(" · ");
         return h("tr", { key: i, style: { background: fundo, borderBottom: "1px solid " + COR.lineSoft } },
@@ -6816,10 +6870,10 @@
           ajuda: "Prazo médio de pagamento: data de pagamento − data de emissão nos títulos a pagar." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "Atraso no recebimento", valor: 0, valorTexto: pz.receber.qtdAtrasados ? dias(pz.receber.atraso) : "sem atraso", fundo: "resultado", compacto: true,
           sub: pz.receber.qtdAtrasados + " de " + pz.receber.comVencimento + " título(s) com atraso",
-          ajuda: "Média de (data de pagamento − vencimento), ponderada pelo valor, só nos títulos a receber pagos depois do vencimento." + regraTitulos }),
+          ajuda: "Média de (data de pagamento − vencimento efetivo), ponderada pelo valor, só nos títulos a receber pagos depois dele. Vencimento efetivo: se o vencimento cai em sábado, domingo ou feriado bancário nacional, vale o dia útil seguinte." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "Atraso no pagamento", valor: 0, valorTexto: pz.pagar.qtdAtrasados ? dias(pz.pagar.atraso) : "sem atraso", fundo: "resultado", compacto: true, ajudaDireita: true,
           sub: pz.pagar.qtdAtrasados + " de " + pz.pagar.comVencimento + " título(s) com atraso",
-          ajuda: "Média de (data de pagamento − vencimento), ponderada pelo valor, só nos títulos a pagar pagos depois do vencimento." + regraTitulos }),
+          ajuda: "Média de (data de pagamento − vencimento efetivo), ponderada pelo valor, só nos títulos a pagar pagos depois dele. Vencimento efetivo: se o vencimento cai em sábado, domingo ou feriado bancário nacional, vale o dia útil seguinte." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "Vencido a receber", valor: pz.vencidoReceber, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           sub: "em aberto hoje",
           ajuda: "Soma dos títulos a receber em aberto na Omie com vencimento anterior a hoje, de qualquer categoria. Não depende do período do topo." }),
@@ -6848,7 +6902,7 @@
           c.atraso === null ? "sem atraso" : dias(c.atraso), c.maiorAtraso ? dias(c.maiorAtraso) : "–"];
       });
       var linhasVenc = pz.vencidos.map(function (v) {
-        return [v.tipo === "receber" ? "Receber" : "Pagar", v.contraparte, v.categoria, v.vencimento.split("-").reverse().join("/"), dias(v.dias), fmt(v.valor)];
+        return [v.tipo === "receber" ? "Receber" : "Pagar", v.contraparte, v.categoria, rotuloVencimento(v.vencimento, true), dias(v.dias), fmt(v.valor)];
       });
       return h("div", null, cart,
         tabela("Por contraparte · títulos pagos no período",
