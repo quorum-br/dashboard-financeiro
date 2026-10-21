@@ -3638,6 +3638,19 @@
   }
 
   /* Descobre o nome da contraparte e de onde ele veio. */
+  /* Nomes de contraparte as vezes chegam da Omie com entidades HTML     */
+  /* ("Myia Wine &amp; Bar"). Decodifica uma vez, na entrada da base,     */
+  /* para todas as telas e exportacoes verem o nome certo. O textarea     */
+  /* so interpreta o texto: nao executa nada nem cria elementos.          */
+  var ENTIDADE_HTML = /&(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#x[0-9a-fA-F]+);/;
+  var decodificador = null;
+  function decodificarEntidades(texto) {
+    if (typeof texto !== "string" || !ENTIDADE_HTML.test(texto)) return texto;
+    decodificador = decodificador || document.createElement("textarea");
+    decodificador.innerHTML = texto;
+    return decodificador.value;
+  }
+
   function resolverContraparte(linha) {
     var cadastrada = (linha.contraparte || "").trim();
     if (cadastrada) return { nome: cadastrada, origem: "cadastro" };
@@ -4828,6 +4841,9 @@
           /* e ele que diz quais categorias existem, como se chamam, quais   */
           /* estao inativas e em que secao cada grupo entra.                 */
           aplicarCatalogo(dados.categorias);
+          (dados.linhas || []).forEach(function (l) {
+            if (l && l.contraparte) l.contraparte = decodificarEntidades(l.contraparte);
+          });
           var realizadas = (dados.linhas || []).map(normalizarLinha).filter(function (l) { return l.dPag; });
           var futuras = (dados.linhas || []).filter(function (l) { return !l.pagamento; });
           setLinhas(realizadas);
