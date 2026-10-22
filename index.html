@@ -3255,6 +3255,83 @@
   }
 
 
+  /* Grafico 10 (Parte E, 21/10/2026): FLUXO DE CAIXA PROJETADO. Linha do */
+  /* saldo projetado no fim de cada mes (calcularFCFProjetado, a mesma   */
+  /* conta da tabela de Reserva e runway), linha tracejada na reserva    */
+  /* exigida e as marcas de quando o caixa fica abaixo da reserva e de    */
+  /* quando acaba. Nao depende do regime nem do periodo do topo.         */
+  var COR_LINHA_RESERVA = "#B23A2F";
+  function GraficoFCFProjetado(props) {
+    var fc = props.projecao;
+    var moldura = { className: "rounded overflow-hidden mx-auto", style: { background: COR.surface, border: "1px solid " + COR.line, maxWidth: 1080, width: "100%" } };
+    if (!fc || !fc.meses.length) {
+      return h("div", moldura, h("div", { className: "flex items-center justify-center", style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint } },
+        "Sem títulos ou previsões em aberto para projetar o caixa."));
+    }
+    var meses = fc.meses;
+    var valores = meses.map(function (m) { return fc.linha.saldo[m]; });
+    var pontos = [fc.caixaHoje].concat(valores);
+    var reserva = fc.reservaExigida;
+    var maximo = Math.max.apply(null, pontos.concat(reserva !== null ? [reserva] : []));
+    var minimo = Math.min.apply(null, pontos.concat([0]));
+    var escala = escalaBonita(Math.max(maximo, 1) - Math.min(minimo, 0), 5);
+    var topo = Math.ceil(maximo / escala.passo) * escala.passo;
+    var piso = minimo < 0 ? Math.floor(minimo / escala.passo) * escala.passo : 0;
+
+    var margem = { topo: 160, direita: 92, baixo: 172, esquerda: 132 };
+    var RECUO_TITULO = 56;
+    var larguraPlot = SLIDE.largura - margem.esquerda - margem.direita;
+    var alturaPlot = SLIDE.altura - margem.topo - margem.baixo;
+    var baseY = margem.topo + alturaPlot;
+    var yDe = function (v) { return baseY - ((v - piso) / (topo - piso)) * alturaPlot; };
+    var faixa = larguraPlot / meses.length;
+    var xDe = function (i) { return margem.esquerda + faixa * i + faixa / 2; };
+
+    var grade = [];
+    for (var v = piso; v <= topo + 0.0001; v += escala.passo) {
+      grade.push(h("line", { key: "g" + v, x1: margem.esquerda, y1: yDe(v), x2: margem.esquerda + larguraPlot, y2: yDe(v),
+        stroke: Math.abs(v) < 0.001 ? COR.line : COR.lineSoft, strokeWidth: Math.abs(v) < 0.001 ? 1.5 : 1 }));
+      grade.push(h("text", { key: "r" + v, x: margem.esquerda - 16, y: yDe(v) + 5, textAnchor: "end",
+        style: { fontSize: 15, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, Math.abs(v) < 0.001 ? "0" : formatarNumero(v, 0)));
+    }
+    var elementos = [];
+    if (reserva !== null) {
+      elementos.push(h("line", { key: "res", x1: margem.esquerda, y1: yDe(reserva), x2: margem.esquerda + larguraPlot, y2: yDe(reserva),
+        stroke: COR_LINHA_RESERVA, strokeWidth: 1.5, strokeDasharray: "7,5" }));
+      elementos.push(h("text", { key: "rest", x: margem.esquerda + larguraPlot, y: yDe(reserva) - 8, textAnchor: "end",
+        style: { fontSize: 13, fill: COR.coral, fontWeight: 600 } }, "reserva exigida " + formatarNumero(reserva, 0)));
+    }
+    elementos.push(h("polyline", { key: "linha", points: meses.map(function (m, i) { return xDe(i) + "," + yDe(valores[i]); }).join(" "),
+      fill: "none", stroke: COR.brass, strokeWidth: 2.5 }));
+    var fonte = meses.length > 15 ? 11 : 13;
+    meses.forEach(function (m, i) {
+      var abaixo = reserva !== null && valores[i] < reserva;
+      elementos.push(h("circle", { key: "c" + m, cx: xDe(i), cy: yDe(valores[i]), r: 5, fill: COR.surface, stroke: abaixo ? COR_LINHA_RESERVA : COR.brass, strokeWidth: 2.25 }));
+      /* abaixo da reserva o valor vai embaixo do ponto, longe da linha tracejada */
+      elementos.push(h("text", { key: "v" + m, x: xDe(i), y: abaixo ? yDe(valores[i]) + 26 : yDe(valores[i]) - 14, textAnchor: "middle",
+        style: { fontSize: fonte, fill: abaixo ? COR.coral : COR.text, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, formatarNumero(valores[i], 0)));
+      elementos.push(h("text", { key: "m" + m, x: xDe(i), y: baseY + 28, textAnchor: "middle", style: { fontSize: 15, fill: COR.dim } }, rotuloMes(m)));
+    });
+    var ultimo = meses[meses.length - 1];
+    var marcas = [
+      fc.primeiraAbaixoReserva ? "caixa abaixo da reserva em " + rotuloMes(fc.primeiraAbaixoReserva) : "fica acima da reserva até " + rotuloMes(ultimo),
+      fc.primeiraNegativa ? "caixa acaba em " + rotuloMes(fc.primeiraNegativa) : "não zera até " + rotuloMes(ultimo)
+    ];
+    return h("div", moldura,
+      h("svg", { viewBox: "0 0 " + SLIDE.largura + " " + SLIDE.altura, width: "100%", preserveAspectRatio: "xMidYMid meet", style: { display: "block", background: COR.surface } },
+        h("text", { x: RECUO_TITULO, y: 68, style: { fontSize: 40, fill: COR.text, fontWeight: 600, letterSpacing: "0.5px" } }, "FLUXO DE CAIXA PROJETADO"),
+        h("text", { x: RECUO_TITULO, y: 98, style: { fontSize: 15, fill: COR.faint } },
+          "saldo projetado no fim de cada mês · estimativa · partindo do caixa livre de hoje (" + formatarNumero(fc.caixaHoje, 0) + ") · R$"),
+        h("text", { x: RECUO_TITULO, y: 130, style: { fontSize: 17, fill: fc.primeiraAbaixoReserva ? COR.coral : COR.text, fontWeight: 600 } }, marcas[0]),
+        h("text", { x: RECUO_TITULO + 520, y: 130, style: { fontSize: 17, fill: fc.primeiraNegativa ? COR.coral : COR.text, fontWeight: 600 } }, marcas[1]),
+        h("image", { href: LOGO_QUORUM, x: MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO, width: TAMANHO_LOGO, height: TAMANHO_LOGO }),
+        h("text", { x: SLIDE.largura - MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "end",
+          style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 10)),
+        h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
+          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "receita de títulos e previsões de OS em aberto; impostos pelo Anexo III sobre o RBT12 projetado; custos e despesas pela média dos 3 últimos meses fechados (metodologia em Reserva e runway)"),
+        grade, elementos));
+  }
+
   /* ------------------------------------------------------------------ */
   /* 9. GERADOR DE XLSX                                                  */
   /* O arquivo e montado a mao: XML das abas, styles.xml e um ZIP sem    */
@@ -4158,6 +4235,22 @@
     return (rbt12 * tabela[f].nominal - tabela[f].deducao) / rbt12;
   }
 
+  /* RBT12 com a regra de inicio de atividade, sobre uma serie mensal    */
+  /* (meses consecutivos desde INICIO_ATIVIDADE). Usada pela tela Fiscal */
+  /* e pelo FCF projetado.                                               */
+  /* VALIDAR NA FONTE: LC 123, art. 18, par. 2o (Vigo/TKS).              */
+  /* 1o mes: receita do proprio mes x 12; com menos de 12 meses: media  */
+  /* dos meses anteriores ao mes de apuracao x 12; depois: soma dos 12  */
+  /* meses anteriores. Junho/26 (sem receita) conta como mes de         */
+  /* atividade na media (VALIDAR com a TKS).                             */
+  function janelaRBT12(meses, serie, i) {
+    if (i === 0) return { valor: serie[meses[0]] * 12, regra: "receita do próprio mês × 12" };
+    var anteriores = meses.slice(Math.max(0, i - 12), i);
+    var soma = anteriores.reduce(function (t, m) { return t + serie[m]; }, 0);
+    if (i < 12) return { valor: soma / anteriores.length * 12, regra: "média de " + anteriores.length + " mês(es) anteriores × 12" };
+    return { valor: soma, regra: "soma dos 12 meses anteriores" };
+  }
+
   function mesesEntre(ini, fim) {
     var out = [], a = +ini.slice(0, 4), m = +ini.slice(5, 7);
     while (true) {
@@ -4200,20 +4293,8 @@
         if (receita.hasOwnProperty(m) && ehReceita(l.codigo_grupo || "")) receita[m] += Number(l.valor_titulo || 0);
       });
     }
-    /* RBT12 com a regra de inicio de atividade.                          */
-    /* VALIDAR NA FONTE: LC 123, art. 18, par. 2o (Vigo/TKS).              */
-    /* 1o mes: receita do proprio mes x 12; com menos de 12 meses: media  */
-    /* dos meses anteriores ao mes de apuracao x 12; depois: soma dos 12  */
-    /* meses anteriores. A folha do Fator R usa a mesma janela. Junho/26 */
-    /* (sem receita) conta como mes de atividade na media (VALIDAR com a  */
-    /* TKS).                                                             */
-    function janela(serie, i) {
-      if (i === 0) return { valor: serie[meses[0]] * 12, regra: "receita do próprio mês × 12" };
-      var anteriores = meses.slice(Math.max(0, i - 12), i);
-      var soma = anteriores.reduce(function (t, m) { return t + serie[m]; }, 0);
-      if (i < 12) return { valor: soma / anteriores.length * 12, regra: "média de " + anteriores.length + " mês(es) anteriores × 12" };
-      return { valor: soma, regra: "soma dos 12 meses anteriores" };
-    }
+    /* RBT12 (janelaRBT12); a folha do Fator R usa a mesma janela.        */
+    function janela(serie, i) { return janelaRBT12(meses, serie, i); }
     var porMes = {};
     meses.forEach(function (m, i) {
       var r = janela(receita, i), f = janela(folha, i);
@@ -4228,6 +4309,170 @@
       };
     });
     return { meses: meses, mesAtual: mesAtual, porMes: porMes, hoje: porMes[mesAtual] };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Free Cash Flow projetado (Parte E, 21/10/2026). Uma funcao so, usada */
+  /* pela tabela de Reserva e runway e pelo grafico 10.                   */
+  /* - Horizonte: mes corrente ate o mes do ultimo vencimento (efetivo)   */
+  /*   em aberto, titulos e previsoes de OS.                              */
+  /* - Receita: titulos a receber e previsoes de OS da secao receita; no  */
+  /*   caixa pelo vencimento efetivo (vencido cai no mes corrente) e na   */
+  /*   competencia pela emissao (para impostos e custos).                 */
+  /* - Impostos (ajuste de Alex, 21/10/2026): para cada mes de           */
+  /*   competencia, aliquota efetiva estimada do Anexo III pelo RBT12     */
+  /*   (janelaRBT12, a regra da tela Fiscal), com a receita do Fiscal nos */
+  /*   meses passados e a receita projetada (inclusive previsoes de OS)   */
+  /*   entrando no RBT12 dos meses seguintes; sobre a receita de cada mes */
+  /*   de competencia (no mes corrente, tambem a ja realizada, cujo DAS   */
+  /*   ainda nao foi pago); sai no dia 20 do mes seguinte. A aliquota     */
+  /*   realizada dos 3 meses fechados fica so como referencia.            */
+  /* - Custos diretos: % da receita (secao custo / receita, competencia,  */
+  /*   3 meses fechados), sobre a receita projetada, no mes da emissao.  */
+  /* - Despesas: media mensal paga (caixa) da secao despesas nos 3 meses  */
+  /*   fechados, sem os lancamentos das contrapartes que tem titulo a     */
+  /*   pagar em aberto no horizonte (essas entram pelo titulo; o resto da */
+  /*   categoria fica na media, ajuste de Alex, 21/10/2026). A parte paga */
+  /*   historicamente em conta de cartao (CR) sai na fatura do dia 5 do   */
+  /*   mes seguinte; o resto no proprio mes. No mes corrente, so os dias  */
+  /*   que faltam. O "ritmo do mes corrente" e so informativo.            */
+  /* - Titulos a pagar em aberto: no vencimento efetivo.                  */
+  /* - Fora: 1.11, 2.16, 2.17, 2.18, 0.x e resultado financeiro.          */
+  /* - FCF = receita - impostos - custos - despesas - titulos a pagar;    */
+  /*   saldo = caixa livre de hoje + FCF acumulado.                       */
+  /* ------------------------------------------------------------------ */
+  var FCF_SECOES_TITULOS_A_PAGAR = ["impostos", "custo", "despesas", "outrasDesp", "impLucro"];
+  function somarMes(chave, n) {
+    var a = +chave.slice(0, 4), m = +chave.slice(5, 7) - 1 + n;
+    a += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    return a + "-" + String(m + 1).padStart(2, "0");
+  }
+  function secaoDoAberto(l) {
+    return SECAO_POR_CODIGO_GRUPO[l.codigo_grupo || ""] || SECAO_POR_CODIGO_GRUPO[CODIGO_DO_GRUPO.get(l.grupo) || ""] || "naoClassificado";
+  }
+  function calcularFCFProjetado(dadosComp, dadosCaixa, abertos, hoje, caixaHoje, reservaExigida, mesesBase, fiscal) {
+    var mesAtual = chaveMes(hoje);
+    var fechados = (mesesBase || []).slice();
+    var n = fechados.length;
+    /* Bases historicas (3 meses fechados). */
+    var receita3 = 0, das3 = 0, custo3 = 0;
+    fechados.forEach(function (m) {
+      receita3 += (dadosComp.S.receita || {})[m] || 0;
+      custo3 += (dadosComp.S.custo || {})[m] || 0;
+    });
+    dadosComp.linhas.forEach(function (l) {
+      if (l.codigoCategoria === CATEGORIA_DAS && fechados.indexOf(chaveMes(l.dataRegime)) >= 0) das3 += l.valor;
+    });
+    var aliquota = receita3 > 0 ? -das3 / receita3 : 0;
+    var custoPct = receita3 > 0 ? -custo3 / receita3 : 0;
+
+    /* Itens em aberto que entram na projecao. */
+    var itensReceber = [], itensPagar = [];
+    (abertos || []).forEach(function (l) {
+      if (!l.vencimento) return;
+      var sec = secaoDoAberto(l);
+      var mCaixa = chaveMes(vencimentoEfetivo(l.vencimento));
+      if (mCaixa < mesAtual) mCaixa = mesAtual;
+      var valor = Number(l.valor_aberto || l.valor_titulo || 0);
+      var item = { l: l, mCaixa: mCaixa, mComp: l.emissao ? l.emissao.slice(0, 7) : mCaixa, valor: valor, previsao: ehPrevisaoOS(l), secao: sec,
+        contraparte: resolverContraparte(l).nome };
+      if (l.tipo === "receber" && sec === "receita") itensReceber.push(item);
+      else if (l.tipo === "pagar" && FCF_SECOES_TITULOS_A_PAGAR.indexOf(sec) >= 0) itensPagar.push(item);
+    });
+    var ultimo = mesAtual;
+    itensReceber.concat(itensPagar).forEach(function (it) { if (it.mCaixa > ultimo) ultimo = it.mCaixa; });
+    var meses = [];
+    for (var k = mesAtual; k <= ultimo; k = somarMes(k, 1)) meses.push(k);
+
+    /* Despesas medias, sem os lancamentos das contrapartes com titulo a */
+    /* pagar no horizonte (o titulo ja leva o valor delas).               */
+    var contrapartesComTitulo = {};
+    itensPagar.forEach(function (it) { if (it.contraparte) contrapartesComTitulo[it.contraparte] = 0; });
+    var despTotal = 0, despCartao = 0, despExcluida = 0, despMesAtual = 0;
+    dadosCaixa.linhas.forEach(function (l) {
+      if (!l.dPag || secaoDaLinha(l) !== "despesas") return;
+      var m = chaveMes(l.dPag);
+      var excluida = contrapartesComTitulo.hasOwnProperty(l.contraparte);
+      if (m === mesAtual) { if (!excluida) despMesAtual += l.valor; return; }
+      if (fechados.indexOf(m) < 0) return;
+      if (excluida) { contrapartesComTitulo[l.contraparte] += l.valor; despExcluida += l.valor; return; }
+      despTotal += l.valor;
+      if (l.contaTipo === "CR") despCartao += l.valor;
+    });
+    var despMedia = n ? despTotal / n : 0, despMediaCartao = n ? despCartao / n : 0, despMediaConta = despMedia - despMediaCartao;
+    var despMediaSemExclusao = n ? (despTotal + despExcluida) / n : 0;
+    var diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+    var fracaoMesAtual = (diasNoMes - hoje.getDate() + 1) / diasNoMes;
+    /* Ritmo do mes corrente (so informativo): despesas ja pagas no mes,  */
+    /* sem as mesmas contrapartes, estendidas ao mes inteiro pelos dias   */
+    /* decorridos, contra a media usada.                                  */
+    var ritmoMes = despMesAtual / hoje.getDate() * diasNoMes;
+    var ritmo = { lancadas: despMesAtual, diasDecorridos: hoje.getDate(), diasNoMes: diasNoMes, noMes: ritmoMes,
+      otimismo: Math.max(0, despMedia - ritmoMes) };
+
+    var linha = {};
+    ["receita", "impostos", "custos", "despConta", "despCartao", "titulos", "fcf", "saldo", "reserva"].forEach(function (c) {
+      linha[c] = {}; meses.forEach(function (m) { linha[c][m] = 0; });
+    });
+    var foraDoHorizonte = { impostos: 0, despCartao: 0 };
+    function lanca(campo, m, v) { if (linha[campo].hasOwnProperty(m)) linha[campo][m] += v; else if (foraDoHorizonte.hasOwnProperty(campo)) foraDoHorizonte[campo] += v; }
+
+    var receitaComp = {};
+    meses.forEach(function (m) { receitaComp[m] = 0; });
+    receitaComp[mesAtual] += (dadosComp.S.receita || {})[mesAtual] || 0;   /* realizada no mes corrente: DAS ainda a pagar */
+    var receitaRealizadaMesAtual = receitaComp[mesAtual];
+    itensReceber.forEach(function (it) {
+      lanca("receita", it.mCaixa, it.valor);
+      if (it.mComp >= mesAtual && receitaComp.hasOwnProperty(it.mComp)) {
+        receitaComp[it.mComp] += it.valor;
+        lanca("custos", it.mComp, -custoPct * it.valor);
+      }
+    });
+    /* Aliquota do Anexo III pelo RBT12 projetado: receita do Fiscal nos  */
+    /* meses passados, receita projetada de competencia do mes corrente   */
+    /* em diante.                                                         */
+    var mesesSimples = mesesEntre(INICIO_ATIVIDADE, meses[meses.length - 1]);
+    var serieSimples = {};
+    mesesSimples.forEach(function (m) {
+      serieSimples[m] = m < mesAtual ? ((fiscal && fiscal.porMes[m]) ? fiscal.porMes[m].receita : 0) : (receitaComp[m] || 0);
+    });
+    var simples = {};
+    meses.forEach(function (m) {
+      var rbt = janelaRBT12(mesesSimples, serieSimples, mesesSimples.indexOf(m)).valor;
+      var aliq = aliquotaEfetiva(SIMPLES_ANEXO_III, rbt);
+      if (aliq === null) aliq = SIMPLES_ANEXO_III[SIMPLES_ANEXO_III.length - 1].nominal;   /* acima do teto: nao deveria ocorrer */
+      simples[m] = { rbt12: rbt, aliquota: aliq, faixa: faixaSimples(rbt), receita: receitaComp[m] };
+      lanca("impostos", somarMes(m, 1), -aliq * receitaComp[m]);
+    });
+    itensPagar.forEach(function (it) { lanca("titulos", it.mCaixa, it.valor); });
+    meses.forEach(function (m) {
+      var f = m === mesAtual ? fracaoMesAtual : 1;
+      lanca("despConta", m, despMediaConta * f);
+      lanca("despCartao", somarMes(m, 1), despMediaCartao * f);
+    });
+    var saldo = caixaHoje, primeiraAbaixoReserva = null, primeiraNegativa = null;
+    meses.forEach(function (m) {
+      var fcf = linha.receita[m] + linha.impostos[m] + linha.custos[m] + linha.despConta[m] + linha.despCartao[m] + linha.titulos[m];
+      linha.fcf[m] = fcf; saldo += fcf; linha.saldo[m] = saldo; linha.reserva[m] = reservaExigida;
+      if (primeiraAbaixoReserva === null && reservaExigida !== null && saldo < reservaExigida) primeiraAbaixoReserva = m;
+      if (primeiraNegativa === null && saldo < 0) primeiraNegativa = m;
+    });
+    return {
+      meses: meses, mesAtual: mesAtual, linha: linha, caixaHoje: caixaHoje, reservaExigida: reservaExigida,
+      primeiraAbaixoReserva: primeiraAbaixoReserva, primeiraNegativa: primeiraNegativa,
+      base: { meses: fechados, receita3: receita3, das3: das3, custo3: custo3, aliquota: aliquota, custoPct: custoPct,
+        despMedia: despMedia, despMediaConta: despMediaConta, despMediaCartao: despMediaCartao,
+        contrapartesComTitulo: contrapartesComTitulo, despMediaSemExclusao: despMediaSemExclusao, ritmo: ritmo,
+        simples: simples, fracaoMesAtual: fracaoMesAtual, receitaRealizadaMesAtual: receitaRealizadaMesAtual },
+      totais: {
+        receber: itensReceber.reduce(function (t, it) { return t + it.valor; }, 0),
+        receberTitulos: itensReceber.filter(function (it) { return !it.previsao; }).reduce(function (t, it) { return t + it.valor; }, 0),
+        receberPrevisoes: itensReceber.filter(function (it) { return it.previsao; }).reduce(function (t, it) { return t + it.valor; }, 0),
+        pagar: itensPagar.reduce(function (t, it) { return t + it.valor; }, 0),
+        qtdReceber: itensReceber.length, qtdPagar: itensPagar.length
+      },
+      foraDoHorizonte: foraDoHorizonte
+    };
   }
 
   /* dadosCaixa: calcular() em regime de caixa (pago). hoje: Date.        */
@@ -5120,6 +5365,13 @@
       var res = calcularReserva(dadosCaixa, emAberto, hoje);
       if (res.hoje) {
         res.projecao = calcularProjecao13(copia, emAberto, hoje, res.hoje.caixa, res.hoje.reserva, res.hoje.mesesNaMedia);
+        /* FCF projetado: bases de impostos e custos em competencia (outra   */
+        /* copia, porque calcular grava a data do regime em cada linha).     */
+        var copiaComp = linhas.map(function (l) { return Object.assign({}, l); });
+        var dadosComp = calcular(copiaComp, "competencia");
+        dadosComp.linhas = copiaComp;
+        res.fcf = calcularFCFProjetado(dadosComp, dadosCaixa, emAberto, hoje, res.hoje.caixa, res.hoje.reserva, res.hoje.mesesNaMedia,
+          calcularFiscal(linhas, emAberto, hoje));
       }
       return res;
     }, [linhas, emAberto]);
@@ -6645,12 +6897,12 @@
     /* Aba: apresentacao (RI)                                           */
     /* ---------------------------------------------------------------- */
 
-    /* Exporta a apresentacao de resultados (.pptx): os mesmos 9 graficos */
+    /* Exporta a apresentacao de resultados (.pptx): os mesmos 10 graficos */
     /* da aba abaixo, com o regime e o periodo selecionados no topo.     */
     function exportarApresentacao() {
       if (gerandoApres || !meses.length) return;
       setGerandoApres(true);
-      apresGerar({ dados: dados, meses: meses, todosMeses: todosMeses, regime: regime })
+      apresGerar({ dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, projecao: reserva && reserva.fcf })
         .then(function (blob) {
           apresBaixar(blob, "QUORUM_Apresentacao_de_Resultados_" + new Date().toISOString().slice(0, 10) + ".pptx");
         })
@@ -6671,7 +6923,8 @@
           dados: dados, meses: meses, regime: regime, numero: 8, ateFluxoCaixa: true,
           titulo: "FLUXO DE CAIXA LIVRE"
         }),
-        h(GraficoConcentracao, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 9 })
+        h(GraficoConcentracao, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 9 }),
+        h(GraficoFCFProjetado, { projecao: reserva && reserva.fcf, numero: 10 })
       );
     }
 
@@ -6715,6 +6968,70 @@
           + "conta de aplicação (CA) em aplicações, conta garantia (CV) na caução e cartão de crédito (CR) na fatura em aberto. Conta de aplicação nova entra sozinha. "
           + "O caixa total é o saldo de todas as contas antes de descontar a fatura do cartão.")
       );
+    }
+
+    /* Free Cash Flow projetado (Parte E): metodologia e tabela mes a mes. */
+    function blocoFCFProjetado(fc) {
+      if (!fc || !fc.meses.length) return null;
+      var fmt = function (v) { return formatarNumero(v, 2); };
+      var pct = function (v) { return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%"; };
+      var b = fc.base, mesesBase = b.meses.map(rotuloMes).join(", ");
+      var pct2 = function (v) { return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%"; };
+      var nomesExcl = Object.keys(b.contrapartesComTitulo);
+      var excl = nomesExcl.map(function (k) { var v = b.contrapartesComTitulo[k]; return k + " (" + (v ? fmt(-v) + " pagos em despesas no período" : "nada pago em despesas no período") + ")"; });
+      var aliqMeses = fc.meses.map(function (m) { var x = b.simples[m]; return rotuloMes(m) + " " + pct2(x.aliquota) + " (RBT12 " + formatarNumero(x.rbt12, 0) + ")"; }).join("; ");
+      var rt = b.ritmo;
+      var itensMet = [
+        ["Horizonte", "de " + rotuloMes(fc.meses[0]) + " a " + rotuloMes(fc.meses[fc.meses.length - 1]) + ", até o mês do último vencimento em aberto (títulos e previsões de OS). Os 3 meses fechados usados como base são " + mesesBase + "."],
+        ["Receita (caixa)", "títulos a receber em aberto e previsões de faturamento das OS, no mês do vencimento (se cair em fim de semana ou feriado, no dia útil seguinte; vencido entra no mês corrente). Total no horizonte: " + fmt(fc.totais.receber) + " (" + fmt(fc.totais.receberTitulos) + " em títulos e " + fmt(fc.totais.receberPrevisoes) + " em previsões)."],
+        ["Impostos", "alíquota efetiva estimada do Anexo III para cada mês de competência, pelo RBT12 projetado (mesma regra da tela Fiscal; a receita projetada, inclusive previsões de OS, entra no RBT12 dos meses seguintes), aplicada à receita do mês pela emissão; o DAS sai no dia 20 do mês seguinte. No mês corrente entra também a receita já realizada (" + fmt(b.receitaRealizadaMesAtual) + "), cujo DAS ainda não foi pago. Alíquota por mês: " + aliqMeses + ". Referência: a alíquota efetiva realizada em " + mesesBase + " foi " + pct(b.aliquota) + " (DAS de " + fmt(-b.das3) + " sobre receita bruta de " + fmt(b.receita3) + ")."],
+        ["Custos diretos", pct(b.custoPct) + " da receita (custo dos serviços de " + fmt(-b.custo3) + " sobre receita de " + fmt(b.receita3) + " em " + mesesBase + ", competência), aplicado à receita projetada, no mês da emissão."],
+        ["Despesas", "média mensal paga de " + fmt(-b.despMedia) + " em " + mesesBase + (nomesExcl.length ? ", sem os lançamentos de " + excl.join(" e ") + ", que têm título a pagar em aberto no horizonte e entram pelo título; o resto das categorias continua na média. Sem essa exclusão a média seria " + fmt(-b.despMediaSemExclusao) + " (efeito de " + fmt(b.despMedia - b.despMediaSemExclusao) + " por mês)" : "") + ". Desse total, " + fmt(-b.despMediaCartao) + " por mês foram pagos no cartão e saem na fatura do dia 5 do mês seguinte; " + fmt(-b.despMediaConta) + " saem no próprio mês. No mês corrente, só os dias que faltam (" + pct(b.fracaoMesAtual) + " do mês)."],
+        ["Ritmo do mês corrente", "despesas já pagas em " + rotuloMes(fc.mesAtual) + " (sem as mesmas contrapartes): " + fmt(-rt.lancadas) + " em " + rt.diasDecorridos + " de " + rt.diasNoMes + " dias, o que dá " + fmt(-rt.noMes) + " no mês inteiro nesse ritmo, contra a média usada de " + fmt(-b.despMedia) + ". Se o mês corrente fechar acima da média, a projeção fica otimista em R$ " + fmt(rt.otimismo) + " por mês" + (rt.otimismo > 0 ? "" : " (no ritmo de hoje o mês fecha dentro da média)") + ". Só informativo: não muda o cálculo."],
+        ["Títulos a pagar", "títulos a pagar em aberto (impostos, custos e despesas), no vencimento efetivo. Total no horizonte: " + fmt(-fc.totais.pagar) + "."],
+        ["Fora da projeção", "mútuo e captações (1.11), distribuições (2.16), passivo e fatura de cartão (2.17), aplicações (2.18), transferências (0.x) e resultado financeiro. A fatura em aberto hoje já está descontada no caixa livre."],
+        ["FCF e saldo", "FCF do mês = receita − impostos − custos − despesas − títulos a pagar. Saldo projetado = caixa livre de hoje (" + fmt(fc.caixaHoje) + ") + FCF acumulado, no fim de cada mês."]
+      ];
+      if (fc.foraDoHorizonte.impostos || fc.foraDoHorizonte.despCartao) {
+        itensMet.push(["Depois do horizonte", "o DAS da receita do último mês (" + fmt(-fc.foraDoHorizonte.impostos) + ") e a fatura do cartão do último mês (" + fmt(-fc.foraDoHorizonte.despCartao) + ") vencem depois de " + rotuloMes(fc.meses[fc.meses.length - 1]) + " e ficam fora da tabela."]);
+      }
+      var metodologia = h("div", { className: "rounded px-4 py-3 mb-3", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Metodologia · Free Cash Flow projetado (estimativa)"),
+        itensMet.map(function (it, i) {
+          return h("div", { key: i, style: { fontSize: 11.5, lineHeight: 1.6, color: COR.dim, marginBottom: 3 } }, h("strong", { style: { color: COR.text } }, it[0] + ": "), it[1]);
+        }));
+      var th = { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, fontWeight: 400 };
+      var L = fc.linha;
+      var linhasTab = [
+        ["Receita (caixa)", L.receita], ["(−) Impostos (DAS)", L.impostos], ["(−) Custos diretos", L.custos],
+        ["(−) Despesas · conta", L.despConta], ["(−) Despesas · cartão", L.despCartao], ["(−) Títulos a pagar", L.titulos],
+        ["(=) FCF do mês", L.fcf, "total"], ["(=) Saldo projetado (fim do mês)", L.saldo, "saldo"], ["Reserva exigida", L.reserva, "ref"]
+      ];
+      var tabelaFCF = h("div", { className: "rounded overflow-x-auto mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
+        h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+          h("thead", null, h("tr", { style: { background: COR.ink } },
+            h("th", { className: "pl-3 py-2 text-left uppercase", style: th }, "Linha"),
+            fc.meses.map(function (m) {
+              var marca = m === fc.primeiraNegativa ? " · zera" : (m === fc.primeiraAbaixoReserva ? " · < reserva" : "");
+              return h("th", { key: m, className: "px-3 py-2 text-right uppercase whitespace-nowrap",
+                style: Object.assign({}, th, marca ? { color: COR.coral, fontWeight: 700 } : {}) }, rotuloMes(m) + (m === fc.mesAtual ? " · hoje" : "") + marca);
+            }))),
+          h("tbody", null, linhasTab.map(function (ln) {
+            var tipo = ln[2];
+            return h("tr", { key: ln[0], style: { borderBottom: "1px solid " + COR.lineSoft, background: tipo === "total" || tipo === "saldo" ? "rgba(138,106,22,0.08)" : "transparent" } },
+              h("td", { className: "pl-3 py-2 whitespace-nowrap", style: { fontSize: 12, fontWeight: tipo === "total" || tipo === "saldo" ? 700 : 400, color: tipo === "ref" ? COR.faint : COR.text } }, ln[0]),
+              fc.meses.map(function (m) {
+                var v = ln[1][m];
+                var alerta = tipo === "saldo" && (m === fc.primeiraNegativa ? "forte" : (m === fc.primeiraAbaixoReserva ? "leve" : null));
+                return h("td", { key: m, className: "px-3 py-2 text-right whitespace-nowrap", style: { fontSize: 12, fontVariantNumeric: "tabular-nums",
+                  fontWeight: tipo === "total" || tipo === "saldo" ? 700 : 400,
+                  color: tipo === "ref" ? COR.faint : (alerta ? COR.coral : COR.text),
+                  background: alerta === "forte" ? "rgba(178,58,47,0.22)" : (alerta === "leve" ? "rgba(178,58,47,0.08)" : "transparent") } }, fmt(v));
+              }));
+          }))));
+      return h("div", { className: "mb-5" },
+        h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Free Cash Flow projetado · estimativa"),
+        metodologia, tabelaFCF);
     }
 
     /* Reserva de caixa: Caixa Excedente (Art. 3o) e as tres condicoes do */
@@ -6898,7 +7215,7 @@
       return h("div", null,
         h("div", { className: "mb-3", style: { fontSize: 11.5, color: COR.faint } },
           "Posição de hoje (" + rotHoje + ", mês em curso). Os meses anteriores são o registro do cálculo no fim de cada mês."),
-        cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista);
+        cartoesReserva, blocoRunway, semaforo, tabela, blocoFCFProjetado(r.fcf), comoCalcula, mutuoLista);
     }
 
     /* Fiscal (Simples) (Fase 5). */
@@ -7055,7 +7372,7 @@
       var itens = [
         { titulo: "Excel do Financeiro", texto: "DRE e fluxo de caixa do realizado, no regime (" + (regime === "caixa" ? "caixa" : "competência") + ") e no período selecionados no topo. Três abas, tudo em fórmula sobre a base de lançamentos.",
           botao: "Exportar XLSX", acao: function () { exportarXlsx(); }, ocupado: false },
-        { titulo: "Apresentação de resultados", texto: "Os 9 gráficos da Apresentação em .pptx, no modelo da QUORUM, no regime e no período selecionados no topo.",
+        { titulo: "Apresentação de resultados", texto: "Os 10 gráficos da Apresentação em .pptx, no modelo da QUORUM, no regime e no período selecionados no topo.",
           botao: gerandoApres ? "Gerando apresentação..." : "Exportar apresentação", acao: exportarApresentacao, ocupado: gerandoApres || !meses.length },
         temBP && { titulo: "Excel do Business Plan", texto: premissasBP.estado === "erro" ? premissasBP.msg
             : "O BP no cenário base, 7 abas no formato da BP_QUORUM_Oficial, tudo em fórmula, com as premissas e os parâmetros gravados neste navegador.",
@@ -9287,11 +9604,11 @@
   /* ------------------------------------------------------------------ */
   /* 11-E. EXPORTACAO DA APRESENTACAO DE RESULTADOS (.pptx)              */
   /* Botao "Exportar apresentacao" da tela Financeiro. Usa o molde       */
-  /* apresentacao_modelo.json (o .pptx em base64: capa, separador, 9     */
+  /* apresentacao_modelo.json (o .pptx em base64: capa, separador, 10    */
   /* slides de grafico e                                                 */
   /* contracapa, sem nenhum numero: o repositorio e publico) e so        */
   /* sobrescreve nele as imagens ppt/media/grafico{n}.svg/.png e o       */
-  /* marcador {{PERIODO}} do separador. Os 9 graficos sao os mesmos da   */
+  /* marcador {{PERIODO}} do separador. Os 10 graficos sao os mesmos da  */
   /* aba Apresentacao, com o regime e o periodo do topo da tela, mas     */
   /* recoloridos para fundo escuro SO no arquivo: a tela segue clara.    */
   /* O grafico vai como SVG (o PowerPoint desenha com a Calibri dele,    */
@@ -9344,6 +9661,7 @@
     "#7A8598": "#A9B1BD",   /* conectores do waterfall */
     "#8A6A16": "#F2C75C",   /* linha de % */
     "#1F5FA0": "#8EC3EE",   /* linha dos 3 maiores clientes (grafico 9) */
+    "#B23A2F": "#FF8B7B",   /* reserva exigida tracejada (grafico 10) */
     "#FFFFFF": "none"       /* separacao entre segmentos: sem contorno sobre a marca d'agua */
   };
   var APRES_CINZA_PARCIAL = "#A3AAB5";   /* barra parcial do LTM, solida */
@@ -9488,7 +9806,8 @@
       h(GraficoEBITDA, Object.assign({ numero: 6 }, props)),
       h(GraficoWaterfallDRE, Object.assign({ numero: 7 }, props)),
       h(GraficoWaterfallDRE, Object.assign({ numero: 8, ateFluxoCaixa: true, titulo: "FLUXO DE CAIXA LIVRE" }, props)),
-      h(GraficoConcentracao, Object.assign({ numero: 9, todosMeses: ctx.todosMeses }, props))
+      h(GraficoConcentracao, Object.assign({ numero: 9, todosMeses: ctx.todosMeses }, props)),
+      h(GraficoFCFProjetado, { projecao: ctx.projecao, numero: 10 })
     ];
     var periodo = ctx.meses.length
       ? rotuloMes(ctx.meses[0]) + " a " + rotuloMes(ctx.meses[ctx.meses.length - 1])
