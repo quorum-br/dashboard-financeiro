@@ -5148,6 +5148,14 @@
     /* com uma tela nao liberada, abre o Resumo (decisao de Alex).        */
     var estRota = useState(rotaDoEndereco);
     var rotaId = estRota[0], setRotaId = estRota[1];
+    /* Rolagem lembrada por tela (pedido de Alex, 21/10/2026): em todas as */
+    /* telas a posicao fica guardada ao sair e volta ao entrar de novo     */
+    /* (sessionStorage: vale ate fechar a aba; tela ainda nao visitada     */
+    /* abre no topo). Durante a troca de tela                              */
+    /* a rolagem nao e gravada, porque o navegador encurta a pagina e a    */
+    /* posicao lida nesse momento nao e a do usuario.                       */
+    var rotaAtualRef = useRef(rotaId);
+    var trocandoTelaRef = useRef(false);
     var estRecolhida = useState(function () { return armazenamento.getItem("quorum_menu_recolhido") === "1"; });
     var menuRecolhido = estRecolhida[0], setMenuRecolhido = estRecolhida[1];
     var estMenuAberto = useState(false);       var menuAberto = estMenuAberto[0], setMenuAberto = estMenuAberto[1];
@@ -5276,7 +5284,42 @@
     useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
     useEffect(function () { armazenamento.setItem("quorum_menu_recolhido", menuRecolhido ? "1" : "0"); }, [menuRecolhido]);
     useEffect(function () {
-      function aoMudarEndereco() { setRotaId(rotaDoEndereco()); setMenuAberto(false); }
+      function aoRolar() {
+        if (trocandoTelaRef.current) return;
+        try { window.sessionStorage.setItem("quorum_rolagem_" + rotaAtualRef.current, String(Math.round(window.scrollY))); } catch (e) {}
+      }
+      window.addEventListener("scroll", aoRolar, { passive: true });
+      return function () { window.removeEventListener("scroll", aoRolar); };
+    }, []);
+    /* Ao entrar numa tela: volta para a posicao guardada (esperando a     */
+    /* pagina ter altura para isso, ate ~10 s, que cobre a base chegando   */
+    /* depois de recarregar; desiste se a pessoa rolar antes) ou topo.     */
+    useEffect(function () {
+      rotaAtualRef.current = rotaId;
+      var alvo = 0;
+      try { alvo = Number(window.sessionStorage.getItem("quorum_rolagem_" + rotaId)) || 0; } catch (e) {}
+      var tentativas = 0, quadro = null, desistiu = false;
+      function desistir() { desistiu = true; }
+      var eventosDaPessoa = ["wheel", "touchmove", "keydown"];   /* clique nao: o login e um clique */
+      eventosDaPessoa.forEach(function (ev) { window.addEventListener(ev, desistir, { passive: true }); });
+      function soltar() { eventosDaPessoa.forEach(function (ev) { window.removeEventListener(ev, desistir); }); }
+      function posicionar() {
+        var maximo = document.documentElement.scrollHeight - window.innerHeight;
+        if (desistiu) { soltar(); trocandoTelaRef.current = false; return; }
+        if (maximo >= alvo || tentativas >= 600) {
+          soltar();
+          try { window.scrollTo(0, Math.min(alvo, Math.max(0, maximo))); } catch (e) {}
+          quadro = requestAnimationFrame(function () { trocandoTelaRef.current = false; });
+          return;
+        }
+        tentativas++;
+        quadro = requestAnimationFrame(posicionar);
+      }
+      posicionar();
+      return function () { if (quadro) cancelAnimationFrame(quadro); soltar(); };
+    }, [rotaId]);
+    useEffect(function () {
+      function aoMudarEndereco() { trocandoTelaRef.current = true; setRotaId(rotaDoEndereco()); setMenuAberto(false); }
       window.addEventListener("hashchange", aoMudarEndereco);
       var consulta = null, aoMudarTela = function (e) { setCelular(e.matches); };
       try { consulta = window.matchMedia("(max-width: 767px)"); consulta.addEventListener("change", aoMudarTela); } catch (e) {}
@@ -5293,8 +5336,9 @@
       if (!rota) return;
       setMenuAberto(false);
       if (window.location.hash === "#/" + rota.hash) { setRotaId(id); return; }
+      /* a posicao de chegada (topo ou a guardada) e aplicada no efeito de rotaId */
+      trocandoTelaRef.current = true;
       window.location.hash = "#/" + rota.hash;
-      try { window.scrollTo(0, 0); } catch (e) {}
     }
 
     /* Endereco sem tela, ou com tela nao liberada para a pessoa: troca    */
