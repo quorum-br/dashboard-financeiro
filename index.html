@@ -3370,7 +3370,7 @@
         h("text", { x: SLIDE.largura - MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "end",
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 10)),
         h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
-          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "realizado: lucro líquido de caixa e caixa livre do fim do mês · projetado: títulos e OS em aberto, Anexo III e médias dos 3 meses fechados (metodologia em Reserva e runway)"),
+          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "realizado: lucro líquido de caixa e caixa livre do fim do mês · projetado: títulos e OS em aberto, Anexo III e médias dos 3 meses fechados (metodologia em Reserva, runway e FCF)"),
         grade, elementos));
   }
 
@@ -4947,7 +4947,7 @@
     { id: "caixa", cat: "Resultado e Caixa", rotulo: "Fluxo de caixa", hash: "resultado-e-caixa/fluxo", tela: "financeiro", icone: "fluxo", resumo: true },
     { id: "apres", cat: "Resultado e Caixa", rotulo: "Gráficos", hash: "resultado-e-caixa/graficos", tela: "financeiro", icone: "slides" },
     { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
-    { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva e runway", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
+    { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva, runway e FCF", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
     { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
     { id: "cc", cat: "Resultado e Caixa", rotulo: "Resultado por Centro de Custo", hash: "resultado-e-caixa/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
     { id: "proj", cat: "Resultado e Caixa", rotulo: "Resultado por Projeto", hash: "resultado-e-caixa/projeto", tela: "financeiro", icone: "pasta", resumo: true },
@@ -7075,8 +7075,8 @@
         ["Ritmo do mês corrente", "despesas já pagas em " + rotuloMes(fc.mesAtual) + " (sem as mesmas contrapartes): " + fmt(-rt.lancadas) + " em " + rt.diasDecorridos + " de " + rt.diasNoMes + " dias, o que dá " + fmt(-rt.noMes) + " no mês inteiro nesse ritmo, contra a média usada de " + fmt(-b.despMedia) + ". Se o mês corrente fechar acima da média, a projeção fica otimista em R$ " + fmt(rt.otimismo) + " por mês" + (rt.otimismo > 0 ? "" : " (no ritmo de hoje o mês fecha dentro da média)") + ". Só informativo: não muda o cálculo."],
         ["Títulos a pagar", "títulos a pagar em aberto (impostos, custos e despesas), no vencimento efetivo. Total no horizonte: " + fmt(-fc.totais.pagar) + "."],
         ["Fora da projeção", "mútuo e captações (1.11), distribuições (2.16), passivo e fatura de cartão (2.17), aplicações (2.18), transferências (0.x) e resultado financeiro. A fatura em aberto hoje já está descontada no caixa livre."],
-        ["FCF e saldo", "FCF do mês = receita − impostos − custos − despesas − títulos a pagar. Saldo projetado = caixa livre de hoje (" + fmt(fc.caixaHoje) + ") + FCF acumulado, no fim de cada mês; em " + rotuloMes(fc.mesAtual) + " o FCF projetado cobre só de hoje ao fim do mês (o que já entrou e saiu está no caixa livre de hoje)."],
-        ["Meses realizados", (fc.realizado && fc.realizado.meses.length ? rotuloMes(fc.realizado.meses[0]) + " a " + rotuloMes(fc.realizado.meses[fc.realizado.meses.length - 1]) : "nenhum") + ", valores reais em caixa. FCF do mês = lucro líquido de caixa (a regra do burn líquido acima: só linhas do DRE, inclusive resultado financeiro e não operacional). Fora da operação = mútuo e captações (1.11), distribuições e fatura (2.16, 2.17), aplicações (2.18), investimentos (2.19), transferências (0.x) e não classificado, nas contas do caixa livre, e o que entra ou sai da caução. Saldo = caixa livre no fim do mês (o da Posição de caixa). Saldo do mês anterior + FCF + fora da operação = saldo do mês. Reserva exigida de cada mês, como na tabela acima."]
+        ["Lucro Líquido e saldo", "Lucro Líquido do mês = receita − impostos − custos − despesas − títulos a pagar. Saldo projetado = caixa livre de hoje (" + fmt(fc.caixaHoje) + ") + Lucro Líquido acumulado, no fim de cada mês; em " + rotuloMes(fc.mesAtual) + " o Lucro Líquido projetado cobre só de hoje ao fim do mês (o que já entrou e saiu está no caixa livre de hoje)."],
+        ["Meses realizados", (fc.realizado && fc.realizado.meses.length ? rotuloMes(fc.realizado.meses[0]) + " a " + rotuloMes(fc.realizado.meses[fc.realizado.meses.length - 1]) : "nenhum") + ", valores reais em caixa. Lucro Líquido do mês = lucro líquido de caixa (a regra do burn líquido acima: só linhas do DRE, inclusive resultado financeiro e não operacional). Fluxo de caixa = movimentos fora da operação: mútuo e captações (1.11), distribuições e fatura (2.16, 2.17), aplicações (2.18), investimentos (2.19), transferências (0.x) e não classificado, nas contas do caixa livre, e o que entra ou sai da caução. Saldo = caixa livre no fim do mês (o da Posição de caixa). Saldo do mês anterior + Lucro Líquido + Fluxo de caixa = saldo do mês. Reserva exigida de cada mês, como na tabela acima."]
       ];
       if (fc.foraDoHorizonte.impostos || fc.foraDoHorizonte.despCartao) {
         itensMet.push(["Depois do horizonte", "o DAS da receita do último mês (" + fmt(-fc.foraDoHorizonte.impostos) + ") e a fatura do cartão do último mês (" + fmt(-fc.foraDoHorizonte.despCartao) + ") vencem depois de " + rotuloMes(fc.meses[fc.meses.length - 1]) + " e ficam fora da tabela."]);
@@ -7098,7 +7098,7 @@
         ["Receita (caixa)", "receita", "receita"], ["(−) Impostos (DAS)", "impostos", "impostos"], ["(−) Custos diretos", "custos", "custos"],
         ["(−) Despesas · conta", "despConta", "despConta"], ["(−) Despesas · cartão", "despCartao", "despCartao"], ["(−) Títulos a pagar", null, "titulos"],
         ["(±) Resultado financeiro e não operacional", "outros", null],
-        ["(=) FCF do mês", "fcf", "fcf", "total"], ["(±) Fora da operação", "fora", null],
+        ["(=) Lucro Líquido do mês", "fcf", "fcf", "total"], ["(±) Fluxo de caixa", "fora", null],
         ["(=) Saldo de caixa livre (fim do mês)", "saldo", "saldo", "saldo"], ["Reserva exigida", "reserva", "reserva", "ref"]
       ];
       var tabelaFCF = h("div", { className: "rounded overflow-x-auto mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
@@ -7134,7 +7134,7 @@
           }))));
       return h("div", { className: "mb-5" },
         h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Free Cash Flow projetado · estimativa"),
-        metodologia, tabelaFCF);
+        tabelaFCF, metodologia);
     }
 
     /* Reserva de caixa: Caixa Excedente (Art. 3o) e as tres condicoes do */
@@ -7318,7 +7318,7 @@
       return h("div", null,
         h("div", { className: "mb-3", style: { fontSize: 11.5, color: COR.faint } },
           "Posição de hoje (" + rotHoje + ", mês em curso). Os meses anteriores são o registro do cálculo no fim de cada mês."),
-        cartoesReserva, blocoRunway, semaforo, tabela, blocoFCFProjetado(r.fcf), comoCalcula, mutuoLista);
+        cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista, blocoFCFProjetado(r.fcf));
     }
 
     /* Fiscal (Simples) (Fase 5). */
