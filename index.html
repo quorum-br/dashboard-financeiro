@@ -3317,7 +3317,7 @@
       elementos.push(h("text", { key: "f" + m, x: xDe(i), y: baseY + 52, textAnchor: "middle",
         style: { fontSize: 12, fill: fcfs[i] < 0 ? COR.coral : COR.dim, fontVariantNumeric: "tabular-nums" } }, formatarNumero(fcfs[i], 0)));
     });
-    elementos.push(h("text", { key: "fcfrot", x: margem.esquerda - 16, y: baseY + 52, textAnchor: "end", style: { fontSize: 12, fill: COR.faint } }, "FCF"));
+    elementos.push(h("text", { key: "fcfrot", x: margem.esquerda - 16, y: baseY + 52, textAnchor: "end", style: { fontSize: 12, fill: COR.faint } }, "Lucro Líquido"));
     if (reserva !== null) {
       elementos.push(h("line", { key: "res", x1: margem.esquerda, y1: yL(reserva), x2: margem.esquerda + larguraPlot, y2: yL(reserva),
         stroke: COR_LINHA_RESERVA, strokeWidth: 1.5, strokeDasharray: "7,5" }));
@@ -3348,16 +3348,16 @@
     var ultimo = meses[meses.length - 1];
     /* Legenda abaixo do grafico, centralizada na area do grafico (pedido */
     /* de Alex, 21/10/2026, que tambem tirou as marcas de texto do topo).  */
-    var xl = margem.esquerda + larguraPlot / 2 - 281, yl = baseY + 70;
+    var xl = margem.esquerda + larguraPlot / 2 - 333, yl = baseY + 70;
     var legenda = [
       h("rect", { key: "l1", x: xl, y: yl, width: 18, height: 14, rx: 2, fill: COR.mint }),
-      h("text", { key: "l1t", x: xl + 26, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "FCF positivo"),
-      h("rect", { key: "l2", x: xl + 130, y: yl, width: 18, height: 14, rx: 2, fill: COR.coral }),
-      h("text", { key: "l2t", x: xl + 156, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "FCF negativo"),
-      h("line", { key: "l3", x1: xl + 270, y1: yl + 7, x2: xl + 298, y2: yl + 7, stroke: COR.brass, strokeWidth: 2.5 }),
-      h("text", { key: "l3t", x: xl + 306, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "caixa livre real"),
-      h("line", { key: "l4", x1: xl + 420, y1: yl + 7, x2: xl + 448, y2: yl + 7, stroke: COR.brass, strokeWidth: 2.5, strokeDasharray: "6,4" }),
-      h("text", { key: "l4t", x: xl + 456, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "saldo projetado")
+      h("text", { key: "l1t", x: xl + 26, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "Lucro Líquido positivo"),
+      h("rect", { key: "l2", x: xl + 190, y: yl, width: 18, height: 14, rx: 2, fill: COR.coral }),
+      h("text", { key: "l2t", x: xl + 216, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "Lucro Líquido negativo"),
+      h("line", { key: "l3", x1: xl + 384, y1: yl + 7, x2: xl + 412, y2: yl + 7, stroke: COR.brass, strokeWidth: 2.5 }),
+      h("text", { key: "l3t", x: xl + 420, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "caixa livre real"),
+      h("line", { key: "l4", x1: xl + 534, y1: yl + 7, x2: xl + 562, y2: yl + 7, stroke: COR.brass, strokeWidth: 2.5, strokeDasharray: "6,4" }),
+      h("text", { key: "l4t", x: xl + 570, y: yl + 12, style: { fontSize: 13, fill: COR.dim } }, "saldo projetado")
     ];
     var periodo = (nR ? "realizado " + rotuloMes(R.meses[0]) + " a " + rotuloMes(R.meses[nR - 1]) + " · " : "") +
       "projetado " + rotuloMes(fc.meses[0]) + " a " + rotuloMes(ultimo) + " (estimativa, partindo do caixa livre de hoje, " + formatarNumero(fc.caixaHoje, 0) + ") · R$";
