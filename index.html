@@ -3261,7 +3261,7 @@
   /* liquido de caixa) e linha cheia = caixa livre real no fim do mes.    */
   /* Mes corrente em diante: barra em tom claro = FCF projetado e linha   */
   /* tracejada = saldo projetado (calcularFCFProjetado, a mesma conta da  */
-  /* tabela de Reserva e runway). Marca vertical entre realizado e        */
+  /* tabela de Fluxo de Caixa Livre). Marca vertical entre realizado e   */
   /* projetado e reserva exigida de hoje tracejada; o ponto projetado    */
   /* abaixo da reserva fica em vermelho. Nao depende do regime nem do    */
   /* periodo do topo. Ajuste de Alex (21/10/2026):                       */
@@ -3370,7 +3370,7 @@
         h("text", { x: SLIDE.largura - MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "end",
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 10)),
         h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
-          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "realizado: lucro líquido de caixa e caixa livre do fim do mês · projetado: títulos e OS em aberto, Anexo III e médias dos 3 meses fechados (metodologia em Reserva, runway e FCF)"),
+          style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "realizado: lucro líquido de caixa e caixa livre do fim do mês · projetado: títulos e OS em aberto, Anexo III e médias dos 3 meses fechados (metodologia em Fluxo de Caixa Livre)"),
         grade, elementos));
   }
 
@@ -4355,7 +4355,7 @@
 
   /* ------------------------------------------------------------------ */
   /* Free Cash Flow projetado (Parte E, 21/10/2026). Uma funcao so, usada */
-  /* pela tabela de Reserva e runway e pelo grafico 10.                   */
+  /* pela tela Fluxo de Caixa Livre e pelo grafico 10.                   */
   /* - Horizonte: mes corrente ate o mes do ultimo vencimento (efetivo)   */
   /*   em aberto, titulos e previsoes de OS.                              */
   /* - Receita: titulos a receber e previsoes de OS da secao receita; no  */
@@ -4947,7 +4947,8 @@
     { id: "caixa", cat: "Resultado e Caixa", rotulo: "Fluxo de caixa", hash: "resultado-e-caixa/fluxo", tela: "financeiro", icone: "fluxo", resumo: true },
     { id: "apres", cat: "Resultado e Caixa", rotulo: "Gráficos", hash: "resultado-e-caixa/graficos", tela: "financeiro", icone: "slides" },
     { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
-    { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva, runway e FCF", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
+    { id: "fcf", cat: "Resultado e Caixa", rotulo: "Fluxo de Caixa Livre", hash: "resultado-e-caixa/fluxo-de-caixa-livre", tela: "financeiro", icone: "tendencia", semFiltros: true },
+    { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva e runway", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
     { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
     { id: "cc", cat: "Resultado e Caixa", rotulo: "Resultado por Centro de Custo", hash: "resultado-e-caixa/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
     { id: "proj", cat: "Resultado e Caixa", rotulo: "Resultado por Projeto", hash: "resultado-e-caixa/projeto", tela: "financeiro", icone: "pasta", resumo: true },
@@ -5000,6 +5001,7 @@
     baixar: "M12 4v11M7 10l5 5 5-5M5 20h14",
     pessoas: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M18 15c2 .5 3 2.5 3 5",
     escudo: "M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6zM9 12l2 2 4-4",
+    tendencia: "M4 20h16M5 16l4-5 3 3 7-8M15 6h4v4",
     relogio: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
     recibo: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h4",
     menu: "M4 6h16M4 12h16M4 18h16",
@@ -7076,7 +7078,7 @@
         ["Títulos a pagar", "títulos a pagar em aberto (impostos, custos e despesas), no vencimento efetivo. Total no horizonte: " + fmt(-fc.totais.pagar) + "."],
         ["Fora da projeção", "mútuo e captações (1.11), distribuições (2.16), passivo e fatura de cartão (2.17), aplicações (2.18), transferências (0.x) e resultado financeiro. A fatura em aberto hoje já está descontada no caixa livre."],
         ["Lucro Líquido e saldo", "Lucro Líquido do mês = receita − impostos − custos − despesas − títulos a pagar. Saldo projetado = caixa livre de hoje (" + fmt(fc.caixaHoje) + ") + Lucro Líquido acumulado, no fim de cada mês; em " + rotuloMes(fc.mesAtual) + " o Lucro Líquido projetado cobre só de hoje ao fim do mês (o que já entrou e saiu está no caixa livre de hoje)."],
-        ["Meses realizados", (fc.realizado && fc.realizado.meses.length ? rotuloMes(fc.realizado.meses[0]) + " a " + rotuloMes(fc.realizado.meses[fc.realizado.meses.length - 1]) : "nenhum") + ", valores reais em caixa. Lucro Líquido do mês = lucro líquido de caixa (a regra do burn líquido acima: só linhas do DRE, inclusive resultado financeiro e não operacional). Fluxo de caixa = movimentos fora da operação: mútuo e captações (1.11), distribuições e fatura (2.16, 2.17), aplicações (2.18), investimentos (2.19), transferências (0.x) e não classificado, nas contas do caixa livre, e o que entra ou sai da caução. Saldo = caixa livre no fim do mês (o da Posição de caixa). Saldo do mês anterior + Lucro Líquido + Fluxo de caixa = saldo do mês. Reserva exigida de cada mês, como na tabela acima."]
+        ["Meses realizados", (fc.realizado && fc.realizado.meses.length ? rotuloMes(fc.realizado.meses[0]) + " a " + rotuloMes(fc.realizado.meses[fc.realizado.meses.length - 1]) : "nenhum") + ", valores reais em caixa. Lucro Líquido do mês = lucro líquido de caixa (a regra do burn líquido de Reserva e runway: só linhas do DRE, inclusive resultado financeiro e não operacional). Fluxo de caixa = movimentos fora da operação: mútuo e captações (1.11), distribuições e fatura (2.16, 2.17), aplicações (2.18), investimentos (2.19), transferências (0.x) e não classificado, nas contas do caixa livre, e o que entra ou sai da caução. Saldo = caixa livre no fim do mês (o da Posição de caixa). Saldo do mês anterior + Lucro Líquido + Fluxo de caixa = saldo do mês. Reserva exigida de cada mês, como na tabela mês a mês de Reserva e runway."]
       ];
       if (fc.foraDoHorizonte.impostos || fc.foraDoHorizonte.despCartao) {
         itensMet.push(["Depois do horizonte", "o DAS da receita do último mês (" + fmt(-fc.foraDoHorizonte.impostos) + ") e a fatura do cartão do último mês (" + fmt(-fc.foraDoHorizonte.despCartao) + ") vencem depois de " + rotuloMes(fc.meses[fc.meses.length - 1]) + " e ficam fora da tabela."]);
@@ -7318,7 +7320,17 @@
       return h("div", null,
         h("div", { className: "mb-3", style: { fontSize: 11.5, color: COR.faint } },
           "Posição de hoje (" + rotHoje + ", mês em curso). Os meses anteriores são o registro do cálculo no fim de cada mês."),
-        cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista, blocoFCFProjetado(r.fcf));
+        cartoesReserva, blocoRunway, semaforo, tabela, comoCalcula, mutuoLista);
+    }
+
+    /* Fluxo de Caixa Livre (tela propria desde 21/10/2026, pedido de     */
+    /* Alex): grafico 10, tabela realizado + projetado e a metodologia.   */
+    /* Numeros do memo reserva (reserva.fcf), sempre em caixa.            */
+    function paginaFCF() {
+      if (!reserva || !reserva.fcf) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem base carregada.");
+      return h("div", null,
+        h("div", { className: "mb-5" }, h(GraficoFCFProjetado, { projecao: reserva.fcf, numero: 10 })),
+        blocoFCFProjetado(reserva.fcf));
     }
 
     /* Fiscal (Simples) (Fase 5). */
@@ -7545,6 +7557,7 @@
       if (aba === "posicao") return paginaPosicao();
       if (aba === "exportacoes") return paginaExportacoes();
       if (aba === "reserva") return paginaReserva();
+      if (aba === "fcf") return paginaFCF();
       if (aba === "dre") return abaDRE();
       if (aba === "caixa") return abaFluxoDeCaixa();
       if (aba === "proj" || aba === "cc") return abaDimensao();
