@@ -7045,8 +7045,15 @@
         .then(function () { setGerandoApres(false); });
     }
 
+    /* Tela Graficos (pedido de Alex, 22/10/2026): os graficos ocupam a  */
+    /* largura da area, com ~1 cm (38 px) ate as bordas e entre um e      */
+    /* outro. A margem lateral soma o padding do main (24 px) com 14 px.  */
+    /* So a tela: o .pptx desenha os graficos a parte, no tamanho do slide.*/
+    var GRAFICOS_ESPACO_PX = 38;
     function abaApresentacao() {
-      return h("div", { className: "space-y-3" },
+      return h("div", { className: "quorum-graficos", style: { display: "flex", flexDirection: "column", gap: GRAFICOS_ESPACO_PX,
+        padding: "0 " + (GRAFICOS_ESPACO_PX - 24) + "px" } },
+        h("style", null, ".quorum-graficos > div { max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; }"),
         h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
         h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
         h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3 }),
