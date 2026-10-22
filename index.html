@@ -3274,7 +3274,11 @@
   var COR_FCF_PROJ_POS = "#9DD0B9", COR_FCF_PROJ_NEG = "#D3938D";
   function GraficoFCFProjetado(props) {
     var fc = props.projecao;
-    var moldura = { className: "rounded overflow-hidden mx-auto", style: { background: COR.surface, border: "1px solid " + COR.line, maxWidth: 1080, width: "100%" } };
+    /* props.naTela (so na tela Fluxo de Caixa Livre Projetado, pedido de */
+    /* Alex em 22/10/2026): largura da tabela abaixo, sem o numero do     */
+    /* slide e sem a nota de rodape. Graficos e o .pptx nao passam a prop. */
+    var naTela = !!props.naTela;
+    var moldura = { className: "rounded overflow-hidden mx-auto", style: { background: COR.surface, border: "1px solid " + COR.line, maxWidth: naTela ? "none" : 1080, width: "100%" } };
     if (!fc || !fc.meses.length) {
       return h("div", moldura, h("div", { className: "flex items-center justify-center", style: { aspectRatio: "16 / 9", fontSize: 12, color: COR.faint } },
         "Sem títulos ou previsões em aberto para projetar o caixa."));
@@ -3367,9 +3371,9 @@
         h("text", { x: RECUO_TITULO, y: 98, style: { fontSize: 15, fill: COR.faint } }, periodo),
         legenda,
         h("image", { href: LOGO_QUORUM, x: MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO, width: TAMANHO_LOGO, height: TAMANHO_LOGO }),
-        h("text", { x: SLIDE.largura - MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "end",
+        !naTela && h("text", { x: SLIDE.largura - MARGEM_RODAPE, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "end",
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 10)),
-        h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
+        !naTela && h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
           style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "realizado: lucro líquido de caixa e caixa livre do fim do mês · projetado: títulos e OS em aberto, Anexo III e médias dos 3 meses fechados (metodologia em Fluxo de Caixa Livre Projetado)"),
         grade, elementos));
   }
@@ -7380,7 +7384,7 @@
     function paginaFCF() {
       if (!reserva || !reserva.fcf) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem base carregada.");
       return h("div", null,
-        h("div", { className: "mb-5" }, h(GraficoFCFProjetado, { projecao: reserva.fcf, numero: 10 })),
+        h("div", { className: "mb-5" }, h(GraficoFCFProjetado, { projecao: reserva.fcf, numero: 10, naTela: true })),
         blocoFCFProjetado(reserva.fcf));
     }
 
