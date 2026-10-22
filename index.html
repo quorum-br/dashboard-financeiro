@@ -925,10 +925,13 @@
         background: fundo.bg,
         border: "1px solid " + (hover ? COR.brass : fundo.borda),
         minHeight: props.compacto ? 104 : 112,
-        minWidth: 0
+        minWidth: 0,
+        cursor: props.aoClicar ? "pointer" : "default"
       },
       onMouseEnter: function () { setHover(true); },
-      onMouseLeave: function () { setHover(false); }
+      onMouseLeave: function () { setHover(false); },
+      onClick: props.aoClicar || undefined,
+      title: props.aoClicar ? (props.tituloClique || "Ver os itens que compõem este número") : undefined
     },
       h("div", {
         className: "uppercase flex items-center gap-1",
@@ -1023,9 +1026,104 @@
   }
 
   /* Gaveta lateral: mostra os lancamentos que compoem a linha clicada. */
+  /* Moldura da gaveta lateral: fundo escurecido, painel a direita.      */
+  function molduraGaveta(aoFechar, cabecalho, corpo) {
+    return h("div", {
+      className: "fixed inset-0 z-40 flex justify-end",
+      style: { background: "rgba(20,26,38,0.35)" },
+      onClick: aoFechar
+    },
+      h("div", {
+        className: "h-full overflow-y-auto",
+        style: { width: 640, maxWidth: "100%", background: COR.surface, borderLeft: "1px solid " + COR.line },
+        onClick: function (evento) { evento.stopPropagation(); }
+      }, cabecalho, corpo));
+  }
+
+  /* Gaveta de Prazos e atrasos (Parte D, 21/10/2026): os titulos que     */
+  /* compoem um numero da tela, com emissao, vencimento, vencimento       */
+  /* efetivo, pagamento, prazo e atraso, e no rodape os mesmos totais e   */
+  /* medias da tela (mediasPrazos). ctx.modo: "pagos" ou "vencidos".      */
+  function GavetaPrazos(props) {
+    var ctx = props.ctx;
+    var dataBr = function (d) { return d ? d.toLocaleDateString("pt-BR") : "–"; };
+    var textoBr = function (t) { return t ? t.split("-").reverse().join("/") : "–"; };
+    var nDias = function (v) {
+      if (v === null || v === undefined) return "–";
+      var a = Math.round(v * 10) / 10;
+      return a.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 }).replace("-", "−") + (Math.abs(a) === 1 ? " dia" : " dias");
+    };
+    var itens = ctx.itens || [];
+    var th = { fontSize: 9.5, letterSpacing: "0.08em", color: COR.faint, fontWeight: 400, textTransform: "uppercase" };
+    var td = { fontSize: 11, color: COR.text, fontVariantNumeric: "tabular-nums" };
+    var cabecalho = h("div", { className: "sticky top-0 px-5 py-4", style: { background: COR.surface, borderBottom: "1px solid " + COR.line } },
+      h("div", { className: "flex items-start gap-3" },
+        h("div", { className: "flex-1" },
+          h("div", { className: "uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass } }, ctx.modo === "vencidos" ? "Títulos vencidos em aberto" : "Títulos pagos"),
+          h("div", { style: { fontSize: 15, fontWeight: 600, color: COR.text } }, ctx.titulo),
+          h("div", { style: { fontSize: 11, color: COR.faint } }, ctx.subtitulo || "", " · ", itens.length, " título(s)")),
+        h("button", { onClick: props.aoFechar, className: "px-3 py-1 rounded", style: { border: "1px solid " + COR.line, color: COR.dim, fontSize: 11 } }, "Fechar")));
+    var tabela, rodape;
+    if (ctx.modo === "vencidos") {
+      var totalV = itens.reduce(function (t, v) { return t + v.valor; }, 0);
+      tabela = h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+        h("thead", null, h("tr", { style: { borderBottom: "1px solid " + COR.line } },
+          ["Documento", "Contraparte · categoria", "Emissão", "Vencimento", "Venc. efetivo", "Dias de atraso", "Valor"].map(function (c, k) {
+            return h("th", { key: k, className: "py-1.5 pr-2 " + (k >= 2 ? "text-right" : "text-left"), style: th }, c);
+          }))),
+        h("tbody", null, itens.map(function (v, i) {
+          var ef = vencimentoEfetivoTexto(v.vencimento);
+          return h("tr", { key: i, style: { borderBottom: "1px solid " + COR.lineSoft } },
+            h("td", { className: "py-1.5 pr-2", style: td }, v.documento || "–"),
+            h("td", { className: "py-1.5 pr-2", style: td }, v.contraparte, h("div", { style: { fontSize: 10, color: COR.faint } }, v.categoria)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, textoBr(v.emissao)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, textoBr(v.vencimento)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, textoBr(ef), ef !== v.vencimento ? h("div", { style: { fontSize: 9.5, color: COR.brass } }, "dia útil") : null),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, nDias(v.dias)),
+            h("td", { className: "py-1.5 text-right whitespace-nowrap", style: td }, formatarNumero(v.valor, 2)));
+        })));
+      rodape = h("div", { className: "mt-3 flex justify-between", style: { fontSize: 12.5, fontWeight: 700, color: COR.text } },
+        h("span", null, "Total vencido"), h("span", { style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(totalV, 2)));
+    } else {
+      var m = mediasPrazos(itens);
+      tabela = h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
+        h("thead", null, h("tr", { style: { borderBottom: "1px solid " + COR.line } },
+          ["Documento · categoria", "Emissão", "Vencimento", "Venc. efetivo", "Pagamento", "Prazo", "Atraso", "Valor"].map(function (c, k) {
+            return h("th", { key: k, className: "py-1.5 pr-2 " + (k >= 1 ? "text-right" : "text-left"), style: th }, c);
+          }))),
+        h("tbody", null, itens.slice().sort(function (a, b) { return (a.dPag || 0) - (b.dPag || 0); }).map(function (t, i) {
+          var ef = t.dVenc ? vencimentoEfetivo(t.dVenc) : null;
+          var deslocado = ef && t.dVenc && textoData(ef) !== textoData(dataSemHora(t.dVenc));
+          var atraso = t.atraso === null ? null : Math.max(0, t.atraso);
+          return h("tr", { key: i, style: { borderBottom: "1px solid " + COR.lineSoft } },
+            h("td", { className: "py-1.5 pr-2", style: td }, t.documento || "sem documento",
+              h("div", { style: { fontSize: 10, color: COR.faint } }, (ctx.mostrarContraparte ? t.contraparte + " · " : "") + t.categoria)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, dataBr(t.dEmi)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, dataBr(t.dVenc)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, dataBr(ef), deslocado ? h("div", { style: { fontSize: 9.5, color: COR.brass } }, "dia útil") : null),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, dataBr(t.dPag)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: td }, nDias(t.prazo)),
+            h("td", { className: "py-1.5 pr-2 text-right whitespace-nowrap", style: Object.assign({}, td, atraso ? { color: COR.coral, fontWeight: 600 } : {}) }, nDias(atraso)),
+            h("td", { className: "py-1.5 text-right whitespace-nowrap", style: td }, formatarNumero(t.valor, 2)));
+        })));
+      var linhaRod = function (rot, val) {
+        return h("div", { className: "flex justify-between py-0.5" }, h("span", { style: { color: COR.dim } }, rot), h("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 600 } }, val));
+      };
+      rodape = h("div", { className: "mt-3 pt-2", style: { fontSize: 12, borderTop: "1px solid " + COR.line } },
+        linhaRod("Títulos", String(m.qtd)),
+        linhaRod("Valor pago", formatarNumero(m.valor, 2)),
+        linhaRod("Prazo médio (pagamento − emissão, ponderado pelo valor)", nDias(m.prazo)),
+        linhaRod("Atraso médio (só os pagos depois do vencimento efetivo, ponderado)", m.qtdAtrasados ? nDias(m.atraso) : "sem atraso"),
+        linhaRod("Títulos com atraso", m.qtdAtrasados + " de " + m.comVencimento),
+        linhaRod("Maior atraso", m.maiorAtraso ? nDias(m.maiorAtraso) : "–"));
+    }
+    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 py-4" }, tabela, rodape));
+  }
+
   function GavetaLancamentos(props) {
     var ctx = props.ctx;
     if (!ctx) return null;
+    if (ctx.modo === "pagos" || ctx.modo === "vencidos") return h(GavetaPrazos, props);
 
     /* Achado abre com a lista pronta (linhas ja identificadas na apuracao */
     /* do achado, como duplicidade ou sem data), em vez de recalcular um   */
@@ -3947,6 +4045,26 @@
   var DIA_MS = 86400000;
   function diasEntre(a, b) { return Math.round((dataSemHora(b) - dataSemHora(a)) / DIA_MS); }
 
+  /* Totais e medias de uma lista de titulos de Prazos e atrasos: a      */
+  /* mesma conta dos cartoes, da tabela por contraparte e do rodape da    */
+  /* gaveta (Parte D), para os tres sempre baterem.                       */
+  function mediasPrazos(lista) {
+    var comPrazo = lista.filter(function (t) { return t.prazo !== null; });
+    var peso = comPrazo.reduce(function (s, t) { return s + t.valor; }, 0);
+    var atrasados = lista.filter(function (t) { return t.atraso !== null && t.atraso > 0; });
+    var pesoAt = atrasados.reduce(function (s, t) { return s + t.valor; }, 0);
+    return {
+      qtd: lista.length,
+      valor: lista.reduce(function (s, t) { return s + t.valor; }, 0),
+      prazo: peso ? comPrazo.reduce(function (s, t) { return s + t.valor * t.prazo; }, 0) / peso : null,
+      atraso: pesoAt ? atrasados.reduce(function (s, t) { return s + t.valor * t.atraso; }, 0) / pesoAt : null,
+      qtdAtrasados: atrasados.length,
+      comVencimento: lista.filter(function (t) { return t.atraso !== null; }).length,
+      maiorAtraso: atrasados.reduce(function (m, t) { return Math.max(m, t.atraso); }, 0),
+      titulos: lista, atrasados: atrasados
+    };
+  }
+
   function calcularPrazos(linhas, abertos, meses, hoje) {
     var noPeriodo = {};
     (meses || []).forEach(function (m) { noPeriodo[m] = true; });
@@ -3956,23 +4074,11 @@
     }).map(function (l) {
       return { tipo: l.tipo, contraparte: l.contraparte || "Sem contraparte", valor: Math.abs(l.valor),
         prazo: l.dEmi ? diasEntre(l.dEmi, l.dPag) : null,
-        atraso: l.dVenc ? diasEntre(vencimentoEfetivo(l.dVenc), l.dPag) : null };   /* dia util; so conta se positivo */
+        atraso: l.dVenc ? diasEntre(vencimentoEfetivo(l.dVenc), l.dPag) : null,   /* dia util; so conta se positivo */
+        /* para a gaveta (Parte D) */
+        documento: l.documento || "", categoria: l.categoria || "", dEmi: l.dEmi, dVenc: l.dVenc, dPag: l.dPag };
     });
-    function medias(lista) {
-      var comPrazo = lista.filter(function (t) { return t.prazo !== null; });
-      var peso = comPrazo.reduce(function (s, t) { return s + t.valor; }, 0);
-      var atrasados = lista.filter(function (t) { return t.atraso !== null && t.atraso > 0; });
-      var pesoAt = atrasados.reduce(function (s, t) { return s + t.valor; }, 0);
-      return {
-        qtd: lista.length,
-        valor: lista.reduce(function (s, t) { return s + t.valor; }, 0),
-        prazo: peso ? comPrazo.reduce(function (s, t) { return s + t.valor * t.prazo; }, 0) / peso : null,
-        atraso: pesoAt ? atrasados.reduce(function (s, t) { return s + t.valor * t.atraso; }, 0) / pesoAt : null,
-        qtdAtrasados: atrasados.length,
-        comVencimento: lista.filter(function (t) { return t.atraso !== null; }).length,
-        maiorAtraso: atrasados.reduce(function (m, t) { return Math.max(m, t.atraso); }, 0)
-      };
-    }
+    var medias = mediasPrazos;
     var receber = medias(titulos.filter(function (t) { return t.tipo === "receber"; }));
     var pagar = medias(titulos.filter(function (t) { return t.tipo === "pagar"; }));
     var grupos = {};
@@ -3982,7 +4088,7 @@
     });
     var porContraparte = Object.keys(grupos).map(function (k) {
       var g = grupos[k]; var m = medias(g.lista);
-      return { tipo: g.tipo, contraparte: g.contraparte, qtd: m.qtd, valor: m.valor, prazo: m.prazo, atraso: m.atraso, maiorAtraso: m.maiorAtraso };
+      return { tipo: g.tipo, contraparte: g.contraparte, qtd: m.qtd, valor: m.valor, prazo: m.prazo, atraso: m.atraso, maiorAtraso: m.maiorAtraso, titulos: g.lista };
     }).sort(function (a, b) { return a.tipo === b.tipo ? b.valor - a.valor : (a.tipo === "receber" ? -1 : 1); });
 
     /* Vencidos em aberto: todo titulo sem pagamento com vencimento antes  */
@@ -3991,7 +4097,8 @@
     /* Vencido so depois do vencimento efetivo (dia util). */
     var vencidos = (abertos || []).filter(function (l) { return l.vencimento && vencimentoEfetivoTexto(l.vencimento) < hojeTexto && !ehPrevisaoOS(l); }).map(function (l) {
       return { tipo: l.tipo, contraparte: l.contraparte || "Sem contraparte", categoria: l.categoria || "", vencimento: l.vencimento,
-        dias: diasEntre(vencimentoEfetivo(l.vencimento), hoje), valor: Number(l.valor_aberto || l.valor_titulo || 0) };
+        dias: diasEntre(vencimentoEfetivo(l.vencimento), hoje), valor: Number(l.valor_aberto || l.valor_titulo || 0),
+        documento: l.documento || "", emissao: l.emissao || "" };
     }).sort(function (a, b) { return b.dias - a.dias; });
     var totalVencido = function (tipo) { return vencidos.filter(function (v) { return v.tipo === tipo; }).reduce(function (s, v) { return s + v.valor; }, 0); };
     return { receber: receber, pagar: pagar, porContraparte: porContraparte, vencidos: vencidos,
@@ -6860,29 +6967,47 @@
         var txt = arred.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
         return txt + (arred === 1 ? " dia" : " dias");
       };
+      /* Gaveta lateral (Parte D): so abre o que tem valor, como no DRE. */
+      var periodoTexto = meses.length ? "pagos de " + rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1]) : "sem período";
+      function abrirPagos(titulo, itens, mostrarContraparte) {
+        if (!itens || !itens.length) return undefined;
+        return function () { setGaveta({ modo: "pagos", titulo: titulo, subtitulo: periodoTexto, itens: itens, mostrarContraparte: !!mostrarContraparte }); };
+      }
+      function abrirVencidos(titulo, itens) {
+        if (!itens || !itens.length) return undefined;
+        return function () { setGaveta({ modo: "vencidos", titulo: titulo, subtitulo: "em aberto hoje", itens: itens }); };
+      }
+      var vencReceber = pz.vencidos.filter(function (v) { return v.tipo === "receber"; });
+      var vencPagar = pz.vencidos.filter(function (v) { return v.tipo === "pagar"; });
       var regraTitulos = " Só títulos da Omie pagos no período do topo (pela data de pagamento), em categorias do DRE; ficam de fora movimentos sem título, encargos, pagamentos no cartão, mútuo e adiantamentos (1.11), distribuições (2.16), devoluções e fatura (2.17), aplicações (2.18) e transferências (0.x). Média ponderada pelo valor pago.";
       var cart = h("div", { className: "grid gap-2 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 mb-5" },
         h(CartaoIndicador, { rotulo: "PMR", valor: 0, valorTexto: dias(pz.receber.prazo), fundo: "resultado", compacto: true,
+          aoClicar: abrirPagos("PMR · títulos a receber", pz.receber.titulos, true),
           sub: "prazo médio de recebimento · " + pz.receber.qtd + " título(s)",
           ajuda: "Prazo médio de recebimento: data de pagamento − data de emissão nos títulos a receber." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "PMP", valor: 0, valorTexto: dias(pz.pagar.prazo), fundo: "resultado", compacto: true,
+          aoClicar: abrirPagos("PMP · títulos a pagar", pz.pagar.titulos, true),
           sub: "prazo médio de pagamento · " + pz.pagar.qtd + " título(s)",
           ajuda: "Prazo médio de pagamento: data de pagamento − data de emissão nos títulos a pagar." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "Atraso no recebimento", valor: 0, valorTexto: pz.receber.qtdAtrasados ? dias(pz.receber.atraso) : "sem atraso", fundo: "resultado", compacto: true,
+          aoClicar: abrirPagos("Atraso no recebimento · títulos recebidos com atraso", pz.receber.atrasados, true),
           sub: pz.receber.qtdAtrasados + " de " + pz.receber.comVencimento + " título(s) com atraso",
           ajuda: "Média de (data de pagamento − vencimento efetivo), ponderada pelo valor, só nos títulos a receber pagos depois dele. Vencimento efetivo: se o vencimento cai em sábado, domingo ou feriado bancário nacional, vale o dia útil seguinte." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "Atraso no pagamento", valor: 0, valorTexto: pz.pagar.qtdAtrasados ? dias(pz.pagar.atraso) : "sem atraso", fundo: "resultado", compacto: true, ajudaDireita: true,
+          aoClicar: abrirPagos("Atraso no pagamento · títulos pagos com atraso", pz.pagar.atrasados, true),
           sub: pz.pagar.qtdAtrasados + " de " + pz.pagar.comVencimento + " título(s) com atraso",
           ajuda: "Média de (data de pagamento − vencimento efetivo), ponderada pelo valor, só nos títulos a pagar pagos depois dele. Vencimento efetivo: se o vencimento cai em sábado, domingo ou feriado bancário nacional, vale o dia útil seguinte." + regraTitulos }),
         h(CartaoIndicador, { rotulo: "Vencido a receber", valor: pz.vencidoReceber, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          aoClicar: abrirVencidos("Vencido a receber", vencReceber),
           sub: "em aberto hoje",
           ajuda: "Soma dos títulos a receber em aberto na Omie com vencimento anterior a hoje, de qualquer categoria. Não depende do período do topo." }),
         h(CartaoIndicador, { rotulo: "Vencido a pagar", valor: pz.vencidoPagar, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          aoClicar: abrirVencidos("Vencido a pagar", vencPagar),
           sub: "em aberto hoje",
           ajuda: "Soma dos títulos a pagar em aberto na Omie com vencimento anterior a hoje, de qualquer categoria. Não depende do período do topo." })
       );
       var est = { th: { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, fontWeight: 400 }, td: { fontSize: 12, fontVariantNumeric: "tabular-nums" } };
-      function tabela(titulo, colunas, linhasTab, vazio) {
+      function tabela(titulo, colunas, linhasTab, vazio, cliques) {
         return h("div", { className: "rounded overflow-x-auto mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } },
           h("div", { className: "px-4 py-2 uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, titulo),
           linhasTab.length === 0
@@ -6892,7 +7017,10 @@
                   return h("th", { key: k, className: (c[1] ? "px-3 text-right" : "pl-4 pr-3 text-left") + " py-2 uppercase whitespace-nowrap", style: est.th }, c[0]);
                 }))),
                 h("tbody", null, linhasTab.map(function (cel, i) {
-                  return h("tr", { key: i, style: { borderBottom: "1px solid " + COR.lineSoft } }, cel.map(function (v, k) {
+                  var clique = cliques && cliques[i];
+                  return h("tr", { key: i, onClick: clique || undefined,
+                    title: clique ? "Ver os títulos na lateral" : undefined,
+                    style: { borderBottom: "1px solid " + COR.lineSoft, cursor: clique ? "pointer" : "default" } }, cel.map(function (v, k) {
                     return h("td", { key: k, className: (colunas[k][1] ? "px-3 text-right" : "pl-4 pr-3") + " py-2 whitespace-nowrap", style: Object.assign({ color: COR.text }, est.td) }, v);
                   }));
                 }))));
@@ -6907,10 +7035,12 @@
       return h("div", null, cart,
         tabela("Por contraparte · títulos pagos no período",
           [["Tipo"], ["Contraparte"], ["Títulos", 1], ["Valor pago", 1], ["Prazo médio", 1], ["Atraso médio", 1], ["Maior atraso", 1]],
-          linhasCp, "Nenhum título pago no período do topo."),
+          linhasCp, "Nenhum título pago no período do topo.",
+          pz.porContraparte.map(function (c) { return abrirPagos(c.contraparte + " · " + (c.tipo === "receber" ? "a receber" : "a pagar"), c.titulos, false); })),
         tabela("Vencidos em aberto · hoje",
           [["Tipo"], ["Contraparte"], ["Categoria"], ["Vencimento", 1], ["Dias de atraso", 1], ["Valor", 1]],
-          linhasVenc, "Nenhum título em aberto com vencimento anterior a hoje."));
+          linhasVenc, "Nenhum título em aberto com vencimento anterior a hoje.",
+          pz.vencidos.map(function (v) { return abrirVencidos(v.contraparte + " · " + (v.tipo === "receber" ? "a receber" : "a pagar"), [v]); })));
     }
 
     /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
