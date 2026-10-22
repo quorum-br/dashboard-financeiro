@@ -7134,6 +7134,11 @@
         }));
       /* Meses fechados com valores reais, depois os projetados, separados */
       /* por uma borda (ajuste 4 de Alex, 21/10/2026).                     */
+      /* Com 13 meses e centavos a tabela passa da tela: a coluna dos      */
+      /* rotulos fica fixa e o resto rola para o lado (decisao de Alex,    */
+      /* 21/10/2026). Fundo opaco na coluna fixa para nao vazar os valores.*/
+      var fixa = { position: "sticky", left: 0, zIndex: 1 };
+      var FUNDO_LINHA_TOTAL = "#F6F3EC";   /* rgba(138,106,22,0.08) sobre o branco */
       var th = { fontSize: 10, letterSpacing: "0.12em", color: COR.dim, fontWeight: 400 };
       var R = fc.realizado || { meses: [], linha: {} };
       var L = fc.linha, LR = R.linha;
@@ -7151,22 +7156,24 @@
         h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
           h("thead", null,
             h("tr", { style: { background: COR.ink } },
-              h("th", { className: "pl-3 pt-2 text-left uppercase", style: th }, ""),
+              h("th", { className: "pl-3 pt-2 text-left uppercase", style: Object.assign({}, th, fixa, { background: COR.ink }) }, ""),
               R.meses.length ? h("th", { colSpan: R.meses.length, className: "px-3 pt-2 text-center uppercase", style: th }, "Realizado") : null,
               h("th", { colSpan: fc.meses.length, className: "px-3 pt-2 text-center uppercase", style: Object.assign({}, th, R.meses.length ? divisa : {}) }, "Projetado (estimativa)")),
             h("tr", { style: { background: COR.ink } },
-              h("th", { className: "pl-3 py-2 text-left uppercase", style: th }, "Linha"),
+              h("th", { className: "pl-3 py-2 text-left uppercase", style: Object.assign({}, th, fixa, { background: COR.ink }) }, "Linha"),
               colunas.map(function (c, j) {
                 var m = c.m;
-                var marca = c.real ? "" : (m === fc.primeiraNegativa ? " · zera" : (m === fc.primeiraAbaixoReserva ? " · < reserva" : ""));
+                /* sem marca de reserva no cabecalho (pedido de Alex, 21/10/2026): */
+                /* o saldo em vermelho ja sinaliza                                 */
                 return h("th", { key: m, className: "px-3 py-2 text-right uppercase whitespace-nowrap",
-                  style: Object.assign({}, th, marca ? { color: COR.coral, fontWeight: 700 } : {}, !c.real && j === R.meses.length && j > 0 ? divisa : {}) },
-                  rotuloMes(m) + (!c.real && m === fc.mesAtual ? " · hoje" : "") + marca);
+                  style: Object.assign({}, th, !c.real && j === R.meses.length && j > 0 ? divisa : {}) },
+                  rotuloMes(m), !c.real && m === fc.mesAtual ? h("div", { style: { fontSize: 9 } }, "hoje") : null);
               }))),
           h("tbody", null, linhasTab.map(function (ln) {
             var tipo = ln[3];
             return h("tr", { key: ln[0], style: { borderBottom: "1px solid " + COR.lineSoft, background: tipo === "total" || tipo === "saldo" ? "rgba(138,106,22,0.08)" : "transparent" } },
-              h("td", { className: "pl-3 py-2 whitespace-nowrap", style: { fontSize: 12, fontWeight: tipo === "total" || tipo === "saldo" ? 700 : 400, color: tipo === "ref" ? COR.faint : COR.text } }, ln[0]),
+              h("td", { className: "pl-3 pr-3 py-2 whitespace-nowrap", style: Object.assign({ fontSize: 12, fontWeight: tipo === "total" || tipo === "saldo" ? 700 : 400, color: tipo === "ref" ? COR.faint : COR.text,
+                background: tipo === "total" || tipo === "saldo" ? FUNDO_LINHA_TOTAL : COR.surface, boxShadow: "1px 0 0 " + COR.line }, fixa) }, ln[0]),
               colunas.map(function (c, j) {
                 var m = c.m, chave = c.real ? ln[1] : ln[2];
                 var v = chave ? (c.real ? LR[chave] : L[chave])[m] : null;
