@@ -6219,8 +6219,8 @@
         cons: dados
       };
     }, [linhas, regime, dados]);
-    /* Fluxo de caixa por vertical (Parte G): Comunidade, Tech e Empresa  */
-    /* (nao alocado), pela regra de verticalDoFluxo, com os meses da base. */
+    /* Fluxo de caixa por vertical (Parte G): Comunidade, Tech e QUORUM   */
+    /* (Corporativo), pela regra de verticalDoFluxo, com os meses da base. */
     /* Comunidade + Tech + Empresa = Consolidado (testado).                */
     var dadosFluxoVertical = useMemo(function () {
       if (!linhas || !dados) return null;
@@ -6879,7 +6879,7 @@
     /* Comunidade, Tech ou Consolidado.                                  */
     /* ---------------------------------------------------------------- */
 
-    var NOME_VERTICAL = { com: "Comunidade", tech: "Tech", emp: "Empresa (não alocado)", cons: "Consolidado" };
+    var NOME_VERTICAL = { com: "Comunidade", tech: "Tech", emp: "QUORUM (Corporativo)", cons: "Consolidado" };
     function pctMes(d, valores) {
       var r = {};
       meses.forEach(function (mes) { r[mes] = d.receitaLiquida[mes] ? valores[mes] / d.receitaLiquida[mes] : 0; });
@@ -7464,7 +7464,7 @@
     /* Consolidado ate a geracao de caixa do periodo, com os lancamentos    */
     /* da vertical. Saldos e posicao de caixa nao sao segregados por       */
     /* vertical e ficam so no Consolidado; os movimentos fora da operacao  */
-    /* ficam em "Empresa (nao alocado)".                                    */
+    /* ficam em "QUORUM (Corporativo)".                                    */
     function fluxoVertical(v) {
       var d = dadosFluxoVertical[v], emp = dadosFluxoVertical.emp;
       var foraPeriodo = meses.reduce(function (t, m) { return t + (emp.fcl[m] || 0); }, 0);
@@ -7475,13 +7475,13 @@
           h(LinhaTabela, { label: ROTULOS_DRE.fcl, valores: d.fcl, meses: meses, nivel: "total", casas: 2 })),
         h("div", { className: "rounded px-4 py-3 mt-3", style: { background: COR.surface, border: "1px solid " + COR.line, fontSize: 11, color: COR.dim, lineHeight: 1.6 } },
           h("div", null, h("strong", null, "Fora desta vertical: "), formatarNumero(foraPeriodo, 2) + " no período. ",
-            "Movimentos fora da operação (mútuo e captações 1.11, distribuições a sócios 2.16, passivos e fatura de cartão 2.17, aplicações 2.18, transferências 0.x) e o não classificado são da empresa inteira: ficam no Consolidado e na coluna Empresa (não alocado) do Comparativo, sem olhar o centro de custo. Investimentos (2.19) seguem o centro de custo, como a DRE por vertical."),
+            "Movimentos fora da operação (mútuos, dividendos, adiantamentos, aplicações e transferências) são do corporativo, com ou sem centro de custo. Mútuo e captações (1.11), distribuições a sócios (2.16), passivos e fatura de cartão (2.17), aplicações (2.18), transferências (0.x) e o não classificado ficam no Consolidado e na coluna QUORUM (Corporativo) do Comparativo. Investimentos (2.19) seguem o centro de custo, como a DRE por vertical."),
           h("div", { className: "mt-1" }, h("strong", null, "Saldo de caixa não é segregado por vertical: "),
             "aqui aparece só a geração de caixa do período; saldo acumulado, conta corrente, aplicações, caução, fatura, caixa total e caixa livre ficam no Consolidado.")));
     }
 
-    /* Fluxo de caixa > Comparativo (Parte G): Comunidade, Tech, Empresa   */
-    /* (nao alocado) e Consolidado lado a lado, no total do periodo, no     */
+    /* Fluxo de caixa > Comparativo (Parte G): Comunidade, Tech, QUORUM    */
+    /* (Corporativo) e Consolidado lado a lado, no total do periodo, no     */
     /* mesmo modelo do Comparativo da DRE.                                 */
     function comparativoFluxo() {
       var dv = dadosFluxoVertical, ordem = ["com", "tech", "emp", "cons"];
@@ -7506,7 +7506,7 @@
       var cab = { padding: "8px 12px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: COR.dim, fontWeight: 600, textAlign: "right", background: COR.ink };
       return h("div", null,
         h("div", { className: "mb-2", style: { fontSize: 11, color: COR.faint } },
-          "Total do período selecionado no topo (" + (meses.length ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1]) : "sem mês") + "). Movimentos fora da operação (1.11, 2.16, 2.17, 2.18, 0.x) e o não classificado ficam em Empresa (não alocado). Clique num valor para ver os lançamentos."),
+          "Total do período selecionado no topo (" + (meses.length ? rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1]) : "sem mês") + "). Movimentos fora da operação (mútuos, dividendos, adiantamentos, aplicações e transferências) são do corporativo, com ou sem centro de custo. Eles (1.11, 2.16, 2.17, 2.18, 0.x) e o não classificado ficam em QUORUM (Corporativo). Clique num valor para ver os lançamentos."),
         h("div", { className: "overflow-x-auto rounded", style: { border: "1px solid " + COR.line, background: COR.surface } },
           h("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 760, tableLayout: "fixed" } },
             h("colgroup", null, h("col", { style: { width: "36%" } }), ordem.map(function (v) { return h("col", { key: v, style: { width: "16%" } }); })),
@@ -7769,7 +7769,7 @@
           + "Estimativas: DAS no dia 20 (dia útil); custo direto, despesas e compras no cartão espalhados pelos dias de cada mês (no mês corrente, de hoje ao fim do mês); o pagamento da fatura do cartão é neutro, porque a compra já reduziu o caixa livre. "
           + "No último dia de cada mês o saldo é conferido com o ponto do Fluxo de Caixa Livre Projetado. "
           + "Em vermelho, a primeira semana que fecha abaixo da reserva exigida (" + (pj.reservaExigida === null ? "–" : fmt(pj.reservaExigida)) + "); em vermelho forte, saldo negativo."),
-        h("div", { className: "grid gap-2 grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 mb-3" },
+        h("div", { className: "grid gap-2 grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 mb-3" },
           h(CartaoIndicador, { rotulo: "A receber · títulos", valor: pj.receber13.titulos, casas: 2, fundo: "caixa", compacto: true,
             sub: "nas 13 semanas", ajuda: "Títulos a receber em aberto na Omie com vencimento nas 13 semanas (vencidos entram na semana 1)." }),
           h(CartaoIndicador, { rotulo: "A receber · previsto (OS)", valor: pj.receber13.previsoes, casas: 2, fundo: "caixa", compacto: true,
@@ -7779,7 +7779,9 @@
           h(CartaoIndicador, { rotulo: "Saídas · títulos", valor: pj.totais.saidasFirmes, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
             sub: "títulos a pagar nas 13 semanas", ajuda: "Títulos a pagar em aberto na Omie com vencimento nas 13 semanas (vencidos entram na semana 1)." }),
           h(CartaoIndicador, { rotulo: "Saídas · estimativas", valor: pj.totais.saidasEstimadas, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
-            sub: "DAS, custo direto, despesas e cartão", ajuda: "Estimativas do Fluxo de Caixa Livre Projetado nas 13 semanas: DAS no dia 20, custo direto, despesas médias e compras no cartão espalhados pelos dias. A conta de cada uma está na metodologia da tela Fluxo de Caixa Livre Projetado." })),
+            sub: "DAS, custo direto, despesas e cartão", ajuda: "Estimativas do Fluxo de Caixa Livre Projetado nas 13 semanas: DAS no dia 20, custo direto, despesas médias e compras no cartão espalhados pelos dias. A conta de cada uma está na metodologia da tela Fluxo de Caixa Livre Projetado." }),
+          h(CartaoIndicador, { rotulo: "Saídas · total", valor: pj.totais.saidasFirmes + pj.totais.saidasEstimadas, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+            sub: "títulos + estimativas", ajuda: "Soma dos dois cartões anteriores: tudo o que sai como saída na projeção das 13 semanas." })),
         h("div", { className: "rounded overflow-x-auto", style: { background: COR.surface, border: "1px solid " + COR.line } },
           h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
             h("thead", null,
@@ -8417,7 +8419,7 @@
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
       "caixa-com": "Fluxo de caixa da vertical Comunidade, no regime de " + nomeRegime + ": lançamentos de centro de custo sem Insights, Review ou Advisory, inclusive sem centro, como na DRE por vertical · clique em qualquer linha para ver os lançamentos.",
       "caixa-tech": "Fluxo de caixa da vertical Tech, no regime de " + nomeRegime + ": lançamentos de centro de custo com Insights, Review ou Advisory · clique em qualquer linha para ver os lançamentos.",
-      "caixa-comp": "Comunidade, Tech, Empresa (não alocado) e Consolidado lado a lado, no regime de " + nomeRegime + ".",
+      "caixa-comp": "Comunidade, Tech, QUORUM (Corporativo) e Consolidado lado a lado, no regime de " + nomeRegime + ".",
       abertos: "",
       achados: "Conferências automáticas da base, da mais grave para a mais leve.",
       fiscal: "Simples Nacional: RBT12, faixa, alíquotas estimadas dos Anexos III e V, Fator R e o DAS lançado, mês a mês desde o início da atividade. Regime da receita: " + (REGIME_SIMPLES === "caixa" ? "caixa" : "competência") + ", fixo.",
@@ -9013,7 +9015,7 @@
   /* Fluxo de caixa por vertical (Parte G, 23/10/2026, decisao de Alex): */
   /* linhas de resultado e investimentos (2.19) seguem a regra da DRE por */
   /* vertical; movimentos fora da operacao (1.11, 2.16, 2.17, 2.18, 0.x) e */
-  /* "Nao classificado" ficam sempre em "Empresa (nao alocado)", sem olhar */
+  /* "Nao classificado" ficam sempre em "QUORUM (Corporativo)", sem olhar */
   /* o centro de custo (ex.: fatura de cartao e da empresa inteira).       */
   var SECOES_FLUXO_DA_EMPRESA = ["entradas", "saidas", "ativo", "transf", "naoClassificado"];
   function verticalDoFluxo(l) {
