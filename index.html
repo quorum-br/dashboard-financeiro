@@ -1068,10 +1068,15 @@
     };
     var titulo = function (t) { return h("div", { className: "uppercase mt-4 mb-1", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, t); };
     var nLanc = (ctx.blocos || []).reduce(function (t, b) { return t + (b.lancamentos || []).length; }, 0);
+    if (ctx.ponteCaixa) {
+      var contaGrupos = function (gs) { return (gs || []).reduce(function (t, g) { return t + g.subgrupos.reduce(function (u, sg) { return u + (sg.linhas || []).length; }, 0); }, 0); };
+      nLanc = contaGrupos(ctx.ponteCaixa.grupos) + (ctx.ponteCaixa.neutros || []).length
+        + (ctx.ponteCaixa.realizadoHoje ? contaGrupos(ctx.ponteCaixa.realizadoHoje.grupos) + (ctx.ponteCaixa.realizadoHoje.neutros || []).length : 0);
+    }
     var conferencias = (ctx.conferencias || []).map(function (c, i) {
       var ruim = difere(c.esperado, c.obtido, c.formato);
       return h("div", { key: i, className: "mt-2" },
-        linhaValor(c.rotulo + " no gráfico", fmtValor(c.esperado, c.formato), { k: "e" }),
+        linhaValor(c.rotulo + (c.sufixoEsperado || " no gráfico"), fmtValor(c.esperado, c.formato), { k: "e" }),
         linhaValor(c.rotulo + " nesta gaveta", fmtValor(c.obtido, c.formato), { k: "o", forte: true }),
         ruim ? linhaValor("Diferença (erro de filtro)", c.formato === "pct" || c.formato === "qtd"
           ? fmtValor(c.obtido, c.formato) + " × " + fmtValor(c.esperado, c.formato)
@@ -1086,6 +1091,106 @@
         h("button", { onClick: props.aoFechar, className: "px-3 py-1 rounded", style: { border: "1px solid " + COR.line, color: COR.dim, fontSize: 11 } }, "Fechar")),
       conferencias);
     var dataBr = function (d) { return d && d.toLocaleDateString ? d.toLocaleDateString("pt-BR") : "–"; };
+    function tabelaLancamentos(lista, chave) {
+      var lanc = lista.slice().sort(function (x, y) { return (x.dataRegime || 0) - (y.dataRegime || 0); });
+      return h("table", { key: chave, className: "w-full", style: { borderCollapse: "collapse" } },
+        h("tbody", null, lanc.map(function (l, i) {
+          return h("tr", { key: (l.id || "") + "|" + i, style: { borderBottom: "1px solid " + COR.lineSoft } },
+            h("td", { className: "py-1 pr-2 whitespace-nowrap", style: { fontSize: 11, color: COR.faint, verticalAlign: "top" } }, dataBr(l.dataRegime)),
+            h("td", { className: "py-1 pr-2", style: { fontSize: 11.5, color: COR.text } },
+              h("div", { style: { whiteSpace: "normal", wordBreak: "break-word" } }, l.contraparte, EtiquetaOrigem(l.contraOrigem)),
+              h("div", { style: { fontSize: 10, color: COR.faint } }, l.categoria, l.situacao ? " · " + l.situacao : "", l.conta ? " · " + l.conta : ""),
+              l.nota ? h("div", { style: { fontSize: 10, color: COR.brass } }, l.nota) : null),
+            h("td", { className: "py-1 text-right whitespace-nowrap", style: { fontSize: 11.5, fontVariantNumeric: "tabular-nums", color: l.valor < 0 ? COR.coral : COR.text, verticalAlign: "top" } },
+              formatarNumero(l.valor, 2)));
+        })));
+    }
+    function linhasDeCalculo(calc, chave) {
+      return calc.map(function (c, i) {
+        return h("div", { key: chave + i, className: "py-1.5", style: { borderBottom: "1px solid " + COR.lineSoft } },
+          h("div", { className: "flex justify-between", style: { fontSize: 12, color: COR.text } },
+            h("span", { className: "pr-3" }, c.rotulo),
+            h("span", { className: "whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums", color: c.valor < 0 ? COR.coral : COR.text } }, formatarNumero(c.valor, 2))),
+          h("div", { style: { fontSize: 10.5, color: COR.faint } }, c.conta));
+      });
+    }
+    /* Ponte do caixa livre (grafico 10): saldo inicial + entradas - saidas */
+    /* = saldo final; itens neutros a parte; conferencia com o ponto.      */
+    function blocoGrupos(grupos, chave) {
+      return grupos.map(function (g, gi) {
+        var totalG = 0, partesG = [];
+        g.subgrupos.forEach(function (sg, si) {
+          var linhas = sg.linhas || [], calc = sg.calculo || [];
+          if (!linhas.length && !calc.length) return;
+          var sub = somaValores(linhas) + calc.reduce(function (t, c) { return t + c.valor; }, 0);
+          totalG += sub;
+          partesG.push(titulo(sg.titulo));
+          if (linhas.length) partesG.push(tabelaLancamentos(linhas, chave + gi + "t" + si));
+          if (calc.length) partesG.push(h("div", { key: chave + gi + "c" + si }, linhasDeCalculo(calc, chave + gi + "c" + si)));
+          partesG.push(linhaValor("Subtotal", formatarNumero(sub, 2), { k: chave + gi + "s" + si }));
+        });
+        return h("div", { key: chave + gi },
+          h("div", { className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, g.titulo),
+          partesG.length ? partesG : h("div", { style: { fontSize: 11.5, color: COR.faint } }, "Nenhum no mês."),
+          linhaValor("Total de " + g.titulo.toLowerCase(), formatarNumero(totalG, 2), { k: chave + gi + "tot", forte: true }));
+      });
+    }
+    function blocoNeutros(neutros, liquido, chave) {
+      if (!neutros || !neutros.length) return null;
+      return h("div", { key: chave },
+        h("div", { className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, "Itens neutros (não mudam o caixa livre)"),
+        tabelaLancamentos(neutros, chave + "t"),
+        linhaValor("Efeito líquido no caixa livre", formatarNumero(liquido, 2), { k: chave + "l", cor: Math.abs(liquido) > 0.005 ? COR.coral : COR.mint }));
+    }
+    var ponteCaixa = null;
+    if (ctx.ponteCaixa) {
+      var pc = ctx.ponteCaixa, partesP = [];
+      partesP.push(h("div", { key: "tt", className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, "Ponte do caixa livre"));
+      if (pc.inicial) partesP.push(linhaValor(pc.inicial.rotulo, formatarNumero(pc.inicial.valor, 2), { k: "ini", forte: true }));
+      if (pc.realizadoHoje) {
+        var rh = pc.realizadoHoje;
+        partesP.push(h("div", { key: "rh", className: "mt-3 px-3 pb-2 rounded", style: { background: COR.bg } },
+          h("div", { className: "pt-2", style: { fontSize: 12.5, fontWeight: 700, color: COR.text } }, "Realizado no mês até hoje"),
+          blocoGrupos(rh.grupos, "rh"), blocoNeutros(rh.neutros, rh.neutrosNoCaixa, "rhn"),
+          linhaValor(rh.hoje.rotulo, formatarNumero(rh.hoje.obtido, 2), { k: "hoje", forte: true }),
+          difere(rh.hoje.esperado, rh.hoje.obtido) ? linhaValor("Diferença para o cartão Caixa livre do resumo (" + formatarNumero(rh.hoje.esperado, 2) + ")",
+            formatarNumero(rh.hoje.obtido - rh.hoje.esperado, 2), { k: "hojed", forte: true, cor: COR.coral })
+            : linhaValor("Igual ao cartão Caixa livre do resumo", formatarNumero(rh.hoje.esperado, 2), { k: "hojeok", cor: COR.mint })));
+        partesP.push(h("div", { key: "proj", className: "mt-4", style: { fontSize: 12.5, fontWeight: 700, color: COR.text } }, "Projeção de hoje ao fim do mês"));
+      }
+      partesP.push(blocoGrupos(pc.grupos, "g"));
+      partesP.push(blocoNeutros(pc.neutros, pc.neutrosNoCaixa || 0, "neu"));
+      var ruimF = difere(pc.final.esperado, pc.final.obtido);
+      partesP.push(h("div", { key: "fim", className: "mt-4" },
+        linhaValor(pc.final.rotulo, formatarNumero(pc.final.obtido, 2), { k: "fo", forte: true }),
+        linhaValor(pc.final.rotuloEsperado, formatarNumero(pc.final.esperado, 2), { k: "fe" }),
+        ruimF ? linhaValor("Diferença (não forçada)", formatarNumero(pc.final.obtido - pc.final.esperado, 2), { k: "fd", forte: true, cor: COR.coral })
+          : linhaValor("Diferença", "0,00", { k: "fd", cor: COR.mint })));
+      ponteCaixa = h("div", null, partesP);
+    }
+    var recolhido = null;
+    if (ctx.recolhido) {
+      var rc = ctx.recolhido;
+      recolhido = h("details", { className: "mt-6 rounded px-3 py-2", style: { border: "1px solid " + COR.line } },
+        h("summary", { style: { fontSize: 12.5, fontWeight: 700, color: COR.text, cursor: "pointer" } }, rc.titulo),
+        (rc.conferencias || []).map(function (c, i) {
+          var ruim = difere(c.esperado, c.obtido);
+          return h("div", { key: "rcc" + i, className: "mt-2" },
+            linhaValor(c.rotulo + " no gráfico", formatarNumero(c.esperado, 2), { k: "e" }),
+            linhaValor(c.rotulo + " nesta composição", formatarNumero(c.obtido, 2), { k: "o", forte: true }),
+            ruim ? linhaValor("Diferença (erro de filtro)", formatarNumero(c.obtido - c.esperado, 2), { k: "d", forte: true, cor: COR.coral }) : null);
+        }),
+        (rc.blocos || []).map(function (b, bi) {
+          return h("div", { key: "rcb" + bi },
+            b.subtotais && b.subtotais.length ? [titulo("Composição")].concat(b.subtotais.map(function (x, i) { return linhaValor(x.rotulo, formatarNumero(x.valor, 2), { k: "rs" + bi + i }); })) : null,
+            b.lancamentos && b.lancamentos.length ? [titulo("Lançamentos (" + b.lancamentos.length + ")"), tabelaLancamentos(b.lancamentos, "rcl" + bi)] : null);
+        }),
+        rc.conciliacao ? [titulo("Lucro líquido x variação do caixa livre")].concat(rc.conciliacao.map(function (x, i) {
+          return x.valor === null ? h("div", { key: "cc" + i, className: "mt-2", style: { fontSize: 11, color: COR.faint } }, x.rotulo)
+            : linhaValor(x.rotulo, formatarNumero(x.valor, 2), { k: "cc" + i, forte: !!x.forte });
+        })) : null,
+        rc.notaConciliacao ? h("div", { className: "mt-2 mb-1", style: { fontSize: 10.5, color: COR.faint, lineHeight: 1.5 } }, rc.notaConciliacao) : null);
+    }
     var corpoBlocos = (ctx.blocos || []).map(function (b, bi) {
       var partes = [];
       if (b.titulo) partes.push(h("div", { key: "t", className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, b.titulo));
@@ -1097,27 +1202,12 @@
       }
       if (b.calculo && b.calculo.length) {
         partes.push(titulo("Linhas de cálculo (estimativa, sem lançamento por trás)"));
-        b.calculo.forEach(function (c, i) {
-          partes.push(h("div", { key: "c" + i, className: "py-1.5", style: { borderBottom: "1px solid " + COR.lineSoft } },
-            h("div", { className: "flex justify-between", style: { fontSize: 12, color: COR.text } },
-              h("span", { className: "pr-3" }, c.rotulo),
-              h("span", { className: "whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(c.valor, 2))),
-            h("div", { style: { fontSize: 10.5, color: COR.faint } }, c.conta)));
-        });
+        partes.push(h("div", { key: "calc" }, linhasDeCalculo(b.calculo, "c")));
       }
-      var lanc = (b.lancamentos || []).slice().sort(function (x, y) { return (x.dataRegime || 0) - (y.dataRegime || 0); });
+      var lanc = b.lancamentos || [];
       if (lanc.length) {
         partes.push(titulo("Lançamentos (" + lanc.length + ")"));
-        partes.push(h("table", { key: "tb", className: "w-full", style: { borderCollapse: "collapse" } },
-          h("tbody", null, lanc.map(function (l, i) {
-            return h("tr", { key: (l.id || "") + "|" + i, style: { borderBottom: "1px solid " + COR.lineSoft } },
-              h("td", { className: "py-1 pr-2 whitespace-nowrap", style: { fontSize: 11, color: COR.faint, verticalAlign: "top" } }, dataBr(l.dataRegime)),
-              h("td", { className: "py-1 pr-2", style: { fontSize: 11.5, color: COR.text } },
-                h("div", { style: { whiteSpace: "normal", wordBreak: "break-word" } }, l.contraparte, EtiquetaOrigem(l.contraOrigem)),
-                h("div", { style: { fontSize: 10, color: COR.faint } }, l.categoria, l.situacao ? " · " + l.situacao : "", l.conta ? " · " + l.conta : "")),
-              h("td", { className: "py-1 text-right whitespace-nowrap", style: { fontSize: 11.5, fontVariantNumeric: "tabular-nums", color: l.valor < 0 ? COR.coral : COR.text, verticalAlign: "top" } },
-                formatarNumero(l.valor, 2)));
-          }))));
+        partes.push(tabelaLancamentos(lanc, "tb"));
       }
       return h("div", { key: bi }, partes);
     });
@@ -1133,7 +1223,7 @@
           : linhaValor("Diferença na ponte", "0,00", { k: "pd", cor: COR.mint }),
         p.nota ? h("div", { className: "mt-2", style: { fontSize: 10.5, color: COR.faint, lineHeight: 1.5 } }, p.nota) : null);
     }
-    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, ponte, corpoBlocos));
+    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, ponte, ponteCaixa, corpoBlocos, recolhido));
   }
 
   /* Gaveta de Prazos e atrasos (Parte D, 21/10/2026): os titulos que     */
@@ -3530,108 +3620,190 @@
   /* barra verde se positiva e vermelha se negativa (as cores do grafico */
   /* de fontes e usos), linha numa faixa propria acima das barras (cada  */
   /* uma com a sua escala, por isso o eixo y nao tem rotulos).           */
-  /* Gavetas do grafico 10 (Parte F). Mes fechado: os lancamentos reais  */
-  /* do Lucro Liquido de caixa, os do "Fluxo de caixa" (tudo fora da      */
-  /* operacao nas contas do caixa livre) e a ponte do saldo, conferida    */
-  /* contra o ponto do grafico (sem forcar o fechamento). Mes projetado:  */
-  /* titulos e previsoes de OS do mes e as linhas estimadas, como linhas  */
-  /* de calculo com a conta escrita.                                     */
+  /* Gavetas do grafico 10 (Parte F, refeitas em 23/10/2026 a pedido de  */
+  /* Alex). Em todos os meses a gaveta explica o PONTO (caixa livre no    */
+  /* fim do mes) como uma ponte: saldo inicial + entradas - saidas =      */
+  /* saldo final, conferida com o ponto (diferenca em vermelho, nunca     */
+  /* forcada). A composicao do lucro liquido (a barra) e a conciliacao    */
+  /* lucro x variacao do caixa ficam num bloco recolhido no fim.          */
+
+  /* Movimentos de um mes no caixa livre (contas fora da caucao), pela    */
+  /* data de pagamento. Resultado (secoes do DRE): entrada se positivo,    */
+  /* saida se negativo; as compras no cartao entram na data da compra,    */
+  /* porque aumentam a fatura em aberto. Fora da operacao: o resto, pelo   */
+  /* sinal. Neutros: pagamento de fatura (2.17.94, conta corrente e baixa  */
+  /* no cartao) e transferencias entre contas do caixa livre (0.x), se se  */
+  /* anulam no mes; e tudo o que acontece na conta de caucao, que fica     */
+  /* fora do caixa livre. Transferencia para a caucao (ou de volta) nao e  */
+  /* neutra: sai (ou entra) no caixa livre, com nota.                      */
+  function movimentosDoCaixaLivre(dc, caucao, m) {
+    var doMes = dc.linhas.filter(function (l) { return l.dPag && chaveMes(l.dPag) === m; });
+    var naCV = function (l) { return caucao.indexOf(l.conta) >= 0; };
+    var ehDre = function (l) { return SECOES_DO_DRE.indexOf(secaoDaLinha(l)) >= 0; };
+    var ehFatura = function (l) { return String(l.codigoCategoria || "").indexOf("2.17.94") === 0; };
+    var comNota = function (l, nota) { return Object.assign({}, l, { dataRegime: l.dPag, nota: nota || "" }); };
+    var noCaixa = doMes.filter(function (l) { return !naCV(l); }), naCaucao = doMes.filter(naCV);
+    var pareadas = [];
+    naCaucao.filter(function (l) { return secaoDaLinha(l) === "transf"; }).forEach(function (c) {
+      var par = noCaixa.filter(function (l) { return secaoDaLinha(l) === "transf" && pareadas.indexOf(l) < 0 && Math.abs(l.valor + c.valor) < 0.005; })[0];
+      if (par) pareadas.push(par);
+    });
+    var transfInternas = noCaixa.filter(function (l) { return secaoDaLinha(l) === "transf" && pareadas.indexOf(l) < 0; });
+    var faturas = noCaixa.filter(ehFatura);
+    var transfNeutra = Math.abs(somaValores(transfInternas)) < 0.005, faturaNeutra = Math.abs(somaValores(faturas)) < 0.005;
+    var r = { entradasOp: [], entradasFora: [], saidasOp: [], saidasFora: [], neutros: [], noCaixa: noCaixa, dreNaCaucao: naCaucao.filter(ehDre) };
+    var porSinal = function (l, nota, op) {
+      (l.valor >= 0 ? (op ? r.entradasOp : r.entradasFora) : (op ? r.saidasOp : r.saidasFora)).push(comNota(l, nota));
+    };
+    noCaixa.forEach(function (l) {
+      if (ehDre(l)) return porSinal(l, l.contaTipo === "CR" && l.valor < 0 ? "compra no cartão: reduz o caixa livre na data da compra, porque aumenta a fatura em aberto" : "", true);
+      if (pareadas.indexOf(l) >= 0) return porSinal(l, l.valor < 0 ? "transferência para a caução, que fica fora do caixa livre" : "volta da caução para o caixa livre", false);
+      if (secaoDaLinha(l) === "transf") {
+        if (transfNeutra) return r.neutros.push(comNota(l, "transferência entre contas do próprio caixa livre: sai de uma e entra em outra no mesmo mês"));
+        return porSinal(l, "transferência que não se anulou entre as contas do caixa livre no mês", false);
+      }
+      if (ehFatura(l)) {
+        if (faturaNeutra) return r.neutros.push(comNota(l, l.contaTipo === "CR" ? "baixa da fatura no cartão: a fatura em aberto diminui no mesmo valor que saiu da conta" : "pagamento da fatura: sai da conta corrente e baixa a fatura em aberto no mesmo valor"));
+        return porSinal(l, "pagamento de fatura sem a outra perna no mês: não se anula no caixa livre", false);
+      }
+      porSinal(l, "", false);
+    });
+    naCaucao.forEach(function (l) {
+      r.neutros.push(comNota(l, ehDre(l) ? "lançamento na conta de caução, que fica fora do caixa livre (entra no lucro, não no caixa livre)" : "movimento na conta de caução, que fica fora do caixa livre"));
+    });
+    r.variacao = somaValores(noCaixa);
+    r.neutrosNoCaixa = somaValores(r.neutros.filter(function (l) { return !naCV(l); }));
+    return r;
+  }
+  /* Grupos da ponte a partir dos movimentos (para meses realizados e para */
+  /* o "realizado no mes ate hoje" do mes corrente).                       */
+  function gruposDaPonte(mv) {
+    return [
+      { titulo: "Entradas", subgrupos: [
+        { titulo: "Operacionais (receitas e receitas financeiras)", linhas: mv.entradasOp },
+        { titulo: "Fora da operação (mútuo e captações, resgates, outras entradas)", linhas: mv.entradasFora }] },
+      { titulo: "Saídas", subgrupos: [
+        { titulo: "Operacionais (impostos, custos e despesas, inclusive compras no cartão)", linhas: mv.saidasOp },
+        { titulo: "Fora da operação (distribuições, aplicações, demais saídas de passivo)", linhas: mv.saidasFora }] }
+    ];
+  }
+  function composicaoDoLucro(dc, m) {
+    var dre = dc.linhas.filter(function (l) { return l.dPag && chaveMes(l.dPag) === m && SECOES_DO_DRE.indexOf(secaoDaLinha(l)) >= 0; });
+    return { lista: dre, subtotais: SECOES_DO_DRE.map(function (k) {
+      return { rotulo: rotuloSecao(k), valor: somaValores(dre.filter(function (l) { return secaoDaLinha(l) === k; })) };
+    }).filter(function (x) { return Math.abs(x.valor) > 0.005; }) };
+  }
   function pedidoFCFRealizado(R, m) {
     var dc = R.dadosCaixa, caucao = R.caucao || [];
-    var doMes = dc.linhas.filter(function (l) { return l.dPag && chaveMes(l.dPag) === m; });
-    var ehDre = function (l) { return SECOES_DO_DRE.indexOf(secaoDaLinha(l)) >= 0; };
-    var naCaucao = function (l) { return caucao.indexOf(l.conta) >= 0; };
-    var dre = doMes.filter(ehDre);
-    var fora = doMes.filter(function (l) { return !ehDre(l) && !naCaucao(l); });
-    var dreCaucao = dre.filter(naCaucao);
-    var grupoDe = function (l) { return String(l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || ""); };
-    var classesFora = [
-      ["Mútuo e captações (1.11)", function (l) { return secaoDaLinha(l) === "entradas"; }],
-      ["Distribuições a sócios (2.16)", function (l) { return grupoDe(l) === "2.16"; }],
-      ["Passivo e pagamento de fatura (2.17) · saída da conta", function (l) { return grupoDe(l) === "2.17" && l.contaTipo !== "CR"; }],
-      ["Pagamento de fatura (2.17) · baixa no cartão", function (l) { return grupoDe(l) === "2.17" && l.contaTipo === "CR"; }],
-      ["Aplicações (2.18)", function (l) { return secaoDaLinha(l) === "ativo"; }],
-      ["Investimentos (2.19)", function (l) { return secaoDaLinha(l) === "capex"; }],
-      ["Transferências (0.x)", function (l) { return secaoDaLinha(l) === "transf"; }],
-      ["Não classificado", function (l) { return secaoDaLinha(l) === "naoClassificado"; }]
-    ];
-    var subtotaisFora = classesFora.map(function (c) { return { rotulo: c[0], valor: somaValores(fora.filter(c[1])) }; })
-      .filter(function (x) { return Math.abs(x.valor) > 0.005; });
-    var semClasse = fora.filter(function (l) { return !classesFora.some(function (c) { return c[1](l); }); });
-    if (semClasse.length) subtotaisFora.push({ rotulo: "Outros fora da operação", valor: somaValores(semClasse) });
-    var calculoFora = [];
-    if (Math.abs(somaValores(dreCaucao)) > 0.005) calculoFora.push({ rotulo: "Resultado lançado na caução (fora do caixa livre)",
-      valor: -somaValores(dreCaucao), conta: "lançamentos de resultado na conta de caução entram no Lucro Líquido, mas não no caixa livre" });
-    var ll = somaValores(dre), fluxo = somaValores(fora) + somaValores(calculoFora);
-    var anterior = R.linha.anterior[m] || 0, saldo = R.linha.saldo[m];
-    var cr = doMes.filter(function (l) { return l.contaTipo === "CR"; });
-    var comprasCartao = somaValores(cr.filter(ehDre)), baixaCartao = somaValores(cr.filter(function (l) { return !ehDre(l); }));
-    var subtotaisDre = SECOES_DO_DRE.map(function (k) {
-      return { rotulo: rotuloSecao(k), valor: somaValores(dre.filter(function (l) { return secaoDaLinha(l) === k; })) };
-    }).filter(function (x) { return Math.abs(x.valor) > 0.005; });
-    var ponte = [{ rotulo: "Saldo de caixa livre no fim do mês anterior", valor: anterior },
-      { rotulo: "(+) Lucro Líquido do mês", valor: ll }]
-      .concat(subtotaisFora.map(function (x) { return { rotulo: "(±) " + x.rotulo, valor: x.valor }; }))
-      .concat(calculoFora.map(function (x) { return { rotulo: "(±) " + x.rotulo, valor: x.valor }; }));
-    return { modo: "grafico", titulo: "Fluxo de Caixa Livre · " + rotuloMes(m) + " (realizado)",
-      subtitulo: rotuloMes(m) + " · regime de caixa · valores reais",
-      conferencias: [
-        { rotulo: "Lucro Líquido do mês", esperado: R.linha.fcf[m], obtido: ll },
-        { rotulo: "Fluxo de caixa (fora da operação)", esperado: R.linha.fora[m], obtido: fluxo }
-      ],
-      ponte: { linhas: ponte, rotuloResultado: "(=) Saldo calculado no fim do mês", obtido: anterior + ll + fluxo,
-        rotuloEsperado: "Saldo de caixa livre no gráfico", esperado: saldo,
-        nota: (function () {
-          var variacao = -(comprasCartao + baixaCartao), n2 = function (v) { return Math.abs(v) < 0.005 ? "0,00" : formatarNumero(Math.abs(v), 2); };
-          return "Variação da fatura do cartão em aberto no mês: " + (variacao > 0.005 ? "aumentou " : (variacao < -0.005 ? "diminuiu " : "")) + n2(variacao)
-            + " (compras e encargos no cartão de " + n2(comprasCartao) + ", que já estão no Lucro Líquido; pagamento da fatura de " + n2(baixaCartao)
-            + ", que já está em 2.17 · baixa no cartão). Essa variação já está nas linhas da ponte e não é somada de novo.";
-        })() },
-      blocos: [
-        { titulo: "Lucro Líquido do mês", subtotais: subtotaisDre, lancamentos: dre },
-        { titulo: "Fluxo de caixa (fora da operação)", subtotais: subtotaisFora, lancamentos: fora, calculo: calculoFora }
-      ] };
+    var mv = movimentosDoCaixaLivre(dc, caucao, m);
+    var inicial = R.linha.anterior[m] || 0, saldo = R.linha.saldo[m];
+    var lucro = composicaoDoLucro(dc, m), ll = somaValores(lucro.lista);
+    var fora = somaValores(mv.entradasFora) + somaValores(mv.saidasFora);
+    return { modo: "grafico", titulo: "Caixa livre · " + rotuloMes(m) + " (realizado)",
+      subtitulo: rotuloMes(m) + " · valores reais, pela data de pagamento",
+      conferencias: [{ rotulo: "Caixa livre no fim do mês (ponto)", esperado: saldo, obtido: inicial + mv.variacao }],
+      ponteCaixa: {
+        inicial: { rotulo: "Saldo inicial: caixa livre no fim de " + rotuloMes(somarMes(m, -1)), valor: inicial },
+        grupos: gruposDaPonte(mv), neutros: mv.neutros, neutrosNoCaixa: mv.neutrosNoCaixa,
+        final: { rotulo: "Saldo final calculado", obtido: inicial + mv.variacao, rotuloEsperado: "Caixa livre no gráfico (ponto)", esperado: saldo }
+      },
+      recolhido: {
+        titulo: "Lucro líquido do mês (barra): " + formatarNumero(R.linha.fcf[m], 2),
+        conferencias: [{ rotulo: "Lucro Líquido do mês", esperado: R.linha.fcf[m], obtido: ll }],
+        blocos: [{ subtotais: lucro.subtotais, lancamentos: lucro.lista }],
+        conciliacao: [
+          { rotulo: "Lucro líquido do mês (barra, regime de caixa)", valor: ll },
+          { rotulo: "(±) Entradas e saídas fora da operação", valor: fora },
+          { rotulo: "(±) Itens neutros no caixa livre (devem somar zero)", valor: mv.neutrosNoCaixa },
+          { rotulo: "(−) Resultado lançado na caução (está no lucro, fora do caixa livre)", valor: -somaValores(mv.dreNaCaucao) },
+          { rotulo: "(=) Variação do caixa livre no mês", valor: ll + fora + mv.neutrosNoCaixa - somaValores(mv.dreNaCaucao), forte: true }
+        ],
+        notaConciliacao: "Nos meses realizados a barra é o lucro líquido em regime de caixa: não há diferença de prazo (receita emitida e não recebida, DAS de competência anterior) entre ela e o caixa livre; a diferença é só o que está fora da operação."
+      } };
   }
   function pedidoFCFProjetado(fc, m) {
-    var b = fc.base, L = fc.linha;
+    var b = fc.base, L = fc.linha, R = fc.realizado;
     var pct2 = function (v) { return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%"; };
     var itens = (fc.itens || []).filter(function (it) { return it.mCaixa === m; });
-    var lanc = itens.map(function (it) {
+    var comoLinha = function (it) {
       return { id: (it.l.id || it.l.documento || "") + "|" + it.l.vencimento, dataRegime: vencimentoEfetivo(it.l.vencimento),
         contraparte: it.contraparte || "Sem contraparte", contraOrigem: "cadastro", categoria: it.l.categoria || "",
         situacao: it.previsao ? "previsto (OS)" : (it.l.tipo === "receber" ? "título a receber em aberto" : "título a pagar em aberto"),
+        nota: "vencimento " + (it.l.vencimento || "").split("-").reverse().join("/") + (vencimentoEfetivoTexto(it.l.vencimento) !== it.l.vencimento ? " (dia útil seguinte)" : ""),
         valor: it.valor };
-    });
+    };
+    var entradas = itens.filter(function (it) { return it.l.tipo === "receber"; }).map(comoLinha);
+    var titulosPagar = itens.filter(function (it) { return it.l.tipo !== "receber"; }).map(comoLinha);
     var calc = [];
     if (Math.abs(L.impostos[m] || 0) > 0.005) {
       var mp = somarMes(m, -1), sx = b.simples[mp];
       calc.push({ rotulo: "DAS da competência " + rotuloMes(mp), valor: L.impostos[m],
         conta: "alíquota efetiva estimada do Anexo III de " + pct2(sx.aliquota) + " (RBT12 " + formatarNumero(sx.rbt12, 0) + ") × receita de competência de "
-          + rotuloMes(mp) + " (" + formatarNumero(sx.receita, 2) + "); vence no dia 20" });
+          + rotuloMes(mp) + " (" + formatarNumero(sx.receita, 2) + "), que vence no dia 20 de " + rotuloMes(m) });
     }
+    var baseCusto = (fc.itens || []).filter(function (it) { return it.l.tipo === "receber" && it.mComp === m && it.mComp >= fc.mesAtual; })
+      .reduce(function (t, it) { return t + it.valor; }, 0);
     if (Math.abs(L.custos[m] || 0) > 0.005) {
-      var baseCusto = (fc.itens || []).filter(function (it) { return it.l.tipo === "receber" && it.mComp === m && it.mComp >= fc.mesAtual; })
-        .reduce(function (t, it) { return t + it.valor; }, 0);
       calc.push({ rotulo: "Custo direto estimado", valor: L.custos[m],
-        conta: pct2(b.custoPct) + " × receita projetada emitida em " + rotuloMes(m) + " (" + formatarNumero(baseCusto, 2) + ")" });
+        conta: pct2(b.custoPct) + " × receita projetada emitida em " + rotuloMes(m) + " (" + formatarNumero(baseCusto, 2) + "), média dos 3 meses fechados" });
     }
     if (Math.abs(L.despConta[m] || 0) > 0.005) {
-      calc.push({ rotulo: "Despesas pagas em conta (média)", valor: L.despConta[m],
-        conta: "média mensal de " + formatarNumero(-b.despMediaConta, 2) + " (3 meses fechados)" + (m === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " do mês (dias que faltam)" : "") });
+      calc.push({ rotulo: "Despesas pagas em conta (estimativa)", valor: L.despConta[m],
+        conta: "média mensal de " + formatarNumero(-b.despMediaConta, 2) + " nos 3 meses fechados" + (m === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " (dias que faltam no mês)" : "") });
     }
     if (Math.abs(L.despCartao[m] || 0) > 0.005) {
-      calc.push({ rotulo: "Despesas no cartão (média), fatura do dia 5", valor: L.despCartao[m],
-        conta: "média mensal de " + formatarNumero(-b.despMediaCartao, 2) + " gasta no cartão no mês anterior" + (somarMes(m, -1) === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " (parte que falta do mês corrente)" : "") });
+      calc.push({ rotulo: "Despesas no cartão (estimativa)", valor: L.despCartao[m],
+        conta: "média mensal de " + formatarNumero(-b.despMediaCartao, 2) + " gasta no cartão, no mês da compra (aumenta a fatura em aberto, que sai do caixa livre)"
+          + (m === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " (compras do resto do mês; a fatura até hoje já está no caixa livre de hoje)" : "") });
     }
-    var subtot = [
-      { rotulo: "Receita (títulos e previsões de OS)", valor: L.receita[m] || 0 },
-      { rotulo: "Títulos a pagar", valor: L.titulos[m] || 0 },
-      { rotulo: "Linhas de cálculo", valor: calc.reduce(function (t, c) { return t + c.valor; }, 0) }
-    ].filter(function (x) { return Math.abs(x.valor) > 0.005; });
-    return { modo: "grafico", titulo: "Fluxo de Caixa Livre · " + rotuloMes(m) + " (projetado)",
-      subtitulo: rotuloMes(m) + (m === fc.mesAtual ? " · de hoje ao fim do mês" : "") + " · estimativa",
-      conferencias: [{ rotulo: "Lucro Líquido projetado do mês", esperado: L.fcf[m], obtido: somaValores(lanc) + calc.reduce(function (t, c) { return t + c.valor; }, 0) }],
-      blocos: [{ subtotais: subtot, lancamentos: lanc, calculo: calc }] };
+    var ponte = { grupos: [
+      { titulo: "Entradas", subgrupos: [{ titulo: "Títulos a receber e previsões de OS, pelo vencimento efetivo", linhas: entradas }] },
+      { titulo: "Saídas", subgrupos: [{ titulo: "Títulos a pagar, pelo vencimento efetivo", linhas: titulosPagar },
+        { titulo: "Estimativas (linhas de cálculo, sem lançamento por trás)", calculo: calc }] }
+    ] };
+    var conferencias = [];
+    var fluxoProjetado = somaValores(entradas) + somaValores(titulosPagar) + calc.reduce(function (t, c) { return t + c.valor; }, 0);
+    if (m === fc.mesAtual) {
+      var dc = R && R.dadosCaixa, caucao = (R && R.caucao) || [];
+      var anteriorM = somarMes(m, -1);
+      var inicialHoje = R && R.linha.saldo && R.linha.saldo[anteriorM] !== undefined ? R.linha.saldo[anteriorM]
+        : (dc && dc.meses.indexOf(anteriorM) >= 0 ? posicaoNoMes(dc, anteriorM).livre : 0);
+      var mv = dc ? movimentosDoCaixaLivre(dc, caucao, m) : null;
+      var hojeCalc = inicialHoje + (mv ? mv.variacao : 0);
+      ponte.inicial = { rotulo: "Saldo inicial: caixa livre real no fim de " + rotuloMes(anteriorM), valor: inicialHoje };
+      ponte.realizadoHoje = mv ? { grupos: gruposDaPonte(mv), neutros: mv.neutros, neutrosNoCaixa: mv.neutrosNoCaixa,
+        hoje: { rotulo: "Caixa livre de hoje", obtido: hojeCalc, esperado: fc.caixaHoje } } : null;
+      conferencias.push({ rotulo: "Caixa livre de hoje", sufixoEsperado: " no cartão do resumo", esperado: fc.caixaHoje, obtido: hojeCalc });
+      ponte.final = { rotulo: "Saldo final calculado", obtido: hojeCalc + fluxoProjetado, rotuloEsperado: "Caixa livre no gráfico (ponto)", esperado: L.saldo[m] };
+    } else {
+      var mAnt = somarMes(m, -1);
+      ponte.inicial = { rotulo: "Saldo inicial: saldo projetado no fim de " + rotuloMes(mAnt), valor: L.saldo[mAnt] };
+      ponte.final = { rotulo: "Saldo final calculado", obtido: L.saldo[mAnt] + fluxoProjetado, rotuloEsperado: "Caixa livre no gráfico (ponto)", esperado: L.saldo[m] };
+    }
+    conferencias.unshift({ rotulo: "Caixa livre no fim do mês (ponto)", esperado: L.saldo[m], obtido: ponte.final.obtido });
+    var recCompetencia = (fc.receitaComp || {})[m] || 0;
+    return { modo: "grafico", titulo: "Caixa livre · " + rotuloMes(m) + " (projetado)",
+      subtitulo: rotuloMes(m) + (m === fc.mesAtual ? " · realizado até hoje e projeção até o fim do mês" : "") + " · estimativa",
+      conferencias: conferencias, ponteCaixa: ponte,
+      recolhido: {
+        titulo: "Lucro líquido do mês (barra): " + formatarNumero(L.fcf[m], 2),
+        conferencias: [{ rotulo: "Lucro Líquido projetado do mês", esperado: L.fcf[m], obtido: fluxoProjetado }],
+        blocos: [{ subtotais: [
+          { rotulo: "Receita (títulos e previsões de OS)", valor: L.receita[m] || 0 },
+          { rotulo: "Títulos a pagar", valor: L.titulos[m] || 0 },
+          { rotulo: "Linhas de cálculo", valor: calc.reduce(function (t, c) { return t + c.valor; }, 0) }
+        ].filter(function (x) { return Math.abs(x.valor) > 0.005; }) }],
+        conciliacao: [
+          { rotulo: "Lucro líquido projetado do mês (barra)", valor: L.fcf[m] },
+          { rotulo: "(±) Itens fora da operação (não são projetados)", valor: 0 },
+          { rotulo: "(=) Variação projetada do caixa livre" + (m === fc.mesAtual ? " (de hoje ao fim do mês)" : ""), valor: fluxoProjetado, forte: true },
+          { rotulo: "Diferenças de prazo frente à competência (informativo):", valor: null },
+          { rotulo: "Receita emitida no mês (competência)", valor: recCompetencia },
+          { rotulo: "Receita recebida no mês (caixa)", valor: L.receita[m] || 0 },
+          { rotulo: "DAS pago no mês, da competência " + rotuloMes(somarMes(m, -1)), valor: L.impostos[m] || 0 }
+        ],
+        notaConciliacao: "Na projeção a barra já é o resultado de caixa do mês (recebimentos e pagamentos pelo vencimento), então ela é igual à variação projetada do caixa livre. A receita entra pelo vencimento, não pela emissão, e o DAS do mês é o da competência anterior."
+      } };
   }
 
   var COR_LINHA_RESERVA = "#B23A2F";
@@ -4752,9 +4924,9 @@
   /*   fechados, sem os lancamentos das contrapartes que tem titulo a     */
   /*   pagar em aberto no horizonte (essas entram pelo titulo; o resto da */
   /*   categoria fica na media, ajuste de Alex, 21/10/2026). A parte paga */
-  /*   historicamente em conta de cartao (CR) sai na fatura do dia 5 do   */
-  /*   mes seguinte; o resto no proprio mes. No mes corrente, so os dias  */
-  /*   que faltam. O "ritmo do mes corrente" e so informativo.            */
+  /*   historicamente em conta de cartao (CR) sai do caixa livre no mes   */
+  /*   da compra (desde 23/10/2026), como o resto. No mes corrente, so os */
+  /*   dias que faltam. O "ritmo do mes corrente" e so informativo.       */
   /* - Titulos a pagar em aberto: no vencimento efetivo.                  */
   /* - Fora: 1.11, 2.16, 2.17, 2.18, 0.x e resultado financeiro.          */
   /* - FCF = receita - impostos - custos - despesas - titulos a pagar;    */
@@ -4867,7 +5039,13 @@
     meses.forEach(function (m) {
       var f = m === mesAtual ? fracaoMesAtual : 1;
       lanca("despConta", m, despMediaConta * f);
-      lanca("despCartao", somarMes(m, 1), despMediaCartao * f);
+      /* Compras no cartao saem do caixa livre no mes da compra, como nos  */
+      /* meses realizados (a fatura em aberto entra no caixa livre); o     */
+      /* pagamento da fatura e neutro. No mes corrente, so as compras do   */
+      /* resto do mes: a fatura em aberto ate hoje ja esta no caixa livre  */
+      /* de hoje (decisao de Alex, 23/10/2026; antes ia para a fatura do   */
+      /* dia 5 do mes seguinte).                                           */
+      lanca("despCartao", m, despMediaCartao * f);
     });
     var saldo = caixaHoje, primeiraAbaixoReserva = null, primeiraNegativa = null;
     meses.forEach(function (m) {
@@ -7506,7 +7684,7 @@
         ["Receita (caixa)", "títulos a receber em aberto e previsões de faturamento das OS, no mês do vencimento (se cair em fim de semana ou feriado, no dia útil seguinte; vencido entra no mês corrente). Total no horizonte: " + fmt(fc.totais.receber) + " (" + fmt(fc.totais.receberTitulos) + " em títulos e " + fmt(fc.totais.receberPrevisoes) + " em previsões)."],
         ["Impostos", "alíquota efetiva estimada do Anexo III para cada mês de competência, pelo RBT12 projetado (mesma regra da tela Fiscal; a receita projetada, inclusive previsões de OS, entra no RBT12 dos meses seguintes), aplicada à receita do mês pela emissão; o DAS sai no dia 20 do mês seguinte. No mês corrente entra também a receita já realizada (" + fmt(b.receitaRealizadaMesAtual) + "), cujo DAS ainda não foi pago. Alíquota por mês: " + aliqMeses + ". Referência: a alíquota efetiva realizada em " + mesesBase + " foi " + pct(b.aliquota) + " (DAS de " + fmt(-b.das3) + " sobre receita bruta de " + fmt(b.receita3) + ")."],
         ["Custos diretos", pct(b.custoPct) + " da receita (custo dos serviços de " + fmt(-b.custo3) + " sobre receita de " + fmt(b.receita3) + " em " + mesesBase + ", competência), aplicado à receita projetada, no mês da emissão."],
-        ["Despesas", "média mensal paga de " + fmt(-b.despMedia) + " em " + mesesBase + (nomesExcl.length ? ", sem os lançamentos de " + excl.join(" e ") + ", que têm título a pagar em aberto no horizonte e entram pelo título; o resto das categorias continua na média. Sem essa exclusão a média seria " + fmt(-b.despMediaSemExclusao) + " (efeito de " + fmt(b.despMedia - b.despMediaSemExclusao) + " por mês)" : "") + ". Desse total, " + fmt(-b.despMediaCartao) + " por mês foram pagos no cartão e saem na fatura do dia 5 do mês seguinte; " + fmt(-b.despMediaConta) + " saem no próprio mês. No mês corrente, só os dias que faltam (" + pct(b.fracaoMesAtual) + " do mês)."],
+        ["Despesas", "média mensal paga de " + fmt(-b.despMedia) + " em " + mesesBase + (nomesExcl.length ? ", sem os lançamentos de " + excl.join(" e ") + ", que têm título a pagar em aberto no horizonte e entram pelo título; o resto das categorias continua na média. Sem essa exclusão a média seria " + fmt(-b.despMediaSemExclusao) + " (efeito de " + fmt(b.despMedia - b.despMediaSemExclusao) + " por mês)" : "") + ". Desse total, " + fmt(-b.despMediaCartao) + " por mês foram gastos no cartão e " + fmt(-b.despMediaConta) + " pagos em conta; os dois saem do caixa livre no próprio mês, porque a compra no cartão aumenta a fatura em aberto, que já é descontada do caixa livre, e o pagamento da fatura é neutro (sai da conta e baixa a fatura). No mês corrente, só os dias que faltam (" + pct(b.fracaoMesAtual) + " do mês): a fatura em aberto até hoje já está no caixa livre de hoje."],
         ["Ritmo do mês corrente", "despesas já pagas em " + rotuloMes(fc.mesAtual) + " (sem as mesmas contrapartes): " + fmt(-rt.lancadas) + " em " + rt.diasDecorridos + " de " + rt.diasNoMes + " dias, o que dá " + fmt(-rt.noMes) + " no mês inteiro nesse ritmo, contra a média usada de " + fmt(-b.despMedia) + ". Se o mês corrente fechar acima da média, a projeção fica otimista em R$ " + fmt(rt.otimismo) + " por mês" + (rt.otimismo > 0 ? "" : " (no ritmo de hoje o mês fecha dentro da média)") + ". Só informativo: não muda o cálculo."],
         ["Títulos a pagar", "títulos a pagar em aberto (impostos, custos e despesas), no vencimento efetivo. Total no horizonte: " + fmt(-fc.totais.pagar) + "."],
         ["Fora da projeção", "mútuo e captações (1.11), distribuições (2.16), passivo e fatura de cartão (2.17), aplicações (2.18), transferências (0.x) e resultado financeiro. A fatura em aberto hoje já está descontada no caixa livre."],
@@ -7514,7 +7692,7 @@
         ["Meses realizados", (fc.realizado && fc.realizado.meses.length ? rotuloMes(fc.realizado.meses[0]) + " a " + rotuloMes(fc.realizado.meses[fc.realizado.meses.length - 1]) : "nenhum") + ", valores reais em caixa. Lucro Líquido do mês = lucro líquido de caixa (a regra do burn líquido de Reserva e runway: só linhas do DRE, inclusive resultado financeiro e não operacional). Fluxo de caixa = movimentos fora da operação: mútuo e captações (1.11), distribuições e fatura (2.16, 2.17), aplicações (2.18), investimentos (2.19), transferências (0.x) e não classificado, nas contas do caixa livre, e o que entra ou sai da caução. Saldo = caixa livre no fim do mês (o da Posição de caixa). Saldo do mês anterior + Lucro Líquido + Fluxo de caixa = saldo do mês. Reserva exigida de cada mês, como na tabela mês a mês de Reserva e runway."]
       ];
       if (fc.foraDoHorizonte.impostos || fc.foraDoHorizonte.despCartao) {
-        itensMet.push(["Depois do horizonte", "o DAS da receita do último mês (" + fmt(-fc.foraDoHorizonte.impostos) + ") e a fatura do cartão do último mês (" + fmt(-fc.foraDoHorizonte.despCartao) + ") vencem depois de " + rotuloMes(fc.meses[fc.meses.length - 1]) + " e ficam fora da tabela."]);
+        itensMet.push(["Depois do horizonte", "o DAS da receita do último mês (" + fmt(-fc.foraDoHorizonte.impostos) + ") vence depois de " + rotuloMes(fc.meses[fc.meses.length - 1]) + " e fica fora da tabela."]);
       }
       var metodologia = h("div", { className: "rounded px-4 py-3 mb-3", style: { background: COR.surface, border: "1px solid " + COR.line } },
         h("div", { className: "uppercase mb-2", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Metodologia · Free Cash Flow projetado (estimativa)"),
