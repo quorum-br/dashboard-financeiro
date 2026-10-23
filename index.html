@@ -149,6 +149,15 @@
 
   var TODAS_AS_SECOES = SECOES_DRE.concat(SECOES_FLUXO);
 
+  /* Rotulos das linhas de total e de margem da DRE e do Fluxo de caixa:  */
+  /* fonte unica, usada pelas tabelas e pelas gavetas dos graficos, para  */
+  /* que o nome numa gaveta seja sempre o mesmo da DRE (23/10/2026).      */
+  var ROTULOS_DRE = {
+    receitaLiquida: "(=) Receita Líquida", lucroBruto: "(=) Lucro Bruto", ebitda: "(=) EBITDA",
+    ebit: "(=) Resultado Antes de Impostos", lucroLiquido: "(=) Lucro Líquido", acumulado: "(=) Resultado Acumulado",
+    fcl: "(=) Fluxo de Caixa Livre do mês", margemBruta: "% margem bruta", margemEbitda: "% margem EBITDA", margemLiquida: "% margem líquida"
+  };
+
   var SECAO_POR_CHAVE = (function () {
     var mapa = {};
     TODAS_AS_SECOES.forEach(function (s) { mapa[s.key] = s; });
@@ -1071,14 +1080,13 @@
     if (ctx.ponteResumo) {
       nLanc = ctx.ponteResumo.entradas.concat(ctx.ponteResumo.saidas).reduce(function (t, g) { return t + g.realizado.length + g.projetado.length; }, 0);
     }
-    var conferencias = (ctx.conferencias || []).map(function (c, i) {
-      var ruim = difere(c.esperado, c.obtido, c.formato);
+    /* A conferencia roda sempre, mas so aparece quando falha: uma linha   */
+    /* vermelha com a diferenca (pedido de Alex, 23/10/2026: as linhas de  */
+    /* total so repetiam o numero do grafico).                             */
+    var conferencias = (ctx.conferencias || []).filter(function (c) { return difere(c.esperado, c.obtido, c.formato); }).map(function (c, i) {
       return h("div", { key: i, className: "mt-2" },
-        linhaValor(c.rotulo + (c.sufixoEsperado || " no gráfico"), fmtValor(c.esperado, c.formato), { k: "e" }),
-        linhaValor(c.rotulo + " nesta gaveta", fmtValor(c.obtido, c.formato), { k: "o", forte: true }),
-        ruim ? linhaValor("Diferença (erro de filtro)", c.formato === "pct" || c.formato === "qtd"
-          ? fmtValor(c.obtido, c.formato) + " × " + fmtValor(c.esperado, c.formato)
-          : formatarNumero((c.obtido || 0) - (c.esperado || 0), 2), { k: "d", forte: true, cor: COR.coral }) : null);
+        linhaValor("Diferença em " + c.rotulo + " (erro de filtro): gráfico " + fmtValor(c.esperado, c.formato) + " × gaveta " + fmtValor(c.obtido, c.formato),
+          c.formato === "pct" || c.formato === "qtd" ? "" : formatarNumero((c.obtido || 0) - (c.esperado || 0), 2), { k: "d", forte: true, cor: COR.coral }));
     });
     var cabecalho = h("div", { className: "sticky top-0 px-5 py-4", style: { background: COR.surface, borderBottom: "1px solid " + COR.line, zIndex: 1 } },
       h("div", { className: "flex items-start gap-3" },
@@ -1115,6 +1123,18 @@
     /* Ponte resumida do caixa livre (grafico 10): saldo do mes anterior + */
     /* entradas agrupadas - saidas agrupadas = saldo do mes, conferido com */
     /* o ponto. Cada grupo expande para os lancamentos ou a estimativa.    */
+    var calculoPct = null;
+    if (ctx.calculoPct) {
+      var cp = ctx.calculoPct;
+      calculoPct = h("div", { className: "mt-4 px-3 py-2 rounded", style: { background: COR.bg } },
+        h("div", { className: "uppercase mb-1", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Cálculo do percentual"),
+        (cp.linhas || []).map(function (x, i) { return linhaValor(x.rotulo, formatarNumero(x.valor, 2), { k: "cp" + i }); }),
+        cp.semValor ? h("div", { className: "mt-1", style: { fontSize: 11.5, color: COR.faint } }, cp.semValor) : [
+          h("div", { key: "f", className: "mt-1", style: { fontSize: 11.5, color: COR.dim } }, cp.formula),
+          h("div", { key: "c", className: "flex justify-between mt-1", style: { fontSize: 12.5, fontWeight: 700, color: COR.text } },
+            h("span", { style: { fontVariantNumeric: "tabular-nums" } }, cp.conta),
+            h("span", { "data-resultado-pct": cp.resultado }, cp.resultado))]);
+    }
     var ponteResumo = null;
     if (ctx.ponteResumo) {
       var pr = ctx.ponteResumo;
@@ -1221,7 +1241,7 @@
           : linhaValor("Diferença na ponte", "0,00", { k: "pd", cor: COR.mint }),
         p.nota ? h("div", { className: "mt-2", style: { fontSize: 10.5, color: COR.faint, lineHeight: 1.5 } }, p.nota) : null);
     }
-    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, ponte, ponteResumo, corpoBlocos, recolhido));
+    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, calculoPct, ponte, ponteResumo, corpoBlocos, recolhido));
   }
 
   /* Gaveta de Prazos e atrasos (Parte D, 21/10/2026): os titulos que     */
@@ -1566,6 +1586,20 @@
     };
   }
 
+  /* Bloco "Calculo do percentual" das gavetas dos graficos 3 a 6: a conta */
+  /* exata da linha de percentual do grafico no mes (numerador,           */
+  /* denominador, formula e resultado com a mesma formatacao do rotulo).  */
+  function blocoCalculoPercentual(rotNum, valNum, rotDen, valDen, resultado, crescimento) {
+    if (resultado === null || resultado === undefined) {
+      return { linhas: [{ rotulo: rotNum, valor: valNum }, { rotulo: rotDen, valor: valDen }],
+        semValor: "Sem percentual neste mês: o denominador é zero ou negativo, e o gráfico não desenha o ponto." };
+    }
+    return { linhas: [{ rotulo: rotNum, valor: valNum }, { rotulo: rotDen, valor: valDen }],
+      formula: rotNum + " ÷ " + rotDen + (crescimento ? " − 1" : ""),
+      conta: formatarNumero(valNum, 2) + " ÷ " + formatarNumero(valDen, 2) + (crescimento ? " − 1" : "") + " = " + formatarPercentual(resultado),
+      resultado: formatarPercentual(resultado) };
+  }
+
   /* Camada de clique por coluna: retangulos transparentes por cima do    */
   /* desenho (cobrem barra, ponto e rotulo do mes). So com valor.         */
   function camadaDeCliques(aoClicar, alvos) {
@@ -1744,7 +1778,7 @@
             fontWeight: 600,
             fontVariantNumeric: "tabular-nums"
           }
-        }, clicavel ? { "data-clique": "1", className: "quorum-tot",
+        }, clicavel && !props.semCliqueNoTotal ? { "data-clique": "1", className: "quorum-tot",
           onClick: (function (m) { return function () { props.aoClicar(pedidoTotalMes(m)); }; })(mes) } : {}),
           formatarNumero(totalPorMes[mes], 0)));
       }
@@ -1876,7 +1910,7 @@
       meses: meses,
       regime: regime,
       numero: props.numero,
-      aoClicar: props.aoClicar, linhas: dados.usadas, tituloGaveta: "Receita bruta"
+      aoClicar: props.aoClicar, linhas: dados.usadas, tituloGaveta: rotuloSecao("receita"), semCliqueNoTotal: true
     });
   }
 
@@ -1974,7 +2008,7 @@
       regime: regime,
       numero: props.numero,
       vazio: "Sem receita atribuída a cliente no período para montar o gráfico.",
-      aoClicar: props.aoClicar, linhas: dados.usadas, tituloGaveta: "Receita bruta por cliente"
+      aoClicar: props.aoClicar, linhas: dados.usadas, tituloGaveta: rotuloSecao("receita")
     });
   }
 
@@ -2217,8 +2251,10 @@
         h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda),
         camadaDeCliques(props.aoClicar, meses.map(function (mes, i) {
           return alvoColuna(margem, faixa, i, baseY, dados.receitaLiquida[mes], function () {
-            return pedidoComposicao(dados, regime, "Receita líquida · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos"], dados.receitaLiquida[mes]);
-          }, "Receita líquida de " + rotuloMes(mes));
+            var pedidoPct = pedidoComposicao(dados, regime, ROTULOS_DRE.receitaLiquida + " · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos"], dados.receitaLiquida[mes]);
+            pedidoPct.calculoPct = blocoCalculoPercentual(ROTULOS_DRE.receitaLiquida, dados.receitaLiquida[mes], rotuloSecao("receita"), dados.S.receita[mes], percentuais[mes], false);
+            return pedidoPct;
+          }, ROTULOS_DRE.receitaLiquida + " · " + rotuloMes(mes));
         }))
       )
     );
@@ -2467,8 +2503,10 @@
         h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda),
         camadaDeCliques(props.aoClicar, meses.map(function (mes, i) {
           return alvoColuna(margem, faixa, i, baseY, dados.lucroBruto[mes], function () {
-            return pedidoComposicao(dados, regime, "Lucro bruto · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos", "custo"], dados.lucroBruto[mes]);
-          }, "Lucro bruto de " + rotuloMes(mes));
+            var pedidoPct = pedidoComposicao(dados, regime, ROTULOS_DRE.lucroBruto + " · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos", "custo"], dados.lucroBruto[mes]);
+            pedidoPct.calculoPct = blocoCalculoPercentual(ROTULOS_DRE.lucroBruto, dados.lucroBruto[mes], ROTULOS_DRE.receitaLiquida, dados.receitaLiquida[mes], percentuais[mes], false);
+            return pedidoPct;
+          }, ROTULOS_DRE.lucroBruto + " · " + rotuloMes(mes));
         }))
       )
     );
@@ -2761,8 +2799,10 @@
         h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, pecasLegenda),
         camadaDeCliques(props.aoClicar, meses.map(function (mes, i) {
           return alvoColuna(margem, faixa, i, baseY, dados.ebitda[mes], function () {
-            return pedidoComposicao(dados, regime, "EBITDA · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos", "custo", "despesas"], dados.ebitda[mes]);
-          }, "EBITDA de " + rotuloMes(mes));
+            var pedidoPct = pedidoComposicao(dados, regime, ROTULOS_DRE.ebitda + " · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos", "custo", "despesas"], dados.ebitda[mes]);
+            pedidoPct.calculoPct = blocoCalculoPercentual(ROTULOS_DRE.ebitda, dados.ebitda[mes], ROTULOS_DRE.receitaLiquida, dados.receitaLiquida[mes], percentuais[mes], false);
+            return pedidoPct;
+          }, ROTULOS_DRE.ebitda + " · " + rotuloMes(mes));
         }))
       )
     );
@@ -2824,19 +2864,19 @@
     /* receita liquida -> custo -> lucro bruto -> despesas -> ebitda ->     */
     /* financeiro -> nao operacional -> impostos sobre o lucro -> liquido.  */
     var etapasBrutas = [
-      { tipo: "total", rotulo: "Receita Bruta", valor: recBruta, secoes: ["receita"] },
+      { tipo: "total", rotulo: "Receita Bruta", valor: recBruta, secoes: ["receita"], rotuloDre: rotuloSecao("receita") },
       { tipo: "delta", rotulo: "Impostos e Deduções", valor: impostos, secoes: ["impostos"] },
-      { tipo: "total", rotulo: "Receita Líquida", valor: recLiquida, secoes: ["receita", "impostos"] },
+      { tipo: "total", rotulo: "Receita Líquida", valor: recLiquida, secoes: ["receita", "impostos"], rotuloDre: ROTULOS_DRE.receitaLiquida },
       { tipo: "delta", rotulo: "Custo dos Serviços Prestados", valor: custo, secoes: ["custo"] },
-      { tipo: "total", rotulo: "Lucro Bruto", valor: lucroBrutoTotal, secoes: ["receita", "impostos", "custo"] },
+      { tipo: "total", rotulo: "Lucro Bruto", valor: lucroBrutoTotal, secoes: ["receita", "impostos", "custo"], rotuloDre: ROTULOS_DRE.lucroBruto },
       { tipo: "delta", rotulo: "Despesas Fixas", valor: despesas, secoes: ["despesas"] },
-      { tipo: "total", rotulo: "EBITDA", valor: ebitdaTotal, secoes: ["receita", "impostos", "custo", "despesas"] },
+      { tipo: "total", rotulo: "EBITDA", valor: ebitdaTotal, secoes: ["receita", "impostos", "custo", "despesas"], rotuloDre: ROTULOS_DRE.ebitda },
       { tipo: "delta", rotulo: "Receitas Financeiras", valor: finRec, secoes: ["finRec"] },
       { tipo: "delta", rotulo: "Despesas Financeiras", valor: finDesp, secoes: ["finDesp"] },
       { tipo: "delta", rotulo: "Outras Receitas Não Operacionais", valor: outrasRec, secoes: ["outrasRec"] },
       { tipo: "delta", rotulo: "Resultado Não Operacional", valor: outrasDesp, secoes: ["outrasDesp"] },
       { tipo: "delta", rotulo: "Impostos sobre o Lucro", valor: impLucro, secoes: ["impLucro"] },
-      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, secoes: SECOES_DO_DRE, final: !ateFluxoCaixa }
+      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, secoes: SECOES_DO_DRE, rotuloDre: ROTULOS_DRE.lucroLiquido, final: !ateFluxoCaixa }
     ];
 
     /* Continua a mesma cascata para dentro do Fluxo de Caixa — as secoes    */
@@ -2862,7 +2902,7 @@
         { tipo: "delta", rotulo: "Investimentos", valor: capex, secoes: ["capex"] },
         { tipo: "delta", rotulo: "Transferências entre Contas", valor: transf, secoes: ["transf"] },
         { tipo: "delta", rotulo: "Não Classificado", valor: naoClassificado, secoes: ["naoClassificado"] },
-        { tipo: "total", rotulo: "Fluxo de Caixa Livre", valor: fclTotal, secoes: SECOES_DO_DRE.concat(SECOES_DO_FLUXO), final: true }
+        { tipo: "total", rotulo: "Fluxo de Caixa Livre", valor: fclTotal, secoes: SECOES_DO_DRE.concat(SECOES_DO_FLUXO), rotuloDre: ROTULOS_DRE.fcl, final: true }
       ]);
     }
 
@@ -3067,8 +3107,10 @@
         camadaDeCliques(props.aoClicar, etapas.map(function (e, i) {
           var periodoTxt = rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1]);
           return alvoColuna(margem, faixa, i, baseY, e.valor, function () {
-            return pedidoComposicao(dados, regime, e.rotulo + " · " + periodoTxt, periodoTxt, meses, e.secoes, e.valor);
-          }, e.rotulo);
+            /* nome da DRE: o do total, ou o da secao quando a etapa e uma so */
+            var nomeDre = e.rotuloDre || (e.secoes.length === 1 ? rotuloSecao(e.secoes[0]) : e.rotulo);
+            return pedidoComposicao(dados, regime, nomeDre + " · " + periodoTxt, periodoTxt, meses, e.secoes, e.valor);
+          }, e.rotuloDre || (e.secoes.length === 1 ? rotuloSecao(e.secoes[0]) : e.rotulo));
         }))
       )
     );
@@ -3411,13 +3453,17 @@
             var lista = dados.usadas.filter(function (l) {
               return gruposReceita.indexOf(l.grupo) >= 0 && janela.indexOf(chaveMes(l.dataRegime)) >= 0;
             });
-            return { modo: "grafico", titulo: "Receita bruta LTM até " + rotuloMes(mes),
+            var iAnt = mesesValidos.indexOf(mes) - 1;
+            return { modo: "grafico", titulo: rotuloSecao("receita") + " LTM até " + rotuloMes(mes),
+              calculoPct: iAnt < 0 ? { semValor: "Sem percentual no primeiro mês exibido: não há LTM do mês anterior para comparar." }
+                : blocoCalculoPercentual(rotuloSecao("receita") + " LTM " + rotuloMes(mes), valoresBarra[mes],
+                    rotuloSecao("receita") + " LTM " + rotuloMes(mesesValidos[iAnt]), valoresBarra[mesesValidos[iAnt]], crescimento[mes], true),
               subtitulo: rotuloMes(janela[0]) + " a " + rotuloMes(mes) + " · " + textoRegime(regime),
               conferencias: [{ rotulo: "Total", esperado: valoresBarra[mes], obtido: somaValores(lista) }],
               blocos: [{ subtotais: janela.map(function (m) {
                 return { rotulo: rotuloMes(m), valor: somaValores(lista.filter(function (l) { return chaveMes(l.dataRegime) === m; })) };
               }), lancamentos: lista }] };
-          }, "Receita LTM até " + rotuloMes(mes));
+          }, rotuloSecao("receita") + " LTM até " + rotuloMes(mes));
         }))
       )
     );
@@ -3594,7 +3640,7 @@
             return { modo: "grafico", titulo: "Concentração de receita · LTM até " + rotuloMes(mes),
               subtitulo: rotuloMes(cc.mesPrimeiro) + " a " + rotuloMes(mes) + " · " + textoRegime(regime),
               conferencias: [
-                { rotulo: "Receita bruta da janela", esperado: cc.total, obtido: somaValores(cc.lista) },
+                { rotulo: rotuloSecao("receita") + " LTM", esperado: cc.total, obtido: somaValores(cc.lista) },
                 { rotulo: "Maior cliente", esperado: cc.maior, obtido: top1, formato: "pct" },
                 { rotulo: "3 maiores", esperado: cc.top3, obtido: top3, formato: "pct" },
                 { rotulo: "Clientes ativos", esperado: cc.ativos, obtido: positivos.length, formato: "qtd" }
@@ -3677,8 +3723,12 @@
   /* cartao ficam no grupo da categoria delas. Entradas: ate 5            */
   /* contrapartes no mes, uma linha por contraparte; mais que isso, por   */
   /* grupo de categoria.                                                  */
-  var ORDEM_SAIDAS_PONTE = ["Impostos (DAS)", "Custos diretos", "Despesas administrativas", "Marketing e vendas", "Pessoal",
-    "Despesas financeiras", "Distribuições a sócios", "Aplicações e caução", "Mútuos e adiantamentos de sócios", "Outras"];
+  /* Grupos de saida com os nomes da DRE (secoes e grupos da Omie, pedido */
+  /* de Alex em 23/10/2026), na ordem: impostos, custo, despesas (por     */
+  /* grupo), financeiras, distribuicoes, aplicacoes e caucao, mutuos de   */
+  /* socios, outras. RANK_SAIDA_PONTE guarda a ordem de cada rotulo.      */
+  var RANK_SAIDA_PONTE = {};
+  var ORDEM_GRUPOS_DESPESA = ["2.09", "2.11", "2.10", "2.12", "2.08"];
   /* Mutuo ou adiantamento de socio (entrada 1.11 ou devolucao 2.17), pelo  */
   /* nome da categoria (ex.: "Mútuo de Sócios (Entrada)", "Mútuo de Sócios */
   /* (Devolução)"). Adiantamento de cliente nao entra aqui.                */
@@ -3687,28 +3737,37 @@
   function codigoGrupoPonte(l) { return String(l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || ""); }
   function secaoPonte(l) { return l.secaoPonte || secaoDaLinha(l); }
   function classeDeSaidaPonte(l) {
-    if (l.classePonte === "caucao") return "Aplicações e caução";
-    if (l.classePonte === "outras") return "Outras";
-    var sec = secaoPonte(l), cg = codigoGrupoPonte(l);
-    if (sec === "impostos" || sec === "impLucro") return "Impostos (DAS)";
-    if (sec === "custo") return "Custos diretos";
-    if (sec === "despesas") return cg === "2.08" ? "Pessoal" : (cg === "2.10" || cg === "2.12" ? "Marketing e vendas" : "Despesas administrativas");
-    if (sec === "finDesp") return "Despesas financeiras";
-    if (cg === "2.16") return "Distribuições a sócios";
-    if (sec === "ativo") return "Aplicações e caução";
-    if ((sec === "saidas" || sec === "entradas") && ehMutuoDeSocio(l)) return ROTULO_MUTUO_SOCIOS;
-    return "Outras";
+    var par = (function () {
+      if (l.classePonte === "caucao") return ["Aplicações e caução", 60];
+      if (l.classePonte === "outras") return ["Outras", 90];
+      var sec = secaoPonte(l), cg = codigoGrupoPonte(l);
+      if (sec === "impostos") return [rotuloSecao("impostos"), 10];
+      if (sec === "custo") return [rotuloSecao("custo"), 20];
+      if (sec === "despesas") {
+        var i = ORDEM_GRUPOS_DESPESA.indexOf(cg);
+        return [l.grupo || rotuloSecao("despesas"), 30 + (i < 0 ? ORDEM_GRUPOS_DESPESA.length : i)];
+      }
+      if (sec === "finDesp") return [rotuloSecao("finDesp"), 40];
+      if (sec === "impLucro") return [rotuloSecao("impLucro"), 45];
+      if (sec === "outrasDesp") return [rotuloSecao("outrasDesp"), 47];
+      if (cg === "2.16") return [l.grupo || rotuloSecao("saidas"), 50];
+      if (sec === "ativo") return ["Aplicações e caução", 60];
+      if ((sec === "saidas" || sec === "entradas") && ehMutuoDeSocio(l)) return [ROTULO_MUTUO_SOCIOS, 70];
+      return ["Outras", 90];
+    })();
+    RANK_SAIDA_PONTE[par[0]] = par[1];
+    return par[0];
   }
   function classeDeEntradaPonte(l) {
     if (l.classePonte === "caucao") return "Volta da caução";
     if (l.classePonte === "outras") return "Outras entradas";
     var sec = secaoPonte(l);
     if (sec === "receita") return l.grupo || "Receitas";
-    if (sec === "finRec") return "Receitas financeiras";
-    if (sec === "outrasRec") return "Outras receitas";
-    if (sec === "entradas") return ehMutuoDeSocio(l) ? ROTULO_MUTUO_SOCIOS : "Mútuo e captações";
+    if (sec === "finRec") return rotuloSecao("finRec");
+    if (sec === "outrasRec") return rotuloSecao("outrasRec");
+    if (sec === "entradas") return ehMutuoDeSocio(l) ? ROTULO_MUTUO_SOCIOS : (l.grupo || rotuloSecao("entradas"));
     if (sec === "saidas" && ehMutuoDeSocio(l)) return ROTULO_MUTUO_SOCIOS;
-    if (sec === "ativo") return "Resgates de aplicação";
+    if (sec === "ativo") return l.grupo || rotuloSecao("ativo");
     return "Outras entradas";
   }
   /* Natureza de uma entrada que nao e receita, para ir junto do nome da  */
@@ -3738,7 +3797,7 @@
         if (comNatureza) { var nat = naturezaDaEntrada(l) || "receita"; if (g.naturezas.indexOf(nat) < 0) g.naturezas.push(nat); }
       });
       (calcs || []).forEach(function (c) { var g = pega(c.classe); g.valor += c.valor; g.calculo.push(c); g.estimativa = true; });
-      var chaves = ordem ? ordem.filter(function (k) { return mapa[k]; }).concat(ordemVista.filter(function (k) { return ordem.indexOf(k) < 0; }))
+      var chaves = ordem ? ordemVista.slice().sort(function (a, b) { return ordem(a) - ordem(b); })
         : ordemVista.slice().sort(function (a, b) { return Math.abs(mapa[b].valor) - Math.abs(mapa[a].valor); });
       return chaves.map(function (k) { return mapa[k]; }).filter(function (g) { return Math.abs(g.valor) > 0.005 || g.realizado.length + g.projetado.length + g.calculo.length; })
         .map(function (g) {
@@ -3756,7 +3815,7 @@
     return {
       porContraparte: porContraparte,
       entradas: grupos(entradas, porContraparte ? function (l) { return l.contraparte || "Sem contraparte"; } : classeDeEntradaPonte, null, [], porContraparte),
-      saidas: grupos(saidas, classeDeSaidaPonte, ORDEM_SAIDAS_PONTE, calculo)
+      saidas: grupos(saidas, classeDeSaidaPonte, function (k) { return RANK_SAIDA_PONTE[k] !== undefined ? RANK_SAIDA_PONTE[k] : 85; }, calculo)
     };
   }
   function comFase(lista, fase) { return lista.map(function (l) { return Object.assign({}, l, { fase: fase }); }); }
@@ -3814,21 +3873,24 @@
     var calc = [];
     if (Math.abs(L.impostos[m] || 0) > 0.005) {
       var mp = somarMes(m, -1), sx = b.simples[mp];
-      calc.push({ classe: "Impostos (DAS)", rotulo: "DAS da competência " + rotuloMes(mp), valor: L.impostos[m],
+      RANK_SAIDA_PONTE[rotuloSecao("impostos")] = 10;
+      calc.push({ classe: rotuloSecao("impostos"), rotulo: "DAS da competência " + rotuloMes(mp), valor: L.impostos[m],
         conta: "alíquota efetiva estimada do Anexo III de " + pct2(sx.aliquota) + " (RBT12 " + formatarNumero(sx.rbt12, 0) + ") × receita de competência de "
           + rotuloMes(mp) + " (" + formatarNumero(sx.receita, 2) + "), que vence no dia 20 de " + rotuloMes(m) });
     }
     if (Math.abs(L.custos[m] || 0) > 0.005) {
       var baseCusto = (fc.itens || []).filter(function (it) { return it.l.tipo === "receber" && it.mComp === m && it.mComp >= fc.mesAtual; })
         .reduce(function (t, it) { return t + it.valor; }, 0);
-      calc.push({ classe: "Custos diretos", rotulo: "Custo direto estimado", valor: L.custos[m],
+      RANK_SAIDA_PONTE[rotuloSecao("custo")] = 20;
+      calc.push({ classe: rotuloSecao("custo"), rotulo: "Custo direto estimado", valor: L.custos[m],
         conta: pct2(b.custoPct) + " × receita projetada emitida em " + rotuloMes(m) + " (" + formatarNumero(baseCusto, 2) + "), média dos 3 meses fechados" });
     }
     /* Despesas medias divididas pelos grupos (media de cada grupo nos 3  */
     /* meses fechados); conta e cartao juntos, porque os dois saem do     */
     /* caixa livre no proprio mes. A soma dos grupos e a linha da tabela. */
     var porClasse = b.despPorClasse || {}, totalDesp = (L.despConta[m] || 0) + (L.despCartao[m] || 0), somaClasses = 0;
-    var classes = ORDEM_SAIDAS_PONTE.filter(function (k) { return Math.abs(porClasse[k] || 0) > 0.005; });
+    var classes = Object.keys(porClasse).filter(function (k) { return Math.abs(porClasse[k] || 0) > 0.005; })
+      .sort(function (a, c) { return (RANK_SAIDA_PONTE[a] || 85) - (RANK_SAIDA_PONTE[c] || 85); });
     classes.forEach(function (k, i) {
       var v = i === classes.length - 1 ? totalDesp - somaClasses : (porClasse[k] || 0) * f;
       somaClasses += v;
@@ -6802,13 +6864,13 @@
         rows.push({ key: label, label: label, nivel: "pct", formato: "pct",
           serie: function (d) { return pctMes(d, d[campo]); }, acum: function (d) { return pctAcum(d, d[campo]); } });
       }
-      secao(0); secao(1); total("(=) Receita Líquida", "receitaLiquida");
-      secao(2); total("(=) Lucro Bruto", "lucroBruto"); pct("% margem bruta", "lucroBruto");
-      secao(3); total("(=) EBITDA", "ebitda"); pct("% margem EBITDA", "ebitda");
-      secao(4); secao(5); secao(6); secao(7); total("(=) Resultado Antes de Impostos", "ebit");
-      secao(8); total("(=) Lucro Líquido", "lucroLiquido");
-      rows.push({ key: "acumulado", label: "(=) Resultado Acumulado", nivel: "secao", acumFinal: true, serie: function (d) { return d.acumulado; } });
-      pct("% margem líquida", "lucroLiquido");
+      secao(0); secao(1); total(ROTULOS_DRE.receitaLiquida, "receitaLiquida");
+      secao(2); total(ROTULOS_DRE.lucroBruto, "lucroBruto"); pct(ROTULOS_DRE.margemBruta, "lucroBruto");
+      secao(3); total(ROTULOS_DRE.ebitda, "ebitda"); pct(ROTULOS_DRE.margemEbitda, "ebitda");
+      secao(4); secao(5); secao(6); secao(7); total(ROTULOS_DRE.ebit, "ebit");
+      secao(8); total(ROTULOS_DRE.lucroLiquido, "lucroLiquido");
+      rows.push({ key: "acumulado", label: ROTULOS_DRE.acumulado, nivel: "secao", acumFinal: true, serie: function (d) { return d.acumulado; } });
+      pct(ROTULOS_DRE.margemLiquida, "lucroLiquido");
       return rows;
     }
 
@@ -7226,22 +7288,22 @@
         linhasDaSecao(dados.secoesDre[0]),
         linhasDaSecao(dados.secoesDre[1]),
         h(LinhaTabela, {
-          label: "(=) Receita Líquida", valores: dados.receitaLiquida, meses: meses, nivel: "total"
+          label: ROTULOS_DRE.receitaLiquida, valores: dados.receitaLiquida, meses: meses, nivel: "total"
         }),
         linhasDaSecao(dados.secoesDre[2]),
         h(LinhaTabela, {
-          label: "(=) Lucro Bruto", valores: dados.lucroBruto, meses: meses, nivel: "total"
+          label: ROTULOS_DRE.lucroBruto, valores: dados.lucroBruto, meses: meses, nivel: "total"
         }),
         h(LinhaTabela, {
-          label: "% margem bruta", valores: sobreReceitaLiquida(dados.lucroBruto),
+          label: ROTULOS_DRE.margemBruta, valores: sobreReceitaLiquida(dados.lucroBruto),
           meses: meses, nivel: "pct", formato: "pct", acumulado: acumuladoSobreReceitaLiquida(dados.lucroBruto)
         }),
         linhasDaSecao(dados.secoesDre[3]),
         h(LinhaTabela, {
-          label: "(=) EBITDA", valores: dados.ebitda, meses: meses, nivel: "total"
+          label: ROTULOS_DRE.ebitda, valores: dados.ebitda, meses: meses, nivel: "total"
         }),
         h(LinhaTabela, {
-          label: "% margem EBITDA", valores: sobreReceitaLiquida(dados.ebitda),
+          label: ROTULOS_DRE.margemEbitda, valores: sobreReceitaLiquida(dados.ebitda),
           meses: meses, nivel: "pct", formato: "pct", acumulado: acumuladoSobreReceitaLiquida(dados.ebitda)
         }),
         linhasDaSecao(dados.secoesDre[4]),
@@ -7249,14 +7311,14 @@
         linhasDaSecao(dados.secoesDre[6]),
         linhasDaSecao(dados.secoesDre[7]),
         h(LinhaTabela, {
-          label: "(=) Resultado Antes de Impostos", valores: dados.ebit, meses: meses, nivel: "total"
+          label: ROTULOS_DRE.ebit, valores: dados.ebit, meses: meses, nivel: "total"
         }),
         linhasDaSecao(dados.secoesDre[8]),
         h(LinhaTabela, {
-          label: "(=) Lucro Líquido", valores: dados.lucroLiquido, meses: meses, nivel: "total"
+          label: ROTULOS_DRE.lucroLiquido, valores: dados.lucroLiquido, meses: meses, nivel: "total"
         }),
         h(LinhaTabela, {
-          label: "(=) Resultado Acumulado", valores: dados.acumulado, meses: meses, nivel: "secao",
+          label: ROTULOS_DRE.acumulado, valores: dados.acumulado, meses: meses, nivel: "secao",
           acumulado: ultimoMes ? dados.acumulado[ultimoMes] : 0
         }),
         h(LinhaTabela, {
@@ -7304,7 +7366,7 @@
           }),
           dados.secoesFluxo.map(function (secao) { return linhasDaSecao(secao); }),
           h(LinhaTabela, {
-            label: "(=) Fluxo de Caixa Livre do mês", valores: dados.fcl,
+            label: ROTULOS_DRE.fcl, valores: dados.fcl,
             meses: meses, nivel: "total", casas: 2
           }),
           h(LinhaTabela, {
