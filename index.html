@@ -1068,10 +1068,8 @@
     };
     var titulo = function (t) { return h("div", { className: "uppercase mt-4 mb-1", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, t); };
     var nLanc = (ctx.blocos || []).reduce(function (t, b) { return t + (b.lancamentos || []).length; }, 0);
-    if (ctx.ponteCaixa) {
-      var contaGrupos = function (gs) { return (gs || []).reduce(function (t, g) { return t + g.subgrupos.reduce(function (u, sg) { return u + (sg.linhas || []).length; }, 0); }, 0); };
-      nLanc = contaGrupos(ctx.ponteCaixa.grupos) + (ctx.ponteCaixa.neutros || []).length
-        + (ctx.ponteCaixa.realizadoHoje ? contaGrupos(ctx.ponteCaixa.realizadoHoje.grupos) + (ctx.ponteCaixa.realizadoHoje.neutros || []).length : 0);
+    if (ctx.ponteResumo) {
+      nLanc = ctx.ponteResumo.entradas.concat(ctx.ponteResumo.saidas).reduce(function (t, g) { return t + g.realizado.length + g.projetado.length; }, 0);
     }
     var conferencias = (ctx.conferencias || []).map(function (c, i) {
       var ruim = difere(c.esperado, c.obtido, c.formato);
@@ -1114,59 +1112,59 @@
           h("div", { style: { fontSize: 10.5, color: COR.faint } }, c.conta));
       });
     }
-    /* Ponte do caixa livre (grafico 10): saldo inicial + entradas - saidas */
-    /* = saldo final; itens neutros a parte; conferencia com o ponto.      */
-    function blocoGrupos(grupos, chave) {
-      return grupos.map(function (g, gi) {
-        var totalG = 0, partesG = [];
-        g.subgrupos.forEach(function (sg, si) {
-          var linhas = sg.linhas || [], calc = sg.calculo || [];
-          if (!linhas.length && !calc.length) return;
-          var sub = somaValores(linhas) + calc.reduce(function (t, c) { return t + c.valor; }, 0);
-          totalG += sub;
-          partesG.push(titulo(sg.titulo));
-          if (linhas.length) partesG.push(tabelaLancamentos(linhas, chave + gi + "t" + si));
-          if (calc.length) partesG.push(h("div", { key: chave + gi + "c" + si }, linhasDeCalculo(calc, chave + gi + "c" + si)));
-          partesG.push(linhaValor("Subtotal", formatarNumero(sub, 2), { k: chave + gi + "s" + si }));
-        });
-        return h("div", { key: chave + gi },
-          h("div", { className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, g.titulo),
-          partesG.length ? partesG : h("div", { style: { fontSize: 11.5, color: COR.faint } }, "Nenhum no mês."),
-          linhaValor("Total de " + g.titulo.toLowerCase(), formatarNumero(totalG, 2), { k: chave + gi + "tot", forte: true }));
-      });
-    }
-    function blocoNeutros(neutros, liquido, chave) {
-      if (!neutros || !neutros.length) return null;
-      return h("div", { key: chave },
-        h("div", { className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, "Itens neutros (não mudam o caixa livre)"),
-        tabelaLancamentos(neutros, chave + "t"),
-        linhaValor("Efeito líquido no caixa livre", formatarNumero(liquido, 2), { k: chave + "l", cor: Math.abs(liquido) > 0.005 ? COR.coral : COR.mint }));
-    }
-    var ponteCaixa = null;
-    if (ctx.ponteCaixa) {
-      var pc = ctx.ponteCaixa, partesP = [];
-      partesP.push(h("div", { key: "tt", className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, "Ponte do caixa livre"));
-      if (pc.inicial) partesP.push(linhaValor(pc.inicial.rotulo, formatarNumero(pc.inicial.valor, 2), { k: "ini", forte: true }));
-      if (pc.realizadoHoje) {
-        var rh = pc.realizadoHoje;
-        partesP.push(h("div", { key: "rh", className: "mt-3 px-3 pb-2 rounded", style: { background: COR.bg } },
-          h("div", { className: "pt-2", style: { fontSize: 12.5, fontWeight: 700, color: COR.text } }, "Realizado no mês até hoje"),
-          blocoGrupos(rh.grupos, "rh"), blocoNeutros(rh.neutros, rh.neutrosNoCaixa, "rhn"),
-          linhaValor(rh.hoje.rotulo, formatarNumero(rh.hoje.obtido, 2), { k: "hoje", forte: true }),
-          difere(rh.hoje.esperado, rh.hoje.obtido) ? linhaValor("Diferença para o cartão Caixa livre do resumo (" + formatarNumero(rh.hoje.esperado, 2) + ")",
-            formatarNumero(rh.hoje.obtido - rh.hoje.esperado, 2), { k: "hojed", forte: true, cor: COR.coral })
-            : linhaValor("Igual ao cartão Caixa livre do resumo", formatarNumero(rh.hoje.esperado, 2), { k: "hojeok", cor: COR.mint })));
-        partesP.push(h("div", { key: "proj", className: "mt-4", style: { fontSize: 12.5, fontWeight: 700, color: COR.text } }, "Projeção de hoje ao fim do mês"));
-      }
-      partesP.push(blocoGrupos(pc.grupos, "g"));
-      partesP.push(blocoNeutros(pc.neutros, pc.neutrosNoCaixa || 0, "neu"));
-      var ruimF = difere(pc.final.esperado, pc.final.obtido);
-      partesP.push(h("div", { key: "fim", className: "mt-4" },
-        linhaValor(pc.final.rotulo, formatarNumero(pc.final.obtido, 2), { k: "fo", forte: true }),
-        linhaValor(pc.final.rotuloEsperado, formatarNumero(pc.final.esperado, 2), { k: "fe" }),
-        ruimF ? linhaValor("Diferença (não forçada)", formatarNumero(pc.final.obtido - pc.final.esperado, 2), { k: "fd", forte: true, cor: COR.coral })
-          : linhaValor("Diferença", "0,00", { k: "fd", cor: COR.mint })));
-      ponteCaixa = h("div", null, partesP);
+    /* Ponte resumida do caixa livre (grafico 10): saldo do mes anterior + */
+    /* entradas agrupadas - saidas agrupadas = saldo do mes, conferido com */
+    /* o ponto. Cada grupo expande para os lancamentos ou a estimativa.    */
+    var ponteResumo = null;
+    if (ctx.ponteResumo) {
+      var pr = ctx.ponteResumo;
+      var selo = function (t) {
+        return h("span", { className: "ml-2 px-1.5 rounded", style: { fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", border: "1px solid " + COR.brass, color: COR.brass } }, t);
+      };
+      var linhaFixa = function (k, sinal, rotulo, valor, extra, forte) {
+        return h("div", { key: k, className: "flex justify-between py-1.5", style: { borderBottom: "1px solid " + COR.line, fontSize: 13, fontWeight: forte ? 700 : 600, color: COR.text } },
+          h("span", { className: "pr-3" }, sinal + " " + rotulo, extra || null),
+          h("span", { className: "whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(valor, 2)));
+      };
+      var grupoExpansivel = function (sinal, g, k) {
+        var detalhe = pr.mesCorrente
+          ? [g.realizado.length ? [titulo("Realizado até hoje"), tabelaLancamentos(g.realizado, k + "r")] : null,
+             g.projetado.length || g.calculo.length ? [titulo("Projetado até o fim do mês"),
+               g.projetado.length ? tabelaLancamentos(g.projetado, k + "p") : null, h("div", { key: k + "c" }, linhasDeCalculo(g.calculo, k + "c"))] : null]
+          : [g.realizado.length + g.projetado.length ? tabelaLancamentos(g.realizado.concat(g.projetado), k + "l") : null,
+             g.calculo.length ? h("div", { key: k + "c" }, linhasDeCalculo(g.calculo, k + "c")) : null];
+        return h("details", { key: k, style: { borderBottom: "1px solid " + COR.lineSoft } },
+          h("summary", { className: "flex justify-between py-1.5", style: { cursor: "pointer", listStyle: "none", fontSize: 12.5, color: COR.text } },
+            h("span", { className: "pr-3" }, h("span", { style: { color: COR.faint, display: "inline-block", width: 14 } }, "›"), sinal + " " + g.rotulo,
+              !g.estimativa ? null
+                : (Math.abs(g.parteLancamentos) < 0.005 ? selo("estimativa")
+                  : h("span", { className: "ml-2", style: { fontSize: 10.5, color: COR.faint, fontVariantNumeric: "tabular-nums" } },
+                      [["realizado", somaValores(g.realizado)], ["títulos", somaValores(g.projetado)], ["estimativa", g.parteEstimativa]]
+                        .filter(function (x) { return Math.abs(x[1]) > 0.005; })
+                        .map(function (x) { return x[0] + " " + formatarNumero(Math.abs(x[1]), 2); }).join(" + ")))),
+            h("span", { className: "whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums", color: g.valor < 0 ? COR.coral : COR.text } }, formatarNumero(g.valor, 2))),
+          h("div", { className: "pl-4 pb-2" }, detalhe));
+      };
+      var ruimPr = difere(pr.final.esperado, pr.final.obtido);
+      var linhasPr = [
+        h("div", { key: "tt", className: "mt-4 mb-1", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint, textTransform: "uppercase" } }, "Ponte do caixa livre"),
+        linhaFixa("ini", "=", pr.inicial.rotulo, pr.inicial.valor, selo(pr.inicial.etiqueta)),
+        pr.entradas.map(function (g, i) { return grupoExpansivel("+", g, "e" + i); }),
+        pr.saidas.map(function (g, i) { return grupoExpansivel("−", g, "s" + i); }),
+        linhaFixa("fim", "=", pr.final.rotulo, pr.final.obtido, null, true),
+        h("div", { key: "conf", className: "pt-1", style: { fontSize: 11, color: ruimPr ? COR.coral : COR.mint, fontWeight: ruimPr ? 700 : 400 } },
+          ruimPr ? "Diferença para o ponto do gráfico (" + formatarNumero(pr.final.esperado, 2) + "): " + formatarNumero(pr.final.obtido - pr.final.esperado, 2)
+            : "igual ao ponto do gráfico"),
+        pr.hoje ? h("div", { key: "hoje", style: { fontSize: 11, color: difere(pr.hoje.esperado, pr.hoje.obtido) ? COR.coral : COR.faint } },
+          "Caixa livre de hoje: " + formatarNumero(pr.hoje.obtido, 2) + (difere(pr.hoje.esperado, pr.hoje.obtido)
+            ? " (diferente do cartão do resumo: " + formatarNumero(pr.hoje.esperado, 2) + ")" : " (igual ao cartão do resumo)")) : null,
+        pr.neutros && pr.neutros.length ? h("details", { key: "neu", className: "mt-3" },
+          h("summary", { style: { cursor: "pointer", fontSize: 11, color: COR.faint } },
+            pr.neutros.length + (pr.neutros.length === 1 ? " item neutro não altera" : " itens neutros não alteram") + " o caixa livre"
+              + (Math.abs(pr.neutrosNoCaixa || 0) > 0.005 ? " (efeito " + formatarNumero(pr.neutrosNoCaixa, 2) + ")" : "")),
+          tabelaLancamentos(pr.neutros, "neut")) : null
+      ];
+      ponteResumo = h("div", null, linhasPr);
     }
     var recolhido = null;
     if (ctx.recolhido) {
@@ -1223,7 +1221,7 @@
           : linhaValor("Diferença na ponte", "0,00", { k: "pd", cor: COR.mint }),
         p.nota ? h("div", { className: "mt-2", style: { fontSize: 10.5, color: COR.faint, lineHeight: 1.5 } }, p.nota) : null);
     }
-    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, ponte, ponteCaixa, corpoBlocos, recolhido));
+    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, ponte, ponteResumo, corpoBlocos, recolhido));
   }
 
   /* Gaveta de Prazos e atrasos (Parte D, 21/10/2026): os titulos que     */
@@ -3620,28 +3618,27 @@
   /* barra verde se positiva e vermelha se negativa (as cores do grafico */
   /* de fontes e usos), linha numa faixa propria acima das barras (cada  */
   /* uma com a sua escala, por isso o eixo y nao tem rotulos).           */
-  /* Gavetas do grafico 10 (Parte F, refeitas em 23/10/2026 a pedido de  */
-  /* Alex). Em todos os meses a gaveta explica o PONTO (caixa livre no    */
-  /* fim do mes) como uma ponte: saldo inicial + entradas - saidas =      */
-  /* saldo final, conferida com o ponto (diferenca em vermelho, nunca     */
-  /* forcada). A composicao do lucro liquido (a barra) e a conciliacao    */
-  /* lucro x variacao do caixa ficam num bloco recolhido no fim.          */
+  /* Gavetas do grafico 10 (Parte F; formato resumido pedido por Alex em */
+  /* 23/10/2026). Em todos os meses a gaveta explica o PONTO (caixa livre */
+  /* no fim do mes) numa ponte curta: saldo do mes anterior + entradas    */
+  /* agrupadas - saidas agrupadas = saldo do mes, conferido com o ponto   */
+  /* (diferenca em vermelho, nunca forcada). Cada grupo expande para os   */
+  /* lancamentos ou para a conta da estimativa. Itens neutros ficam numa  */
+  /* nota recolhida; o lucro liquido (barra) e a conciliacao, no fim.     */
 
   /* Movimentos de um mes no caixa livre (contas fora da caucao), pela    */
-  /* data de pagamento. Resultado (secoes do DRE): entrada se positivo,    */
-  /* saida se negativo; as compras no cartao entram na data da compra,    */
-  /* porque aumentam a fatura em aberto. Fora da operacao: o resto, pelo   */
-  /* sinal. Neutros: pagamento de fatura (2.17.94, conta corrente e baixa  */
-  /* no cartao) e transferencias entre contas do caixa livre (0.x), se se  */
-  /* anulam no mes; e tudo o que acontece na conta de caucao, que fica     */
-  /* fora do caixa livre. Transferencia para a caucao (ou de volta) nao e  */
-  /* neutra: sai (ou entra) no caixa livre, com nota.                      */
+  /* data de pagamento. Resultado: entrada se positivo, saida se negativo */
+  /* (compras no cartao na data da compra). Fora da operacao: pelo sinal. */
+  /* Neutros: pagamento de fatura (2.17.94), transferencias 0.x entre     */
+  /* contas do caixa livre e aplicacao com resgate (2.18), quando cada    */
+  /* grupo se anula no mes; e tudo o que acontece na conta de caucao.     */
+  /* Transferencia para a caucao (ou de volta) nao e neutra.              */
   function movimentosDoCaixaLivre(dc, caucao, m) {
     var doMes = dc.linhas.filter(function (l) { return l.dPag && chaveMes(l.dPag) === m; });
     var naCV = function (l) { return caucao.indexOf(l.conta) >= 0; };
     var ehDre = function (l) { return SECOES_DO_DRE.indexOf(secaoDaLinha(l)) >= 0; };
     var ehFatura = function (l) { return String(l.codigoCategoria || "").indexOf("2.17.94") === 0; };
-    var comNota = function (l, nota) { return Object.assign({}, l, { dataRegime: l.dPag, nota: nota || "" }); };
+    var comNota = function (l, nota, classe) { return Object.assign({}, l, { dataRegime: l.dPag, nota: nota || "", classePonte: classe || "" }); };
     var noCaixa = doMes.filter(function (l) { return !naCV(l); }), naCaucao = doMes.filter(naCV);
     var pareadas = [];
     naCaucao.filter(function (l) { return secaoDaLinha(l) === "transf"; }).forEach(function (c) {
@@ -3649,24 +3646,24 @@
       if (par) pareadas.push(par);
     });
     var transfInternas = noCaixa.filter(function (l) { return secaoDaLinha(l) === "transf" && pareadas.indexOf(l) < 0; });
-    var faturas = noCaixa.filter(ehFatura);
+    var faturas = noCaixa.filter(ehFatura), aplicacoes = noCaixa.filter(function (l) { return secaoDaLinha(l) === "ativo"; });
     var transfNeutra = Math.abs(somaValores(transfInternas)) < 0.005, faturaNeutra = Math.abs(somaValores(faturas)) < 0.005;
-    var r = { entradasOp: [], entradasFora: [], saidasOp: [], saidasFora: [], neutros: [], noCaixa: noCaixa, dreNaCaucao: naCaucao.filter(ehDre) };
-    var porSinal = function (l, nota, op) {
-      (l.valor >= 0 ? (op ? r.entradasOp : r.entradasFora) : (op ? r.saidasOp : r.saidasFora)).push(comNota(l, nota));
-    };
+    var aplicacaoNeutra = Math.abs(somaValores(aplicacoes)) < 0.005;
+    var r = { entradas: [], saidas: [], neutros: [], noCaixa: noCaixa, dreNaCaucao: naCaucao.filter(ehDre) };
+    var porSinal = function (l, nota, classe) { (l.valor >= 0 ? r.entradas : r.saidas).push(comNota(l, nota, classe)); };
     noCaixa.forEach(function (l) {
-      if (ehDre(l)) return porSinal(l, l.contaTipo === "CR" && l.valor < 0 ? "compra no cartão: reduz o caixa livre na data da compra, porque aumenta a fatura em aberto" : "", true);
-      if (pareadas.indexOf(l) >= 0) return porSinal(l, l.valor < 0 ? "transferência para a caução, que fica fora do caixa livre" : "volta da caução para o caixa livre", false);
+      if (ehDre(l)) return porSinal(l, l.contaTipo === "CR" && l.valor < 0 ? "compra no cartão: reduz o caixa livre na data da compra, porque aumenta a fatura em aberto" : "");
+      if (pareadas.indexOf(l) >= 0) return porSinal(l, l.valor < 0 ? "transferência para a caução, que fica fora do caixa livre" : "volta da caução para o caixa livre", "caucao");
       if (secaoDaLinha(l) === "transf") {
         if (transfNeutra) return r.neutros.push(comNota(l, "transferência entre contas do próprio caixa livre: sai de uma e entra em outra no mesmo mês"));
-        return porSinal(l, "transferência que não se anulou entre as contas do caixa livre no mês", false);
+        return porSinal(l, "transferência que não se anulou entre as contas do caixa livre no mês", "outras");
       }
       if (ehFatura(l)) {
         if (faturaNeutra) return r.neutros.push(comNota(l, l.contaTipo === "CR" ? "baixa da fatura no cartão: a fatura em aberto diminui no mesmo valor que saiu da conta" : "pagamento da fatura: sai da conta corrente e baixa a fatura em aberto no mesmo valor"));
-        return porSinal(l, "pagamento de fatura sem a outra perna no mês: não se anula no caixa livre", false);
+        return porSinal(l, "pagamento de fatura sem a outra perna no mês: não se anula no caixa livre", "outras");
       }
-      porSinal(l, "", false);
+      if (secaoDaLinha(l) === "ativo" && aplicacaoNeutra) return r.neutros.push(comNota(l, "aplicação e resgate que se anulam no mês dentro do caixa livre"));
+      porSinal(l, "");
     });
     naCaucao.forEach(function (l) {
       r.neutros.push(comNota(l, ehDre(l) ? "lançamento na conta de caução, que fica fora do caixa livre (entra no lucro, não no caixa livre)" : "movimento na conta de caução, que fica fora do caixa livre"));
@@ -3675,18 +3672,95 @@
     r.neutrosNoCaixa = somaValores(r.neutros.filter(function (l) { return !naCV(l); }));
     return r;
   }
-  /* Grupos da ponte a partir dos movimentos (para meses realizados e para */
-  /* o "realizado no mes ate hoje" do mes corrente).                       */
-  function gruposDaPonte(mv) {
-    return [
-      { titulo: "Entradas", subgrupos: [
-        { titulo: "Operacionais (receitas e receitas financeiras)", linhas: mv.entradasOp },
-        { titulo: "Fora da operação (mútuo e captações, resgates, outras entradas)", linhas: mv.entradasFora }] },
-      { titulo: "Saídas", subgrupos: [
-        { titulo: "Operacionais (impostos, custos e despesas, inclusive compras no cartão)", linhas: mv.saidasOp },
-        { titulo: "Fora da operação (distribuições, aplicações, demais saídas de passivo)", linhas: mv.saidasFora }] }
-    ];
+
+  /* Grupos da ponte. Saidas sempre por grupo, nesta ordem; compras no    */
+  /* cartao ficam no grupo da categoria delas. Entradas: ate 5            */
+  /* contrapartes no mes, uma linha por contraparte; mais que isso, por   */
+  /* grupo de categoria.                                                  */
+  var ORDEM_SAIDAS_PONTE = ["Impostos (DAS)", "Custos diretos", "Despesas administrativas", "Marketing e vendas", "Pessoal",
+    "Despesas financeiras", "Distribuições a sócios", "Aplicações e caução", "Mútuos e adiantamentos de sócios", "Outras"];
+  /* Mutuo ou adiantamento de socio (entrada 1.11 ou devolucao 2.17), pelo  */
+  /* nome da categoria (ex.: "Mútuo de Sócios (Entrada)", "Mútuo de Sócios */
+  /* (Devolução)"). Adiantamento de cliente nao entra aqui.                */
+  var ROTULO_MUTUO_SOCIOS = "Mútuos e adiantamentos de sócios";
+  function ehMutuoDeSocio(l) { return /s[oó]cio/i.test(String(l.categoria || "")) && /m[uú]tuo|adiantamento/i.test(String(l.categoria || "")); }
+  function codigoGrupoPonte(l) { return String(l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || ""); }
+  function secaoPonte(l) { return l.secaoPonte || secaoDaLinha(l); }
+  function classeDeSaidaPonte(l) {
+    if (l.classePonte === "caucao") return "Aplicações e caução";
+    if (l.classePonte === "outras") return "Outras";
+    var sec = secaoPonte(l), cg = codigoGrupoPonte(l);
+    if (sec === "impostos" || sec === "impLucro") return "Impostos (DAS)";
+    if (sec === "custo") return "Custos diretos";
+    if (sec === "despesas") return cg === "2.08" ? "Pessoal" : (cg === "2.10" || cg === "2.12" ? "Marketing e vendas" : "Despesas administrativas");
+    if (sec === "finDesp") return "Despesas financeiras";
+    if (cg === "2.16") return "Distribuições a sócios";
+    if (sec === "ativo") return "Aplicações e caução";
+    if ((sec === "saidas" || sec === "entradas") && ehMutuoDeSocio(l)) return ROTULO_MUTUO_SOCIOS;
+    return "Outras";
   }
+  function classeDeEntradaPonte(l) {
+    if (l.classePonte === "caucao") return "Volta da caução";
+    if (l.classePonte === "outras") return "Outras entradas";
+    var sec = secaoPonte(l);
+    if (sec === "receita") return l.grupo || "Receitas";
+    if (sec === "finRec") return "Receitas financeiras";
+    if (sec === "outrasRec") return "Outras receitas";
+    if (sec === "entradas") return ehMutuoDeSocio(l) ? ROTULO_MUTUO_SOCIOS : "Mútuo e captações";
+    if (sec === "saidas" && ehMutuoDeSocio(l)) return ROTULO_MUTUO_SOCIOS;
+    if (sec === "ativo") return "Resgates de aplicação";
+    return "Outras entradas";
+  }
+  /* Natureza de uma entrada que nao e receita, para ir junto do nome da  */
+  /* contraparte ("Alex Armstrong (mútuo de sócio)"). Receita: nenhuma.    */
+  function naturezaDaEntrada(l) {
+    if (l.classePonte === "caucao") return "volta da caução";
+    var sec = secaoPonte(l), cat = String(l.categoria || "");
+    if (sec === "receita") return "";
+    if (sec === "finRec") return /desconto/i.test(cat) ? "cashback" : (/estorno/i.test(cat) ? "estorno de tarifa" : "receita financeira");
+    if (sec === "outrasRec") return "outra receita";
+    if (sec === "entradas") return ehMutuoDeSocio(l) ? "mútuo de sócio" : (/convers/i.test(cat) ? "mútuo conversível"
+      : (/adiantamento/i.test(cat) && /cliente/i.test(cat) ? "adiantamento de cliente" : "captação"));
+    if (sec === "ativo") return "resgate de aplicação";
+    return "outra entrada";
+  }
+  /* entradas/saidas: lancamentos com .fase ("realizado" ou "projetado"); */
+  /* calculo: estimativas {rotulo, valor, conta, classe}.                 */
+  function montarPonteResumida(entradas, saidas, calculo) {
+    var contrapartes = {};
+    entradas.forEach(function (l) { contrapartes[l.contraparte || "Sem contraparte"] = 1; });
+    var porContraparte = Object.keys(contrapartes).length <= 5;
+    function grupos(lista, classe, ordem, calcs, comNatureza) {
+      var mapa = {}, ordemVista = [];
+      var pega = function (k) { if (!mapa[k]) { mapa[k] = { rotulo: k, valor: 0, realizado: [], projetado: [], calculo: [], estimativa: false, naturezas: [] }; ordemVista.push(k); } return mapa[k]; };
+      lista.forEach(function (l) {
+        var g = pega(classe(l)); g.valor += l.valor; (l.fase === "projetado" ? g.projetado : g.realizado).push(l);
+        if (comNatureza) { var nat = naturezaDaEntrada(l) || "receita"; if (g.naturezas.indexOf(nat) < 0) g.naturezas.push(nat); }
+      });
+      (calcs || []).forEach(function (c) { var g = pega(c.classe); g.valor += c.valor; g.calculo.push(c); g.estimativa = true; });
+      var chaves = ordem ? ordem.filter(function (k) { return mapa[k]; }).concat(ordemVista.filter(function (k) { return ordem.indexOf(k) < 0; }))
+        : ordemVista.slice().sort(function (a, b) { return Math.abs(mapa[b].valor) - Math.abs(mapa[a].valor); });
+      return chaves.map(function (k) { return mapa[k]; }).filter(function (g) { return Math.abs(g.valor) > 0.005 || g.realizado.length + g.projetado.length + g.calculo.length; })
+        .map(function (g) {
+          /* so receita: sem etiqueta; com outra natureza, todas aparecem */
+          if (g.naturezas.some(function (n) { return n !== "receita"; })) {
+            g.naturezas.sort(function (x, y) { return (x === "receita" ? 0 : 1) - (y === "receita" ? 0 : 1); });
+            g.rotulo = g.rotulo + " (" + g.naturezas.join(", ") + ")";
+          }
+          /* partes do valor, para o selo: so estimativa, ou realizado/titulos + estimativa */
+          g.parteLancamentos = somaValores(g.realizado) + somaValores(g.projetado);
+          g.parteEstimativa = g.calculo.reduce(function (t, c) { return t + c.valor; }, 0);
+          return g;
+        });
+    }
+    return {
+      porContraparte: porContraparte,
+      entradas: grupos(entradas, porContraparte ? function (l) { return l.contraparte || "Sem contraparte"; } : classeDeEntradaPonte, null, [], porContraparte),
+      saidas: grupos(saidas, classeDeSaidaPonte, ORDEM_SAIDAS_PONTE, calculo)
+    };
+  }
+  function comFase(lista, fase) { return lista.map(function (l) { return Object.assign({}, l, { fase: fase }); }); }
+
   function composicaoDoLucro(dc, m) {
     var dre = dc.linhas.filter(function (l) { return l.dPag && chaveMes(l.dPag) === m && SECOES_DO_DRE.indexOf(secaoDaLinha(l)) >= 0; });
     return { lista: dre, subtotais: SECOES_DO_DRE.map(function (k) {
@@ -3697,15 +3771,16 @@
     var dc = R.dadosCaixa, caucao = R.caucao || [];
     var mv = movimentosDoCaixaLivre(dc, caucao, m);
     var inicial = R.linha.anterior[m] || 0, saldo = R.linha.saldo[m];
+    var ponte = montarPonteResumida(comFase(mv.entradas, "realizado"), comFase(mv.saidas, "realizado"), []);
     var lucro = composicaoDoLucro(dc, m), ll = somaValores(lucro.lista);
-    var fora = somaValores(mv.entradasFora) + somaValores(mv.saidasFora);
+    var fora = somaValores(mv.entradas.concat(mv.saidas).filter(function (l) { return SECOES_DO_DRE.indexOf(secaoDaLinha(l)) < 0; }));
     return { modo: "grafico", titulo: "Caixa livre · " + rotuloMes(m) + " (realizado)",
-      subtitulo: rotuloMes(m) + " · valores reais, pela data de pagamento",
-      conferencias: [{ rotulo: "Caixa livre no fim do mês (ponto)", esperado: saldo, obtido: inicial + mv.variacao }],
-      ponteCaixa: {
-        inicial: { rotulo: "Saldo inicial: caixa livre no fim de " + rotuloMes(somarMes(m, -1)), valor: inicial },
-        grupos: gruposDaPonte(mv), neutros: mv.neutros, neutrosNoCaixa: mv.neutrosNoCaixa,
-        final: { rotulo: "Saldo final calculado", obtido: inicial + mv.variacao, rotuloEsperado: "Caixa livre no gráfico (ponto)", esperado: saldo }
+      subtitulo: "valores reais, pela data de pagamento",
+      ponteResumo: {
+        inicial: { rotulo: "Saldo de caixa livre de " + rotuloMes(somarMes(m, -1)), etiqueta: "real", valor: inicial },
+        entradas: ponte.entradas, saidas: ponte.saidas, porContraparte: ponte.porContraparte, mesCorrente: false,
+        final: { rotulo: "Saldo de caixa livre de " + rotuloMes(m), obtido: inicial + mv.variacao, esperado: saldo },
+        neutros: mv.neutros, neutrosNoCaixa: mv.neutrosNoCaixa
       },
       recolhido: {
         titulo: "Lucro líquido do mês (barra): " + formatarNumero(R.linha.fcf[m], 2),
@@ -3714,7 +3789,7 @@
         conciliacao: [
           { rotulo: "Lucro líquido do mês (barra, regime de caixa)", valor: ll },
           { rotulo: "(±) Entradas e saídas fora da operação", valor: fora },
-          { rotulo: "(±) Itens neutros no caixa livre (devem somar zero)", valor: mv.neutrosNoCaixa },
+          { rotulo: "(±) Itens neutros no caixa livre (somam zero)", valor: mv.neutrosNoCaixa },
           { rotulo: "(−) Resultado lançado na caução (está no lucro, fora do caixa livre)", valor: -somaValores(mv.dreNaCaucao) },
           { rotulo: "(=) Variação do caixa livre no mês", valor: ll + fora + mv.neutrosNoCaixa - somaValores(mv.dreNaCaucao), forte: true }
         ],
@@ -3728,63 +3803,64 @@
     var comoLinha = function (it) {
       return { id: (it.l.id || it.l.documento || "") + "|" + it.l.vencimento, dataRegime: vencimentoEfetivo(it.l.vencimento),
         contraparte: it.contraparte || "Sem contraparte", contraOrigem: "cadastro", categoria: it.l.categoria || "",
+        grupo: it.l.grupo || "", codigoGrupo: it.l.codigo_grupo || "", secaoPonte: it.secao,
         situacao: it.previsao ? "previsto (OS)" : (it.l.tipo === "receber" ? "título a receber em aberto" : "título a pagar em aberto"),
         nota: "vencimento " + (it.l.vencimento || "").split("-").reverse().join("/") + (vencimentoEfetivoTexto(it.l.vencimento) !== it.l.vencimento ? " (dia útil seguinte)" : ""),
-        valor: it.valor };
+        valor: it.valor, fase: "projetado" };
     };
-    var entradas = itens.filter(function (it) { return it.l.tipo === "receber"; }).map(comoLinha);
-    var titulosPagar = itens.filter(function (it) { return it.l.tipo !== "receber"; }).map(comoLinha);
+    var entradasProj = itens.filter(function (it) { return it.l.tipo === "receber"; }).map(comoLinha);
+    var saidasProj = itens.filter(function (it) { return it.l.tipo !== "receber"; }).map(comoLinha);
+    var f = m === fc.mesAtual ? b.fracaoMesAtual : 1;
     var calc = [];
     if (Math.abs(L.impostos[m] || 0) > 0.005) {
       var mp = somarMes(m, -1), sx = b.simples[mp];
-      calc.push({ rotulo: "DAS da competência " + rotuloMes(mp), valor: L.impostos[m],
+      calc.push({ classe: "Impostos (DAS)", rotulo: "DAS da competência " + rotuloMes(mp), valor: L.impostos[m],
         conta: "alíquota efetiva estimada do Anexo III de " + pct2(sx.aliquota) + " (RBT12 " + formatarNumero(sx.rbt12, 0) + ") × receita de competência de "
           + rotuloMes(mp) + " (" + formatarNumero(sx.receita, 2) + "), que vence no dia 20 de " + rotuloMes(m) });
     }
-    var baseCusto = (fc.itens || []).filter(function (it) { return it.l.tipo === "receber" && it.mComp === m && it.mComp >= fc.mesAtual; })
-      .reduce(function (t, it) { return t + it.valor; }, 0);
     if (Math.abs(L.custos[m] || 0) > 0.005) {
-      calc.push({ rotulo: "Custo direto estimado", valor: L.custos[m],
+      var baseCusto = (fc.itens || []).filter(function (it) { return it.l.tipo === "receber" && it.mComp === m && it.mComp >= fc.mesAtual; })
+        .reduce(function (t, it) { return t + it.valor; }, 0);
+      calc.push({ classe: "Custos diretos", rotulo: "Custo direto estimado", valor: L.custos[m],
         conta: pct2(b.custoPct) + " × receita projetada emitida em " + rotuloMes(m) + " (" + formatarNumero(baseCusto, 2) + "), média dos 3 meses fechados" });
     }
-    if (Math.abs(L.despConta[m] || 0) > 0.005) {
-      calc.push({ rotulo: "Despesas pagas em conta (estimativa)", valor: L.despConta[m],
-        conta: "média mensal de " + formatarNumero(-b.despMediaConta, 2) + " nos 3 meses fechados" + (m === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " (dias que faltam no mês)" : "") });
-    }
-    if (Math.abs(L.despCartao[m] || 0) > 0.005) {
-      calc.push({ rotulo: "Despesas no cartão (estimativa)", valor: L.despCartao[m],
-        conta: "média mensal de " + formatarNumero(-b.despMediaCartao, 2) + " gasta no cartão, no mês da compra (aumenta a fatura em aberto, que sai do caixa livre)"
-          + (m === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " (compras do resto do mês; a fatura até hoje já está no caixa livre de hoje)" : "") });
-    }
-    var ponte = { grupos: [
-      { titulo: "Entradas", subgrupos: [{ titulo: "Títulos a receber e previsões de OS, pelo vencimento efetivo", linhas: entradas }] },
-      { titulo: "Saídas", subgrupos: [{ titulo: "Títulos a pagar, pelo vencimento efetivo", linhas: titulosPagar },
-        { titulo: "Estimativas (linhas de cálculo, sem lançamento por trás)", calculo: calc }] }
-    ] };
-    var conferencias = [];
-    var fluxoProjetado = somaValores(entradas) + somaValores(titulosPagar) + calc.reduce(function (t, c) { return t + c.valor; }, 0);
+    /* Despesas medias divididas pelos grupos (media de cada grupo nos 3  */
+    /* meses fechados); conta e cartao juntos, porque os dois saem do     */
+    /* caixa livre no proprio mes. A soma dos grupos e a linha da tabela. */
+    var porClasse = b.despPorClasse || {}, totalDesp = (L.despConta[m] || 0) + (L.despCartao[m] || 0), somaClasses = 0;
+    var classes = ORDEM_SAIDAS_PONTE.filter(function (k) { return Math.abs(porClasse[k] || 0) > 0.005; });
+    classes.forEach(function (k, i) {
+      var v = i === classes.length - 1 ? totalDesp - somaClasses : (porClasse[k] || 0) * f;
+      somaClasses += v;
+      if (Math.abs(v) > 0.005) calc.push({ classe: k, rotulo: k + " (média)", valor: v,
+        conta: "média mensal de " + formatarNumero(-(porClasse[k] || 0), 2) + " paga em " + k.toLowerCase() + " nos 3 meses fechados, em conta e no cartão (a compra no cartão sai do caixa livre no mês da compra)"
+          + (m === fc.mesAtual ? " × " + pct2(f) + " (dias que faltam no mês)" : "") });
+    });
+    var inicial, etiqueta, mAnt = somarMes(m, -1), mv = null, entradas = entradasProj, saidas = saidasProj;
     if (m === fc.mesAtual) {
       var dc = R && R.dadosCaixa, caucao = (R && R.caucao) || [];
-      var anteriorM = somarMes(m, -1);
-      var inicialHoje = R && R.linha.saldo && R.linha.saldo[anteriorM] !== undefined ? R.linha.saldo[anteriorM]
-        : (dc && dc.meses.indexOf(anteriorM) >= 0 ? posicaoNoMes(dc, anteriorM).livre : 0);
-      var mv = dc ? movimentosDoCaixaLivre(dc, caucao, m) : null;
-      var hojeCalc = inicialHoje + (mv ? mv.variacao : 0);
-      ponte.inicial = { rotulo: "Saldo inicial: caixa livre real no fim de " + rotuloMes(anteriorM), valor: inicialHoje };
-      ponte.realizadoHoje = mv ? { grupos: gruposDaPonte(mv), neutros: mv.neutros, neutrosNoCaixa: mv.neutrosNoCaixa,
-        hoje: { rotulo: "Caixa livre de hoje", obtido: hojeCalc, esperado: fc.caixaHoje } } : null;
-      conferencias.push({ rotulo: "Caixa livre de hoje", sufixoEsperado: " no cartão do resumo", esperado: fc.caixaHoje, obtido: hojeCalc });
-      ponte.final = { rotulo: "Saldo final calculado", obtido: hojeCalc + fluxoProjetado, rotuloEsperado: "Caixa livre no gráfico (ponto)", esperado: L.saldo[m] };
+      inicial = R && R.linha.saldo && R.linha.saldo[mAnt] !== undefined ? R.linha.saldo[mAnt]
+        : (dc && dc.meses.indexOf(mAnt) >= 0 ? posicaoNoMes(dc, mAnt).livre : 0);
+      etiqueta = "real";
+      mv = dc ? movimentosDoCaixaLivre(dc, caucao, m) : null;
+      if (mv) { entradas = comFase(mv.entradas, "realizado").concat(entradasProj); saidas = comFase(mv.saidas, "realizado").concat(saidasProj); }
     } else {
-      var mAnt = somarMes(m, -1);
-      ponte.inicial = { rotulo: "Saldo inicial: saldo projetado no fim de " + rotuloMes(mAnt), valor: L.saldo[mAnt] };
-      ponte.final = { rotulo: "Saldo final calculado", obtido: L.saldo[mAnt] + fluxoProjetado, rotuloEsperado: "Caixa livre no gráfico (ponto)", esperado: L.saldo[m] };
+      inicial = L.saldo[mAnt]; etiqueta = "projetado";
     }
-    conferencias.unshift({ rotulo: "Caixa livre no fim do mês (ponto)", esperado: L.saldo[m], obtido: ponte.final.obtido });
+    var ponte = montarPonteResumida(entradas, saidas, calc);
+    var fluxoProjetado = somaValores(entradasProj) + somaValores(saidasProj) + calc.reduce(function (t, c) { return t + c.valor; }, 0);
+    var hoje = mv ? inicial + mv.variacao : null;
+    var final = (mv ? hoje : inicial) + fluxoProjetado;
     var recCompetencia = (fc.receitaComp || {})[m] || 0;
     return { modo: "grafico", titulo: "Caixa livre · " + rotuloMes(m) + " (projetado)",
-      subtitulo: rotuloMes(m) + (m === fc.mesAtual ? " · realizado até hoje e projeção até o fim do mês" : "") + " · estimativa",
-      conferencias: conferencias, ponteCaixa: ponte,
+      subtitulo: m === fc.mesAtual ? "realizado até hoje e projeção até o fim do mês · estimativa" : "estimativa",
+      ponteResumo: {
+        inicial: { rotulo: "Saldo de caixa livre de " + rotuloMes(mAnt), etiqueta: etiqueta, valor: inicial },
+        entradas: ponte.entradas, saidas: ponte.saidas, porContraparte: ponte.porContraparte, mesCorrente: m === fc.mesAtual,
+        final: { rotulo: "Saldo de caixa livre de " + rotuloMes(m), obtido: final, esperado: L.saldo[m] },
+        hoje: mv ? { obtido: hoje, esperado: fc.caixaHoje } : null,
+        neutros: mv ? mv.neutros : [], neutrosNoCaixa: mv ? mv.neutrosNoCaixa : 0
+      },
       recolhido: {
         titulo: "Lucro líquido do mês (barra): " + formatarNumero(L.fcf[m], 2),
         conferencias: [{ rotulo: "Lucro Líquido projetado do mês", esperado: L.fcf[m], obtido: fluxoProjetado }],
@@ -3802,7 +3878,7 @@
           { rotulo: "Receita recebida no mês (caixa)", valor: L.receita[m] || 0 },
           { rotulo: "DAS pago no mês, da competência " + rotuloMes(somarMes(m, -1)), valor: L.impostos[m] || 0 }
         ],
-        notaConciliacao: "Na projeção a barra já é o resultado de caixa do mês (recebimentos e pagamentos pelo vencimento), então ela é igual à variação projetada do caixa livre. A receita entra pelo vencimento, não pela emissão, e o DAS do mês é o da competência anterior."
+        notaConciliacao: "Na projeção a barra já é o resultado de caixa do mês (recebimentos e pagamentos pelo vencimento, compras no cartão no mês da compra), então ela é igual à variação projetada do caixa livre. A receita entra pelo vencimento, não pela emissão, e o DAS do mês é o da competência anterior."
       } };
   }
 
@@ -4979,7 +5055,7 @@
     /* pagar no horizonte (o titulo ja leva o valor delas).               */
     var contrapartesComTitulo = {};
     itensPagar.forEach(function (it) { if (it.contraparte) contrapartesComTitulo[it.contraparte] = 0; });
-    var despTotal = 0, despCartao = 0, despExcluida = 0, despMesAtual = 0;
+    var despTotal = 0, despCartao = 0, despExcluida = 0, despMesAtual = 0, despPorClasse = {};
     dadosCaixa.linhas.forEach(function (l) {
       if (!l.dPag || secaoDaLinha(l) !== "despesas") return;
       var m = chaveMes(l.dPag);
@@ -4989,7 +5065,10 @@
       if (excluida) { contrapartesComTitulo[l.contraparte] += l.valor; despExcluida += l.valor; return; }
       despTotal += l.valor;
       if (l.contaTipo === "CR") despCartao += l.valor;
+      var cl = classeDeSaidaPonte(l);
+      despPorClasse[cl] = (despPorClasse[cl] || 0) + l.valor;
     });
+    Object.keys(despPorClasse).forEach(function (k) { despPorClasse[k] = n ? despPorClasse[k] / n : 0; });
     var despMedia = n ? despTotal / n : 0, despMediaCartao = n ? despCartao / n : 0, despMediaConta = despMedia - despMediaCartao;
     var despMediaSemExclusao = n ? (despTotal + despExcluida) / n : 0;
     var diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
@@ -5058,7 +5137,7 @@
       meses: meses, mesAtual: mesAtual, linha: linha, caixaHoje: caixaHoje, reservaExigida: reservaExigida,
       primeiraAbaixoReserva: primeiraAbaixoReserva, primeiraNegativa: primeiraNegativa,
       base: { meses: fechados, receita3: receita3, das3: das3, custo3: custo3, aliquota: aliquota, custoPct: custoPct,
-        despMedia: despMedia, despMediaConta: despMediaConta, despMediaCartao: despMediaCartao,
+        despMedia: despMedia, despMediaConta: despMediaConta, despMediaCartao: despMediaCartao, despPorClasse: despPorClasse,
         contrapartesComTitulo: contrapartesComTitulo, despMediaSemExclusao: despMediaSemExclusao, ritmo: ritmo,
         simples: simples, fracaoMesAtual: fracaoMesAtual, receitaRealizadaMesAtual: receitaRealizadaMesAtual },
       totais: {
