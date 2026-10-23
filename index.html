@@ -1040,6 +1040,102 @@
       }, cabecalho, corpo));
   }
 
+  /* Gaveta dos graficos (Parte F, 23/10/2026), modo "grafico" da mesma   */
+  /* gaveta lateral. ctx: titulo, subtitulo, conferencias (rotulo,        */
+  /* esperado = valor do elemento clicado, obtido = soma da gaveta,       */
+  /* formato "pct" ou "qtd"), blocos (titulo, subtotais [rotulo, valor,   */
+  /* pct], lancamentos, calculo [rotulo, valor, conta]) e ponte (mes      */
+  /* fechado do grafico 10). Diferenca em vermelho quando nao bate: nunca */
+  /* e ajustada para fechar.                                              */
+  function GavetaGrafico(props) {
+    var ctx = props.ctx;
+    var fmtValor = function (v, formato) {
+      if (v === null || v === undefined) return "–";
+      if (formato === "pct") return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+      if (formato === "qtd") return String(v);
+      return formatarNumero(v, 2);
+    };
+    var difere = function (a, b, formato) {
+      if (a === null || a === undefined || b === null || b === undefined) return a !== b;
+      return Math.abs(a - b) > (formato === "pct" ? 0.0005 : 0.005);
+    };
+    var linhaValor = function (rotulo, valor, opcoes) {
+      opcoes = opcoes || {};
+      return h("div", { key: rotulo + (opcoes.k || ""), className: "flex justify-between py-1",
+        style: { fontSize: opcoes.forte ? 12.5 : 12, fontWeight: opcoes.forte ? 700 : 400, color: opcoes.cor || COR.dim, borderBottom: "1px solid " + COR.lineSoft } },
+        h("span", { className: "pr-3" }, rotulo),
+        h("span", { className: "whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums", color: opcoes.cor || COR.text } }, valor));
+    };
+    var titulo = function (t) { return h("div", { className: "uppercase mt-4 mb-1", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, t); };
+    var nLanc = (ctx.blocos || []).reduce(function (t, b) { return t + (b.lancamentos || []).length; }, 0);
+    var conferencias = (ctx.conferencias || []).map(function (c, i) {
+      var ruim = difere(c.esperado, c.obtido, c.formato);
+      return h("div", { key: i, className: "mt-2" },
+        linhaValor(c.rotulo + " no gráfico", fmtValor(c.esperado, c.formato), { k: "e" }),
+        linhaValor(c.rotulo + " nesta gaveta", fmtValor(c.obtido, c.formato), { k: "o", forte: true }),
+        ruim ? linhaValor("Diferença (erro de filtro)", c.formato === "pct" || c.formato === "qtd"
+          ? fmtValor(c.obtido, c.formato) + " × " + fmtValor(c.esperado, c.formato)
+          : formatarNumero((c.obtido || 0) - (c.esperado || 0), 2), { k: "d", forte: true, cor: COR.coral }) : null);
+    });
+    var cabecalho = h("div", { className: "sticky top-0 px-5 py-4", style: { background: COR.surface, borderBottom: "1px solid " + COR.line, zIndex: 1 } },
+      h("div", { className: "flex items-start gap-3" },
+        h("div", { className: "flex-1" },
+          h("div", { className: "uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.brass } }, "Lançamentos do gráfico"),
+          h("div", { style: { fontSize: 15, fontWeight: 600, color: COR.text } }, ctx.titulo),
+          h("div", { style: { fontSize: 11, color: COR.faint } }, ctx.subtitulo || "", " · ", nLanc, " lançamento(s)")),
+        h("button", { onClick: props.aoFechar, className: "px-3 py-1 rounded", style: { border: "1px solid " + COR.line, color: COR.dim, fontSize: 11 } }, "Fechar")),
+      conferencias);
+    var dataBr = function (d) { return d && d.toLocaleDateString ? d.toLocaleDateString("pt-BR") : "–"; };
+    var corpoBlocos = (ctx.blocos || []).map(function (b, bi) {
+      var partes = [];
+      if (b.titulo) partes.push(h("div", { key: "t", className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, b.titulo));
+      if (b.subtotais && b.subtotais.length) {
+        partes.push(titulo(b.calculo || b.lancamentos ? "Subtotais" : "Composição"));
+        b.subtotais.forEach(function (x, i) {
+          partes.push(linhaValor(x.rotulo, formatarNumero(x.valor, 2) + (x.pct !== undefined && x.pct !== null ? " · " + fmtValor(x.pct, "pct") : ""), { k: "s" + i }));
+        });
+      }
+      if (b.calculo && b.calculo.length) {
+        partes.push(titulo("Linhas de cálculo (estimativa, sem lançamento por trás)"));
+        b.calculo.forEach(function (c, i) {
+          partes.push(h("div", { key: "c" + i, className: "py-1.5", style: { borderBottom: "1px solid " + COR.lineSoft } },
+            h("div", { className: "flex justify-between", style: { fontSize: 12, color: COR.text } },
+              h("span", { className: "pr-3" }, c.rotulo),
+              h("span", { className: "whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums" } }, formatarNumero(c.valor, 2))),
+            h("div", { style: { fontSize: 10.5, color: COR.faint } }, c.conta)));
+        });
+      }
+      var lanc = (b.lancamentos || []).slice().sort(function (x, y) { return (x.dataRegime || 0) - (y.dataRegime || 0); });
+      if (lanc.length) {
+        partes.push(titulo("Lançamentos (" + lanc.length + ")"));
+        partes.push(h("table", { key: "tb", className: "w-full", style: { borderCollapse: "collapse" } },
+          h("tbody", null, lanc.map(function (l, i) {
+            return h("tr", { key: (l.id || "") + "|" + i, style: { borderBottom: "1px solid " + COR.lineSoft } },
+              h("td", { className: "py-1 pr-2 whitespace-nowrap", style: { fontSize: 11, color: COR.faint, verticalAlign: "top" } }, dataBr(l.dataRegime)),
+              h("td", { className: "py-1 pr-2", style: { fontSize: 11.5, color: COR.text } },
+                h("div", { style: { whiteSpace: "normal", wordBreak: "break-word" } }, l.contraparte, EtiquetaOrigem(l.contraOrigem)),
+                h("div", { style: { fontSize: 10, color: COR.faint } }, l.categoria, l.situacao ? " · " + l.situacao : "", l.conta ? " · " + l.conta : "")),
+              h("td", { className: "py-1 text-right whitespace-nowrap", style: { fontSize: 11.5, fontVariantNumeric: "tabular-nums", color: l.valor < 0 ? COR.coral : COR.text, verticalAlign: "top" } },
+                formatarNumero(l.valor, 2)));
+          }))));
+      }
+      return h("div", { key: bi }, partes);
+    });
+    var ponte = null;
+    if (ctx.ponte) {
+      var p = ctx.ponte, ruimP = difere(p.esperado, p.obtido);
+      ponte = h("div", { className: "mt-2" },
+        h("div", { className: "mt-4", style: { fontSize: 13, fontWeight: 700, color: COR.text } }, "Ponte do saldo de caixa livre"),
+        p.linhas.map(function (x, i) { return linhaValor(x.rotulo, formatarNumero(x.valor, 2), { k: "p" + i }); }),
+        linhaValor(p.rotuloResultado, formatarNumero(p.obtido, 2), { k: "pr", forte: true }),
+        linhaValor(p.rotuloEsperado, formatarNumero(p.esperado, 2), { k: "pe" }),
+        ruimP ? linhaValor("Diferença na ponte (não forçada)", formatarNumero(p.obtido - p.esperado, 2), { k: "pd", forte: true, cor: COR.coral })
+          : linhaValor("Diferença na ponte", "0,00", { k: "pd", cor: COR.mint }),
+        p.nota ? h("div", { className: "mt-2", style: { fontSize: 10.5, color: COR.faint, lineHeight: 1.5 } }, p.nota) : null);
+    }
+    return molduraGaveta(props.aoFechar, cabecalho, h("div", { className: "px-5 pb-6" }, ponte, corpoBlocos));
+  }
+
   /* Gaveta de Prazos e atrasos (Parte D, 21/10/2026): os titulos que     */
   /* compoem um numero da tela, com emissao, vencimento, vencimento       */
   /* efetivo, pagamento, prazo e atraso, e no rodape os mesmos totais e   */
@@ -1124,6 +1220,7 @@
     var ctx = props.ctx;
     if (!ctx) return null;
     if (ctx.modo === "pagos" || ctx.modo === "vencidos") return h(GavetaPrazos, props);
+    if (ctx.modo === "grafico") return h(GavetaGrafico, props);
 
     /* Achado abre com a lista pronta (linhas ja identificadas na apuracao */
     /* do achado, como duplicidade ou sem data), em vez de recalcular um   */
@@ -1346,6 +1443,63 @@
   }
 
   /* ---------------------------------------------------------------------- */
+  /* Parte F (23/10/2026): graficos clicaveis na tela. Clicar num elemento  */
+  /* abre a gaveta lateral (a mesma da DRE, modo "grafico") com os          */
+  /* lancamentos que formam aquele numero e a conferencia contra o valor    */
+  /* desenhado: se nao bater, a diferenca aparece em vermelho (erro de      */
+  /* filtro). O clique so existe quando o grafico recebe props.aoClicar,    */
+  /* isto e, na tela; a exportacao .pptx desenha sem ele, entao o SVG       */
+  /* exportado nao muda. So e clicavel o que tem valor diferente de zero.   */
+  /* ---------------------------------------------------------------------- */
+  function rotuloSecao(chave) {
+    var achada = TODAS_AS_SECOES.filter(function (x) { return x.key === chave; })[0];
+    return achada ? achada.label : chave;
+  }
+  function somaValores(lista) {
+    return lista.reduce(function (t, l) { return t + (l.valor || 0); }, 0);
+  }
+  function textoRegime(regime) { return regime === "caixa" ? "regime de caixa" : "regime de competência"; }
+  var SECOES_DO_DRE = ["receita", "impostos", "custo", "despesas", "finRec", "finDesp", "outrasRec", "outrasDesp", "impLucro"];
+  var SECOES_DO_FLUXO = ["entradas", "saidas", "ativo", "capex", "transf", "naoClassificado"];
+
+  /* Lancamentos de um conjunto de secoes nos meses dados (pela data do   */
+  /* regime, a mesma que formou o grafico), com subtotal por secao.       */
+  function pedidoComposicao(dados, regime, titulo, subtitulo, mesesAlvo, secoes, esperado) {
+    var lista = dados.usadas.filter(function (l) {
+      return secoes.indexOf(secaoDaLinha(l)) >= 0 && mesesAlvo.indexOf(chaveMes(l.dataRegime)) >= 0;
+    });
+    var subtotais = secoes.length > 1 ? secoes.map(function (k) {
+      return { rotulo: rotuloSecao(k), valor: somaValores(lista.filter(function (l) { return secaoDaLinha(l) === k; })) };
+    }).filter(function (x) { return Math.abs(x.valor) > 0.005; }) : null;
+    return {
+      modo: "grafico", titulo: titulo, subtitulo: subtitulo + " · " + textoRegime(regime),
+      conferencias: [{ rotulo: "Total", esperado: esperado, obtido: somaValores(lista) }],
+      blocos: [{ subtotais: subtotais, lancamentos: lista }]
+    };
+  }
+
+  /* Camada de clique por coluna: retangulos transparentes por cima do    */
+  /* desenho (cobrem barra, ponto e rotulo do mes). So com valor.         */
+  function camadaDeCliques(aoClicar, alvos) {
+    if (!aoClicar) return null;
+    return alvos.filter(function (a) { return a && Math.abs(a.valor || 0) > 0.005; }).map(function (a, i) {
+      return h("rect", {
+        key: "clk" + i, "data-clique": "1", className: "quorum-clk",
+        x: a.x, y: a.y, width: a.largura, height: a.altura, fill: "transparent",
+        onClick: function () { aoClicar(a.pedido()); }
+      }, h("title", null, a.dica || "Ver lançamentos"));
+    });
+  }
+  /* Coluna inteira de um mes (ou etapa): do topo do plot ao rotulo do eixo. */
+  function alvoColuna(margem, faixa, indice, baseY, valor, pedido, dica) {
+    return { x: margem.esquerda + faixa * indice, y: margem.topo - 24, largura: faixa, altura: baseY + 46 - (margem.topo - 24),
+      valor: valor, pedido: pedido, dica: dica };
+  }
+  /* Destaque ao passar o mouse e cursor de clique (so na tela). */
+  var ESTILO_GRAFICOS_CLICAVEIS = ".quorum-clk{cursor:pointer}.quorum-clk:hover{fill:rgba(138,106,22,0.08)}"
+    + ".quorum-seg{cursor:pointer}.quorum-seg:hover{opacity:0.72}.quorum-tot{cursor:pointer}.quorum-tot:hover{text-decoration:underline}";
+
+  /* ---------------------------------------------------------------------- */
   /* Slide generico de colunas empilhadas. Recebe as series ja prontas      */
   /* (rotulo, cor, valores por mes), na ordem de empilhamento desejada, e   */
   /* cuida so do desenho: grade, colunas, total no topo, legenda, cabecalho */
@@ -1431,6 +1585,30 @@
       return lum > 0.6 ? TEXTO_SOBRE_CLARO : "#FFFFFF";
     }
 
+    /* Parte F: na tela, cada pedaco abre a gaveta com os lancamentos da   */
+    /* sua serie no mes (serie.filtro), e o total no topo abre o mes        */
+    /* inteiro com subtotal por serie.                                      */
+    var clicavel = !!(props.aoClicar && props.linhas);
+    function lancamentosDoMes(mes, filtro) {
+      return props.linhas.filter(function (l) { return chaveMes(l.dataRegime) === mes && filtro(l); });
+    }
+    function pedidoSerie(serie, mes) {
+      var lista = lancamentosDoMes(mes, serie.filtro);
+      return { modo: "grafico", titulo: props.tituloGaveta + " · " + (serie.rotuloCompleto || serie.rotulo),
+        subtitulo: rotuloMes(mes) + " · " + textoRegime(regime),
+        conferencias: [{ rotulo: "Total", esperado: serie.valores[mes], obtido: somaValores(lista) }],
+        blocos: [{ lancamentos: lista }] };
+    }
+    function pedidoTotalMes(mes) {
+      var lista = lancamentosDoMes(mes, function (l) { return series.some(function (sr) { return sr.filtro(l); }); });
+      return { modo: "grafico", titulo: props.tituloGaveta + " · " + rotuloMes(mes),
+        subtitulo: rotuloMes(mes) + " · " + textoRegime(regime),
+        conferencias: [{ rotulo: "Total", esperado: totalPorMes[mes], obtido: somaValores(lista) }],
+        blocos: [{ subtotais: series.map(function (sr) {
+          return { rotulo: sr.rotuloCompleto || sr.rotulo, valor: somaValores(lista.filter(sr.filtro)) };
+        }).filter(function (x) { return Math.abs(x.valor) > 0.005; }), lancamentos: lista }] };
+    }
+
     /* Colunas empilhadas, maior serie na base. Com props.rotulosInternos,  */
     /* cada segmento leva o proprio valor escrito dentro dele (como no      */
     /* grafico de EBITDA) — so em coluna com dois ou mais segmentos, porque */
@@ -1447,13 +1625,15 @@
         if (valor <= 0) return;
         var altura = alturaDe(valor);
         topoAcumulado -= altura;
-        colunas.push(h("rect", {
+        colunas.push(h("rect", Object.assign({
           key: "b" + mes + serie.rotulo,
           x: x, y: topoAcumulado, width: larguraColuna, height: altura,
           fill: serie.cor,
           stroke: COR.surface,
           strokeWidth: 1.5
-        }));
+        }, clicavel && serie.filtro ? { "data-clique": "1", className: "quorum-seg",
+          onClick: (function (sr, m) { return function () { props.aoClicar(pedidoSerie(sr, m)); }; })(serie, mes) } : {}),
+          clicavel && serie.filtro ? h("title", null, (serie.rotuloCompleto || serie.rotulo) + " · " + rotuloMes(mes)) : null));
         if (props.rotulosInternos && segmentosNoMes > 1 && altura >= 16) {
           colunas.push(h("text", {
             key: "v" + mes + serie.rotulo,
@@ -1466,7 +1646,7 @@
 
       /* Total no topo da coluna. */
       if (totalPorMes[mes] > 0) {
-        colunas.push(h("text", {
+        colunas.push(h("text", Object.assign({
           key: "t" + mes,
           x: centro, y: topoAcumulado - 14,
           textAnchor: "middle",
@@ -1476,7 +1656,9 @@
             fontWeight: 600,
             fontVariantNumeric: "tabular-nums"
           }
-        }, formatarNumero(totalPorMes[mes], 0)));
+        }, clicavel ? { "data-clique": "1", className: "quorum-tot",
+          onClick: (function (m) { return function () { props.aoClicar(pedidoTotalMes(m)); }; })(mes) } : {}),
+          formatarNumero(totalPorMes[mes], 0)));
       }
 
       /* Rotulo do mes. */
@@ -1586,7 +1768,8 @@
         valores[mes] = valor;
         total += valor;
       });
-      return { nome: grupo, valores: valores, total: total };
+      return { nome: grupo, valores: valores, total: total, rotuloCompleto: grupo,
+        filtro: function (l) { return l.grupo === grupo; } };
     }).filter(function (serie) {
       return Math.abs(serie.total) > 0.005;
     }).sort(function (a, b) {
@@ -1604,7 +1787,8 @@
       series: series,
       meses: meses,
       regime: regime,
-      numero: props.numero
+      numero: props.numero,
+      aoClicar: props.aoClicar, linhas: dados.usadas, tituloGaveta: "Receita bruta"
     });
   }
 
@@ -1622,6 +1806,10 @@
   /* resolverContraparte (o nome da conta bancaria), o que faria a conta    */
   /* corrente aparecer como se fosse um cliente no grafico.                 */
   var SEM_CLIENTE_ROTULO = "Sem cliente identificado";
+  /* Cliente de um lancamento de receita, usado pelos graficos 2 e 9 e    */
+  /* pelas gavetas deles: so confia no nome se veio do cadastro de fato;  */
+  /* fallback por natureza ou por conta corrente vira "sem cliente".      */
+  function clienteDaReceita(l) { return l.contraOrigem === "cadastro" ? l.contraparte : SEM_CLIENTE_ROTULO; }
 
   function GraficoReceitaPorCliente(props) {
     var dados = props.dados;
@@ -1636,9 +1824,7 @@
       if (gruposReceita.indexOf(l.grupo) < 0) return;
       var mes = chaveMes(l.dataRegime);
       if (!mes) return;
-      /* So confia no nome se ele veio do cadastro de fato. Fallback por    */
-      /* natureza ou por conta corrente vira "sem cliente identificado".    */
-      var cliente = l.contraOrigem === "cadastro" ? l.contraparte : SEM_CLIENTE_ROTULO;
+      var cliente = clienteDaReceita(l);
       var chave = cliente + "||" + mes;
       somasPorCliente.set(chave, (somasPorCliente.get(chave) || 0) + l.valor);
       totalPorCliente.set(cliente, (totalPorCliente.get(cliente) || 0) + l.valor);
@@ -1657,7 +1843,8 @@
       meses.forEach(function (mes) {
         valores[mes] = somasPorCliente.get(cliente + "||" + mes) || 0;
       });
-      return { rotulo: truncar(cliente, 26), valores: valores };
+      return { rotulo: truncar(cliente, 26), valores: valores, rotuloCompleto: cliente,
+        filtro: function (l) { return gruposReceita.indexOf(l.grupo) >= 0 && clienteDaReceita(l) === cliente; } };
     });
 
     /* A cor por gradiente considera so os clientes nomeados de verdade:   */
@@ -1672,10 +1859,12 @@
           return soma + (somasPorCliente.get(par[0] + "||" + mes) || 0);
         }, 0);
       });
+      var nomesDemais = demais.map(function (par) { return par[0]; });
       series.push({
         rotulo: "Outros clientes (" + demais.length + ")",
         valores: valoresOutros,
-        cor: "#B9C0CC"
+        cor: "#B9C0CC",
+        filtro: function (l) { return gruposReceita.indexOf(l.grupo) >= 0 && nomesDemais.indexOf(clienteDaReceita(l)) >= 0; }
       });
     }
 
@@ -1685,7 +1874,8 @@
       meses.forEach(function (mes) {
         valoresSemCliente[mes] = somasPorCliente.get(SEM_CLIENTE_ROTULO + "||" + mes) || 0;
       });
-      series.push({ rotulo: SEM_CLIENTE_ROTULO, valores: valoresSemCliente, cor: "#D8DEE7" });
+      series.push({ rotulo: SEM_CLIENTE_ROTULO, valores: valoresSemCliente, cor: "#D8DEE7",
+        filtro: function (l) { return gruposReceita.indexOf(l.grupo) >= 0 && clienteDaReceita(l) === SEM_CLIENTE_ROTULO; } });
     }
 
     return h(SlideColunasEmpilhadas, {
@@ -1695,7 +1885,8 @@
       meses: meses,
       regime: regime,
       numero: props.numero,
-      vazio: "Sem receita atribuída a cliente no período para montar o gráfico."
+      vazio: "Sem receita atribuída a cliente no período para montar o gráfico.",
+      aoClicar: props.aoClicar, linhas: dados.usadas, tituloGaveta: "Receita bruta por cliente"
     });
   }
 
@@ -1935,7 +2126,12 @@
         grade,
         barras,
         elementosLinha,
-        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda)
+        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda),
+        camadaDeCliques(props.aoClicar, meses.map(function (mes, i) {
+          return alvoColuna(margem, faixa, i, baseY, dados.receitaLiquida[mes], function () {
+            return pedidoComposicao(dados, regime, "Receita líquida · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos"], dados.receitaLiquida[mes]);
+          }, "Receita líquida de " + rotuloMes(mes));
+        }))
       )
     );
   }
@@ -2180,7 +2376,12 @@
         grade,
         barras,
         elementosLinha,
-        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda)
+        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, legenda),
+        camadaDeCliques(props.aoClicar, meses.map(function (mes, i) {
+          return alvoColuna(margem, faixa, i, baseY, dados.lucroBruto[mes], function () {
+            return pedidoComposicao(dados, regime, "Lucro bruto · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos", "custo"], dados.lucroBruto[mes]);
+          }, "Lucro bruto de " + rotuloMes(mes));
+        }))
       )
     );
   }
@@ -2469,7 +2670,12 @@
         grade,
         barras,
         elementosLinha,
-        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, pecasLegenda)
+        h("g", { transform: "translate(" + xLegenda + "," + yLegenda + ")" }, pecasLegenda),
+        camadaDeCliques(props.aoClicar, meses.map(function (mes, i) {
+          return alvoColuna(margem, faixa, i, baseY, dados.ebitda[mes], function () {
+            return pedidoComposicao(dados, regime, "EBITDA · " + rotuloMes(mes), rotuloMes(mes), [mes], ["receita", "impostos", "custo", "despesas"], dados.ebitda[mes]);
+          }, "EBITDA de " + rotuloMes(mes));
+        }))
       )
     );
   }
@@ -2530,19 +2736,19 @@
     /* receita liquida -> custo -> lucro bruto -> despesas -> ebitda ->     */
     /* financeiro -> nao operacional -> impostos sobre o lucro -> liquido.  */
     var etapasBrutas = [
-      { tipo: "total", rotulo: "Receita Bruta", valor: recBruta },
-      { tipo: "delta", rotulo: "Impostos e Deduções", valor: impostos },
-      { tipo: "total", rotulo: "Receita Líquida", valor: recLiquida },
-      { tipo: "delta", rotulo: "Custo dos Serviços Prestados", valor: custo },
-      { tipo: "total", rotulo: "Lucro Bruto", valor: lucroBrutoTotal },
-      { tipo: "delta", rotulo: "Despesas Fixas", valor: despesas },
-      { tipo: "total", rotulo: "EBITDA", valor: ebitdaTotal },
-      { tipo: "delta", rotulo: "Receitas Financeiras", valor: finRec },
-      { tipo: "delta", rotulo: "Despesas Financeiras", valor: finDesp },
-      { tipo: "delta", rotulo: "Outras Receitas Não Operacionais", valor: outrasRec },
-      { tipo: "delta", rotulo: "Resultado Não Operacional", valor: outrasDesp },
-      { tipo: "delta", rotulo: "Impostos sobre o Lucro", valor: impLucro },
-      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, final: !ateFluxoCaixa }
+      { tipo: "total", rotulo: "Receita Bruta", valor: recBruta, secoes: ["receita"] },
+      { tipo: "delta", rotulo: "Impostos e Deduções", valor: impostos, secoes: ["impostos"] },
+      { tipo: "total", rotulo: "Receita Líquida", valor: recLiquida, secoes: ["receita", "impostos"] },
+      { tipo: "delta", rotulo: "Custo dos Serviços Prestados", valor: custo, secoes: ["custo"] },
+      { tipo: "total", rotulo: "Lucro Bruto", valor: lucroBrutoTotal, secoes: ["receita", "impostos", "custo"] },
+      { tipo: "delta", rotulo: "Despesas Fixas", valor: despesas, secoes: ["despesas"] },
+      { tipo: "total", rotulo: "EBITDA", valor: ebitdaTotal, secoes: ["receita", "impostos", "custo", "despesas"] },
+      { tipo: "delta", rotulo: "Receitas Financeiras", valor: finRec, secoes: ["finRec"] },
+      { tipo: "delta", rotulo: "Despesas Financeiras", valor: finDesp, secoes: ["finDesp"] },
+      { tipo: "delta", rotulo: "Outras Receitas Não Operacionais", valor: outrasRec, secoes: ["outrasRec"] },
+      { tipo: "delta", rotulo: "Resultado Não Operacional", valor: outrasDesp, secoes: ["outrasDesp"] },
+      { tipo: "delta", rotulo: "Impostos sobre o Lucro", valor: impLucro, secoes: ["impLucro"] },
+      { tipo: "total", rotulo: "Lucro Líquido", valor: lucroLiquidoTotal, secoes: SECOES_DO_DRE, final: !ateFluxoCaixa }
     ];
 
     /* Continua a mesma cascata para dentro do Fluxo de Caixa — as secoes    */
@@ -2562,13 +2768,13 @@
       var naoClassificado = somaSecao("naoClassificado");
       var fclTotal = lucroLiquidoTotal + entradas + saidas + ativo + capex + transf + naoClassificado;
       etapasBrutas = etapasBrutas.concat([
-        { tipo: "delta", rotulo: "Entradas Não Operacionais", valor: entradas },
-        { tipo: "delta", rotulo: "Saídas Não Operacionais", valor: saidas },
-        { tipo: "delta", rotulo: "Movimentação do Ativo", valor: ativo },
-        { tipo: "delta", rotulo: "Investimentos", valor: capex },
-        { tipo: "delta", rotulo: "Transferências entre Contas", valor: transf },
-        { tipo: "delta", rotulo: "Não Classificado", valor: naoClassificado },
-        { tipo: "total", rotulo: "Fluxo de Caixa Livre", valor: fclTotal, final: true }
+        { tipo: "delta", rotulo: "Entradas Não Operacionais", valor: entradas, secoes: ["entradas"] },
+        { tipo: "delta", rotulo: "Saídas Não Operacionais", valor: saidas, secoes: ["saidas"] },
+        { tipo: "delta", rotulo: "Movimentação do Ativo", valor: ativo, secoes: ["ativo"] },
+        { tipo: "delta", rotulo: "Investimentos", valor: capex, secoes: ["capex"] },
+        { tipo: "delta", rotulo: "Transferências entre Contas", valor: transf, secoes: ["transf"] },
+        { tipo: "delta", rotulo: "Não Classificado", valor: naoClassificado, secoes: ["naoClassificado"] },
+        { tipo: "total", rotulo: "Fluxo de Caixa Livre", valor: fclTotal, secoes: SECOES_DO_DRE.concat(SECOES_DO_FLUXO), final: true }
       ]);
     }
 
@@ -2769,7 +2975,13 @@
 
         grade,
         conectores,
-        barras
+        barras,
+        camadaDeCliques(props.aoClicar, etapas.map(function (e, i) {
+          var periodoTxt = rotuloMes(meses[0]) + " a " + rotuloMes(meses[meses.length - 1]);
+          return alvoColuna(margem, faixa, i, baseY, e.valor, function () {
+            return pedidoComposicao(dados, regime, e.rotulo + " · " + periodoTxt, periodoTxt, meses, e.secoes, e.valor);
+          }, e.rotulo);
+        }))
       )
     );
   }
@@ -2806,6 +3018,15 @@
   /* que prefere ver o acumulado parcial a nao ver nada, sabendo que a      */
   /* leitura de "ultimos 12 meses" so vale a partir do primeiro ponto       */
   /* completo. O grafico marca visualmente a diferenca entre os dois.       */
+  /* Meses da janela de janelaLTM (ate 12, sem passar do inicio do       */
+  /* historico), do mais antigo ao mais recente. Usado pelas gavetas.    */
+  function mesesDaJanelaLTM(mesInicioHistorico, mesAlvo) {
+    var a = mesAlvo.split("-"), b = mesInicioHistorico.split("-");
+    var alvo = Number(a[0]) * 12 + Number(a[1]) - 1, ini = Number(b[0]) * 12 + Number(b[1]) - 1;
+    var n = Math.min(12, alvo - ini + 1), out = [];
+    for (var i = n - 1; i >= 0; i--) { var k = alvo - i; out.push(Math.floor(k / 12) + "-" + String((k % 12) + 1).padStart(2, "0")); }
+    return out;
+  }
   function janelaLTM(dados, mesInicioHistorico, mesAlvo) {
     var partesAlvo = mesAlvo.split("-");
     var indiceAlvo = Number(partesAlvo[0]) * 12 + (Number(partesAlvo[1]) - 1);
@@ -3094,7 +3315,22 @@
           style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" }
         }, "* acumulado parcial, ainda sem 12 meses completos de histórico"),
 
-        grade, barras, elementosLinha, legenda
+        grade, barras, elementosLinha, legenda,
+        camadaDeCliques(props.aoClicar, mesesValidos.map(function (mes, i) {
+          return alvoColuna(margem, faixa, i, baseY, valoresBarra[mes], function () {
+            var janela = mesesDaJanelaLTM(mesInicioHistorico, mes);
+            var gruposReceita = (dados.secoesDre ? dados.secoesDre[0].groups : SECOES_DRE[0].groups);
+            var lista = dados.usadas.filter(function (l) {
+              return gruposReceita.indexOf(l.grupo) >= 0 && janela.indexOf(chaveMes(l.dataRegime)) >= 0;
+            });
+            return { modo: "grafico", titulo: "Receita bruta LTM até " + rotuloMes(mes),
+              subtitulo: rotuloMes(janela[0]) + " a " + rotuloMes(mes) + " · " + textoRegime(regime),
+              conferencias: [{ rotulo: "Total", esperado: valoresBarra[mes], obtido: somaValores(lista) }],
+              blocos: [{ subtotais: janela.map(function (m) {
+                return { rotulo: rotuloMes(m), valor: somaValores(lista.filter(function (l) { return chaveMes(l.dataRegime) === m; })) };
+              }), lancamentos: lista }] };
+          }, "Receita LTM até " + rotuloMes(mes));
+        }))
       )
     );
   }
@@ -3116,20 +3352,24 @@
     var nMeses = Math.min(12, idxAlvo - idxIni + 1);
     var primeiro = idxAlvo - nMeses + 1;
     var mesPrimeiro = Math.floor(primeiro / 12) + "-" + String((primeiro % 12) + 1).padStart(2, "0");
-    var total = 0, porCliente = new Map();
+    var total = 0, porCliente = new Map(), lista = [];
     dados.usadas.forEach(function (l) {
       if (gruposReceita.indexOf(l.grupo) < 0) return;
       var mes = chaveMes(l.dataRegime);
       if (!mes || mes < mesPrimeiro || mes > mesAlvo) return;
       total += l.valor;
-      if (l.contraOrigem !== "cadastro") return;
-      porCliente.set(l.contraparte, (porCliente.get(l.contraparte) || 0) + l.valor);
+      lista.push(l);
+      var cliente = clienteDaReceita(l);
+      if (cliente === SEM_CLIENTE_ROTULO) return;
+      porCliente.set(cliente, (porCliente.get(cliente) || 0) + l.valor);
     });
     var valores = Array.from(porCliente.values()).filter(function (v) { return v > 0.005; }).sort(function (a, b) { return b - a; });
     return {
       total: total, ativos: valores.length, completo: nMeses >= 12,
       maior: total > 0 && valores.length ? valores[0] / total : null,
-      top3: total > 0 && valores.length ? valores.slice(0, 3).reduce(function (t, v) { return t + v; }, 0) / total : null
+      top3: total > 0 && valores.length ? valores.slice(0, 3).reduce(function (t, v) { return t + v; }, 0) / total : null,
+      /* para a gaveta (Parte F): os lancamentos da janela e o mapa por cliente */
+      lista: lista, porCliente: porCliente, mesPrimeiro: mesPrimeiro
     };
   }
 
@@ -3251,7 +3491,29 @@
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 9)),
         temParcial && h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
           style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "* janela parcial, ainda sem 12 meses completos de histórico"),
-        grade, barras, linhasPct, legenda));
+        grade, barras, linhasPct, legenda,
+        camadaDeCliques(props.aoClicar, mesesValidos.map(function (mes, i) {
+          var cc = conc[mes];
+          return alvoColuna(margem, faixa, i, baseY, cc.total, function () {
+            var linhasCli = Array.from(cc.porCliente.entries()).map(function (par) { return { rotulo: par[0], valor: par[1] }; })
+              .sort(function (x, y) { return y.valor - x.valor; });
+            var semCli = somaValores(cc.lista.filter(function (l) { return clienteDaReceita(l) === SEM_CLIENTE_ROTULO; }));
+            if (Math.abs(semCli) > 0.005) linhasCli.push({ rotulo: SEM_CLIENTE_ROTULO, valor: semCli });
+            linhasCli.forEach(function (x) { x.pct = cc.total ? x.valor / cc.total : null; });
+            var positivos = linhasCli.filter(function (x) { return x.rotulo !== SEM_CLIENTE_ROTULO && x.valor > 0.005; });
+            var top1 = positivos.length ? positivos[0].valor / cc.total : null;
+            var top3 = positivos.length ? positivos.slice(0, 3).reduce(function (t, x) { return t + x.valor; }, 0) / cc.total : null;
+            return { modo: "grafico", titulo: "Concentração de receita · LTM até " + rotuloMes(mes),
+              subtitulo: rotuloMes(cc.mesPrimeiro) + " a " + rotuloMes(mes) + " · " + textoRegime(regime),
+              conferencias: [
+                { rotulo: "Receita bruta da janela", esperado: cc.total, obtido: somaValores(cc.lista) },
+                { rotulo: "Maior cliente", esperado: cc.maior, obtido: top1, formato: "pct" },
+                { rotulo: "3 maiores", esperado: cc.top3, obtido: top3, formato: "pct" },
+                { rotulo: "Clientes ativos", esperado: cc.ativos, obtido: positivos.length, formato: "qtd" }
+              ],
+              blocos: [{ titulo: "Receita por cliente", subtotais: linhasCli, lancamentos: cc.lista }] };
+          }, "Concentração até " + rotuloMes(mes));
+        }))));
   }
 
 
@@ -3268,6 +3530,110 @@
   /* barra verde se positiva e vermelha se negativa (as cores do grafico */
   /* de fontes e usos), linha numa faixa propria acima das barras (cada  */
   /* uma com a sua escala, por isso o eixo y nao tem rotulos).           */
+  /* Gavetas do grafico 10 (Parte F). Mes fechado: os lancamentos reais  */
+  /* do Lucro Liquido de caixa, os do "Fluxo de caixa" (tudo fora da      */
+  /* operacao nas contas do caixa livre) e a ponte do saldo, conferida    */
+  /* contra o ponto do grafico (sem forcar o fechamento). Mes projetado:  */
+  /* titulos e previsoes de OS do mes e as linhas estimadas, como linhas  */
+  /* de calculo com a conta escrita.                                     */
+  function pedidoFCFRealizado(R, m) {
+    var dc = R.dadosCaixa, caucao = R.caucao || [];
+    var doMes = dc.linhas.filter(function (l) { return l.dPag && chaveMes(l.dPag) === m; });
+    var ehDre = function (l) { return SECOES_DO_DRE.indexOf(secaoDaLinha(l)) >= 0; };
+    var naCaucao = function (l) { return caucao.indexOf(l.conta) >= 0; };
+    var dre = doMes.filter(ehDre);
+    var fora = doMes.filter(function (l) { return !ehDre(l) && !naCaucao(l); });
+    var dreCaucao = dre.filter(naCaucao);
+    var grupoDe = function (l) { return String(l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || ""); };
+    var classesFora = [
+      ["Mútuo e captações (1.11)", function (l) { return secaoDaLinha(l) === "entradas"; }],
+      ["Distribuições a sócios (2.16)", function (l) { return grupoDe(l) === "2.16"; }],
+      ["Passivo e pagamento de fatura (2.17) · saída da conta", function (l) { return grupoDe(l) === "2.17" && l.contaTipo !== "CR"; }],
+      ["Pagamento de fatura (2.17) · baixa no cartão", function (l) { return grupoDe(l) === "2.17" && l.contaTipo === "CR"; }],
+      ["Aplicações (2.18)", function (l) { return secaoDaLinha(l) === "ativo"; }],
+      ["Investimentos (2.19)", function (l) { return secaoDaLinha(l) === "capex"; }],
+      ["Transferências (0.x)", function (l) { return secaoDaLinha(l) === "transf"; }],
+      ["Não classificado", function (l) { return secaoDaLinha(l) === "naoClassificado"; }]
+    ];
+    var subtotaisFora = classesFora.map(function (c) { return { rotulo: c[0], valor: somaValores(fora.filter(c[1])) }; })
+      .filter(function (x) { return Math.abs(x.valor) > 0.005; });
+    var semClasse = fora.filter(function (l) { return !classesFora.some(function (c) { return c[1](l); }); });
+    if (semClasse.length) subtotaisFora.push({ rotulo: "Outros fora da operação", valor: somaValores(semClasse) });
+    var calculoFora = [];
+    if (Math.abs(somaValores(dreCaucao)) > 0.005) calculoFora.push({ rotulo: "Resultado lançado na caução (fora do caixa livre)",
+      valor: -somaValores(dreCaucao), conta: "lançamentos de resultado na conta de caução entram no Lucro Líquido, mas não no caixa livre" });
+    var ll = somaValores(dre), fluxo = somaValores(fora) + somaValores(calculoFora);
+    var anterior = R.linha.anterior[m] || 0, saldo = R.linha.saldo[m];
+    var cr = doMes.filter(function (l) { return l.contaTipo === "CR"; });
+    var comprasCartao = somaValores(cr.filter(ehDre)), baixaCartao = somaValores(cr.filter(function (l) { return !ehDre(l); }));
+    var subtotaisDre = SECOES_DO_DRE.map(function (k) {
+      return { rotulo: rotuloSecao(k), valor: somaValores(dre.filter(function (l) { return secaoDaLinha(l) === k; })) };
+    }).filter(function (x) { return Math.abs(x.valor) > 0.005; });
+    var ponte = [{ rotulo: "Saldo de caixa livre no fim do mês anterior", valor: anterior },
+      { rotulo: "(+) Lucro Líquido do mês", valor: ll }]
+      .concat(subtotaisFora.map(function (x) { return { rotulo: "(±) " + x.rotulo, valor: x.valor }; }))
+      .concat(calculoFora.map(function (x) { return { rotulo: "(±) " + x.rotulo, valor: x.valor }; }));
+    return { modo: "grafico", titulo: "Fluxo de Caixa Livre · " + rotuloMes(m) + " (realizado)",
+      subtitulo: rotuloMes(m) + " · regime de caixa · valores reais",
+      conferencias: [
+        { rotulo: "Lucro Líquido do mês", esperado: R.linha.fcf[m], obtido: ll },
+        { rotulo: "Fluxo de caixa (fora da operação)", esperado: R.linha.fora[m], obtido: fluxo }
+      ],
+      ponte: { linhas: ponte, rotuloResultado: "(=) Saldo calculado no fim do mês", obtido: anterior + ll + fluxo,
+        rotuloEsperado: "Saldo de caixa livre no gráfico", esperado: saldo,
+        nota: (function () {
+          var variacao = -(comprasCartao + baixaCartao), n2 = function (v) { return Math.abs(v) < 0.005 ? "0,00" : formatarNumero(Math.abs(v), 2); };
+          return "Variação da fatura do cartão em aberto no mês: " + (variacao > 0.005 ? "aumentou " : (variacao < -0.005 ? "diminuiu " : "")) + n2(variacao)
+            + " (compras e encargos no cartão de " + n2(comprasCartao) + ", que já estão no Lucro Líquido; pagamento da fatura de " + n2(baixaCartao)
+            + ", que já está em 2.17 · baixa no cartão). Essa variação já está nas linhas da ponte e não é somada de novo.";
+        })() },
+      blocos: [
+        { titulo: "Lucro Líquido do mês", subtotais: subtotaisDre, lancamentos: dre },
+        { titulo: "Fluxo de caixa (fora da operação)", subtotais: subtotaisFora, lancamentos: fora, calculo: calculoFora }
+      ] };
+  }
+  function pedidoFCFProjetado(fc, m) {
+    var b = fc.base, L = fc.linha;
+    var pct2 = function (v) { return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%"; };
+    var itens = (fc.itens || []).filter(function (it) { return it.mCaixa === m; });
+    var lanc = itens.map(function (it) {
+      return { id: (it.l.id || it.l.documento || "") + "|" + it.l.vencimento, dataRegime: vencimentoEfetivo(it.l.vencimento),
+        contraparte: it.contraparte || "Sem contraparte", contraOrigem: "cadastro", categoria: it.l.categoria || "",
+        situacao: it.previsao ? "previsto (OS)" : (it.l.tipo === "receber" ? "título a receber em aberto" : "título a pagar em aberto"),
+        valor: it.valor };
+    });
+    var calc = [];
+    if (Math.abs(L.impostos[m] || 0) > 0.005) {
+      var mp = somarMes(m, -1), sx = b.simples[mp];
+      calc.push({ rotulo: "DAS da competência " + rotuloMes(mp), valor: L.impostos[m],
+        conta: "alíquota efetiva estimada do Anexo III de " + pct2(sx.aliquota) + " (RBT12 " + formatarNumero(sx.rbt12, 0) + ") × receita de competência de "
+          + rotuloMes(mp) + " (" + formatarNumero(sx.receita, 2) + "); vence no dia 20" });
+    }
+    if (Math.abs(L.custos[m] || 0) > 0.005) {
+      var baseCusto = (fc.itens || []).filter(function (it) { return it.l.tipo === "receber" && it.mComp === m && it.mComp >= fc.mesAtual; })
+        .reduce(function (t, it) { return t + it.valor; }, 0);
+      calc.push({ rotulo: "Custo direto estimado", valor: L.custos[m],
+        conta: pct2(b.custoPct) + " × receita projetada emitida em " + rotuloMes(m) + " (" + formatarNumero(baseCusto, 2) + ")" });
+    }
+    if (Math.abs(L.despConta[m] || 0) > 0.005) {
+      calc.push({ rotulo: "Despesas pagas em conta (média)", valor: L.despConta[m],
+        conta: "média mensal de " + formatarNumero(-b.despMediaConta, 2) + " (3 meses fechados)" + (m === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " do mês (dias que faltam)" : "") });
+    }
+    if (Math.abs(L.despCartao[m] || 0) > 0.005) {
+      calc.push({ rotulo: "Despesas no cartão (média), fatura do dia 5", valor: L.despCartao[m],
+        conta: "média mensal de " + formatarNumero(-b.despMediaCartao, 2) + " gasta no cartão no mês anterior" + (somarMes(m, -1) === fc.mesAtual ? " × " + pct2(b.fracaoMesAtual) + " (parte que falta do mês corrente)" : "") });
+    }
+    var subtot = [
+      { rotulo: "Receita (títulos e previsões de OS)", valor: L.receita[m] || 0 },
+      { rotulo: "Títulos a pagar", valor: L.titulos[m] || 0 },
+      { rotulo: "Linhas de cálculo", valor: calc.reduce(function (t, c) { return t + c.valor; }, 0) }
+    ].filter(function (x) { return Math.abs(x.valor) > 0.005; });
+    return { modo: "grafico", titulo: "Fluxo de Caixa Livre · " + rotuloMes(m) + " (projetado)",
+      subtitulo: rotuloMes(m) + (m === fc.mesAtual ? " · de hoje ao fim do mês" : "") + " · estimativa",
+      conferencias: [{ rotulo: "Lucro Líquido projetado do mês", esperado: L.fcf[m], obtido: somaValores(lanc) + calc.reduce(function (t, c) { return t + c.valor; }, 0) }],
+      blocos: [{ subtotais: subtot, lancamentos: lanc, calculo: calc }] };
+  }
+
   var COR_LINHA_RESERVA = "#B23A2F";
   /* Projetado em tom claro, solido (a exportacao troca barra com        */
   /* transparencia pelo cinza da barra parcial do LTM).                  */
@@ -3375,7 +3741,14 @@
           style: { fontSize: 17, fill: COR.faint, fontVariantNumeric: "tabular-nums" } }, String(props.numero || 10)),
         !naTela && h("text", { x: SLIDE.largura / 2, y: SLIDE.altura - MARGEM_RODAPE - TAMANHO_LOGO / 2 + 6, textAnchor: "middle",
           style: { fontSize: 11, fill: COR.faint, fontStyle: "italic" } }, "realizado: lucro líquido de caixa e caixa livre do fim do mês · projetado: títulos e OS em aberto, Anexo III e médias dos 3 meses fechados (metodologia em Fluxo de Caixa Livre Projetado)"),
-        grade, elementos));
+        grade, elementos,
+        camadaDeCliques(props.aoClicar, meses.map(function (m, i) {
+          var ehReal = real(i);
+          var valor = ehReal ? Math.abs(R.linha.fcf[m] || 0) + Math.abs(R.linha.fora[m] || 0) : Math.abs(fc.linha.fcf[m] || 0);
+          return alvoColuna(margem, faixa, i, baseY, valor, function () {
+            return ehReal ? pedidoFCFRealizado(R, m) : pedidoFCFProjetado(fc, m);
+          }, rotuloMes(m) + (ehReal ? " (realizado)" : " (projetado)"));
+        }))));
   }
 
   /* ------------------------------------------------------------------ */
@@ -4517,7 +4890,9 @@
         pagar: itensPagar.reduce(function (t, it) { return t + it.valor; }, 0),
         qtdReceber: itensReceber.length, qtdPagar: itensPagar.length
       },
-      foraDoHorizonte: foraDoHorizonte
+      foraDoHorizonte: foraDoHorizonte,
+      /* para a gaveta do grafico 10 (Parte F) */
+      itens: itensReceber.concat(itensPagar), receitaComp: receitaComp
     };
   }
 
@@ -4533,7 +4908,7 @@
   function calcularFCFRealizado(dadosCaixa, mesesFechados, reservaPorMes) {
     var caucao = contasDoTipo(dadosCaixa, ["CV"]);
     var linha = {};
-    ["receita", "impostos", "custos", "despConta", "despCartao", "outros", "fcf", "fora", "saldo", "reserva", "conferencia"].forEach(function (c) {
+    ["receita", "impostos", "custos", "despConta", "despCartao", "outros", "fcf", "fora", "saldo", "reserva", "conferencia", "anterior"].forEach(function (c) {
       linha[c] = {}; mesesFechados.forEach(function (m) { linha[c][m] = 0; });
     });
     dadosCaixa.linhas.forEach(function (l) {
@@ -4558,8 +4933,9 @@
       linha.saldo[m] = posicaoNoMes(dadosCaixa, m).livre;
       linha.reserva[m] = reservaPorMes && reservaPorMes[m] ? reservaPorMes[m].reserva : null;
       linha.conferencia[m] = Math.round((linha.saldo[m] - anterior - linha.fcf[m] - linha.fora[m]) * 100) / 100;
+      linha.anterior[m] = anterior;
     });
-    return { meses: mesesFechados.slice(), linha: linha };
+    return { meses: mesesFechados.slice(), linha: linha, dadosCaixa: dadosCaixa, caucao: caucao };
   }
 
   /* dadosCaixa: calcular() em regime de caixa (pago). hoje: Date.        */
@@ -7050,23 +7426,25 @@
     /* outro. A margem lateral soma o padding do main (24 px) com 14 px.  */
     /* So a tela: o .pptx desenha os graficos a parte, no tamanho do slide.*/
     var GRAFICOS_ESPACO_PX = 38;
+    /* Parte F: a tela Graficos (e a do FCLP) abre a gaveta ao clicar.   */
+    function abrirGavetaGrafico(pedido) { setGaveta(pedido); }
     function abaApresentacao() {
       return h("div", { className: "quorum-graficos", style: { display: "flex", flexDirection: "column", gap: GRAFICOS_ESPACO_PX,
         padding: "0 " + (GRAFICOS_ESPACO_PX - 24) + "px" } },
-        h("style", null, ".quorum-graficos > div { max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; }"),
-        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1 }),
-        h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2 }),
-        h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3 }),
-        h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4 }),
-        h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5 }),
-        h(GraficoEBITDA, { dados: dados, meses: meses, regime: regime, numero: 6 }),
-        h(GraficoWaterfallDRE, { dados: dados, meses: meses, regime: regime, numero: 7 }),
+        h("style", null, ".quorum-graficos > div { max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; }" + ESTILO_GRAFICOS_CLICAVEIS),
+        h(GraficoReceitaBruta, { dados: dados, meses: meses, regime: regime, numero: 1, aoClicar: abrirGavetaGrafico }),
+        h(GraficoReceitaPorCliente, { dados: dados, meses: meses, regime: regime, numero: 2, aoClicar: abrirGavetaGrafico }),
+        h(GraficoReceitaBrutaLTM, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 3, aoClicar: abrirGavetaGrafico }),
+        h(GraficoReceitaLiquida, { dados: dados, meses: meses, regime: regime, numero: 4, aoClicar: abrirGavetaGrafico }),
+        h(GraficoLucroBruto, { dados: dados, meses: meses, regime: regime, numero: 5, aoClicar: abrirGavetaGrafico }),
+        h(GraficoEBITDA, { dados: dados, meses: meses, regime: regime, numero: 6, aoClicar: abrirGavetaGrafico }),
+        h(GraficoWaterfallDRE, { dados: dados, meses: meses, regime: regime, numero: 7, aoClicar: abrirGavetaGrafico }),
         h(GraficoWaterfallDRE, {
           dados: dados, meses: meses, regime: regime, numero: 8, ateFluxoCaixa: true,
-          titulo: "FLUXO DE CAIXA LIVRE"
+          titulo: "FLUXO DE CAIXA LIVRE", aoClicar: abrirGavetaGrafico
         }),
-        h(GraficoConcentracao, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 9 }),
-        h(GraficoFCFProjetado, { projecao: reserva && reserva.fcf, numero: 10 })
+        h(GraficoConcentracao, { dados: dados, meses: meses, todosMeses: todosMeses, regime: regime, numero: 9, aoClicar: abrirGavetaGrafico }),
+        h(GraficoFCFProjetado, { projecao: reserva && reserva.fcf, numero: 10, aoClicar: abrirGavetaGrafico })
       );
     }
 
@@ -7391,7 +7769,8 @@
     function paginaFCF() {
       if (!reserva || !reserva.fcf) return h("div", { style: { fontSize: 12, color: COR.faint } }, "Sem base carregada.");
       return h("div", null,
-        h("div", { className: "mb-5" }, h(GraficoFCFProjetado, { projecao: reserva.fcf, numero: 10, naTela: true })),
+        h("style", null, ESTILO_GRAFICOS_CLICAVEIS),
+        h("div", { className: "mb-5" }, h(GraficoFCFProjetado, { projecao: reserva.fcf, numero: 10, naTela: true, aoClicar: abrirGavetaGrafico })),
         blocoFCFProjetado(reserva.fcf));
     }
 
