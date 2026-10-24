@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Política de Privacidade · Dashboard Financeiro QUORUM</title>
+<link rel="icon" href="favicon.ico" />
+<meta name="theme-color" content="#8A6A16" />
+<!-- Pagina publica e estatica: sem script, sem chamada ao n8n, sem dado  -->
+<!-- financeiro. Cores e fonte iguais as do painel (COR do index.html e a  -->
+<!-- fonte padrao do Tailwind), com versao para o modo escuro do sistema.   -->
+<style>
+  :root {
+    --bg: #EEF1F5;
+    --surface: #FFFFFF;
+    --line: #CBD3DE;
+    --text: #1B2230;
+    --dim: #4E586B;
+    --faint: #7A8598;
+    --brass: #8A6A16;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121722;
+      --surface: #1B2230;
+      --line: #2E3747;
+      --text: #E6EAF0;
+      --dim: #B4BCC9;
+      --faint: #8D97A8;
+      --brass: #C9A44A;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .faixa {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 14px 16px;
+  }
+  .marca {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .marca .sigla {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+  .marca .nome {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 16px 48px;
+  }
+  .cartao {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 28px 28px 20px;
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    margin: 0 0 6px;
+  }
+  .data {
+    font-size: 12px;
+    color: var(--faint);
+    margin: 0 0 24px;
+  }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--brass);
+    margin: 26px 0 6px;
+  }
+  p {
+    font-size: 14px;
+    color: var(--dim);
+    margin: 0 0 12px;
+  }
+  a { color: var(--brass); }
+  @media (max-width: 520px) {
+    .cartao { padding: 20px 16px 12px; }
+    h1 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="faixa">
+    <a class="marca" href="./">
+      <div class="sigla">QUORUM</div>
+      <div class="nome">Dashboard Financeiro</div>
+    </a>
+  </div>
+</header>
+<main>
+  <article class="cartao">
+    <h1>Política de Privacidade do Dashboard Financeiro QUORUM</h1>
+    <p class="data">Última atualização: 24/10/2026</p>
+
+    <h2>1. Quem somos</h2>
+    <p>O Dashboard Financeiro (dashboard.quorum-br.com) é uma ferramenta interna de gestão da QUORUM COMUNIDADE DE EXECUTIVOS LTDA., CNPJ 67.685.247/0001-60, com sede em São Paulo/SP, controladora dos dados pessoais tratados nesta ferramenta. O acesso é restrito a pessoas autorizadas individualmente pela QUORUM.</p>
+
+    <h2>2. Quais dados tratamos</h2>
+    <p>Ao entrar com uma conta Google, recebemos do Google apenas: nome, endereço de e-mail, identificador da conta e a confirmação de que o e-mail foi verificado. Não acessamos e-mails, arquivos, contatos, agenda ou qualquer outro dado da sua conta Google. Também podem ser gerados registros técnicos de acesso (data, hora e endereço IP) pelos provedores que hospedam a ferramenta.</p>
+
+    <h2>3. Para que usamos</h2>
+    <p>Exclusivamente para identificar você, conferir se você tem autorização para acessar a ferramenta e quais telas pode ver, e manter a segurança do acesso. Não usamos esses dados para publicidade, não os vendemos e não os compartilhamos com terceiros, salvo os provedores de infraestrutura descritos abaixo ou por obrigação legal.</p>
+
+    <h2>4. Base legal</h2>
+    <p>O tratamento se apoia no legítimo interesse da QUORUM em controlar o acesso às suas informações de gestão e, quando aplicável, na execução de contrato ou de procedimentos preliminares com você (art. 7º, IX e V, da Lei nº 13.709/2018, LGPD).</p>
+
+    <h2>5. Onde os dados ficam</h2>
+    <p>A página é hospedada no GitHub Pages e a autenticação e o controle de acesso são processados no n8n Cloud. Esses provedores podem armazenar dados fora do Brasil, com as garantias contratuais que oferecem para transferência internacional de dados.</p>
+
+    <h2>6. Por quanto tempo</h2>
+    <p>O cadastro de acesso é mantido enquanto sua autorização estiver ativa e excluído quando ela for revogada, salvo registros que precisem ser guardados por obrigação legal.</p>
+
+    <h2>7. Uso de dados do Google</h2>
+    <p>O uso e a transferência de informações recebidas das APIs do Google seguem a Política de Dados do Usuário dos Serviços de API do Google, incluindo os requisitos de Uso Limitado.</p>
+
+    <h2>8. Seus direitos</h2>
+    <p>Você pode pedir a confirmação do tratamento, acesso, correção, exclusão, informação sobre compartilhamento e revogação do acesso, nos termos do art. 18 da LGPD, pelo e-mail <a href="mailto:alex@quorum-br.com">alex@quorum-br.com</a>. Respondemos em até 15 dias.</p>
+
+    <h2>9. Alterações</h2>
+    <p>Esta política pode ser atualizada. A data no topo indica a versão vigente.</p>
+  </article>
+</main>
+</body>
+</html>
