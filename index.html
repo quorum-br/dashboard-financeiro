@@ -4404,8 +4404,10 @@
   /* Login com Google (decisao de Alex, 10/10/2026). O ID de cliente e    */
   /* publico por natureza; a credencial do Google so vale para ele. Quem  */
   /* decide se a pessoa entra e o n8n, nunca esta pagina: ele confere a   */
-  /* assinatura no Google, o dominio quorum-br.com e a tabela de usuarios */
-  /* ('QUORUM Painel - Usuarios', administrada pela aba Acessos).         */
+  /* assinatura no Google e a tabela de usuarios ('QUORUM Painel -        */
+  /* Usuarios', administrada pela aba Acessos). Desde 24/10/2026 entra    */
+  /* conta de qualquer dominio que o admin cadastrou (app OAuth Externo); */
+  /* DOMINIO_LOGIN so vale para a regra de administrador.                 */
   var GOOGLE_CLIENT_ID = "24757321664-gpb181p8tfus3p2eu51ushgv2g1brlvr.apps.googleusercontent.com";
   var DOMINIO_LOGIN = "quorum-br.com";
   var URL_ACESSOS = "https://alexarmstrongs.app.n8n.cloud/webhook/painel-acessos";
@@ -4469,7 +4471,6 @@
       if (!googleIniciado) {
         google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
-          hd: DOMINIO_LOGIN,
           auto_select: true,
           cancel_on_tap_outside: false,
           use_fedcm_for_prompt: true,
@@ -5467,7 +5468,7 @@
         h("p", {
           className: "text-sm mb-5",
           style: { color: COR.faint }
-        }, "Entre com a sua conta Google @" + DOMINIO_LOGIN + "."),
+        }, "Entre com a sua conta Google."),
         /* O botao fica sempre montado (so escondido enquanto confere): o  */
         /* Google desenha nele uma vez so, e ele precisa voltar apos uma   */
         /* recusa.                                                          */
@@ -5480,7 +5481,7 @@
         h("p", {
           className: "mt-5",
           style: { fontSize: 11, color: COR.faint, lineHeight: 1.5 }
-        }, "Só entram contas do domínio liberadas por um administrador. Para pedir acesso, fale com o Alex."),
+        }, "Só entram contas liberadas por um administrador. Para pedir acesso, fale com o Alex."),
         /* Pagina publica e estatica, fora do painel (pedido de Alex, 24/10/2026). */
         h("p", { className: "mt-4", style: { fontSize: 11 } },
           h("a", { href: "privacidade.html", style: { color: COR.faint, textDecoration: "underline" } }, "Política de privacidade"))
@@ -5554,7 +5555,14 @@
       if (tinha && tela === "financeiro") nova = nova.filter(function (t) { return t !== "bp"; });
       return TELAS_DO_PAINEL.map(function (t) { return t[0]; }).filter(function (t) { return nova.indexOf(t) >= 0; });
     }
+    /* Mesma regra do n8n (que e quem decide): administrador so com      */
+    /* e-mail da QUORUM. Aqui so avisa antes de enviar.                   */
+    function adminForaDoDominio(email, perfil) {
+      return perfil === "admin" && String(email || "").trim().toLowerCase().slice(-(DOMINIO_LOGIN.length + 1)) !== "@" + DOMINIO_LOGIN;
+    }
+    var AVISO_ADMIN_FORA = "Administrador só com e-mail @" + DOMINIO_LOGIN + ".";
     function salvar(registro, aoTerminar) {
+      if (adminForaDoDominio(registro.email, registro.perfil)) { setMsg({ tipo: "erro", texto: AVISO_ADMIN_FORA }); return; }
       setSalvando(registro.email); setMsg(null);
       return chamarAcessos(props.token, { acao: "salvar", usuario: registro })
         .then(function (r) {
@@ -5569,8 +5577,8 @@
     function adicionar(evento) {
       evento.preventDefault();
       var email = novo.email.trim().toLowerCase();
-      if (!new RegExp("^[a-z0-9._%+-]+@" + DOMINIO_LOGIN.replace(/\./g, "\\.") + "$").test(email)) {
-        setMsg({ tipo: "erro", texto: "Use um e-mail @" + DOMINIO_LOGIN + "." });
+      if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
+        setMsg({ tipo: "erro", texto: "E-mail inválido." });
         return;
       }
       if (lista && lista.some(function (u) { return u.email === email; })) {
@@ -5600,9 +5608,10 @@
     return h("div", { className: "max-w-6xl" },
       h("h1", { className: "mb-1", style: { margin: 0, fontSize: 20, fontWeight: 600 } }, "Acessos"),
       h("div", { className: "mb-4", style: { fontSize: 12, color: COR.faint } },
-        "Só contas @" + DOMINIO_LOGIN + " liberadas aqui entram no painel. Administrador vê as duas telas e gerencia acessos. "
+        "Só as contas liberadas aqui entram no painel, de qualquer domínio. Administrador vê as duas telas e gerencia acessos, e só pode ser e-mail @" + DOMINIO_LOGIN + ". "
         + "Bloquear tira o acesso na hora, sem apagar o histórico. O Business Plan só pode ser liberado junto com o Financeiro, "
-        + "porque é calculado a partir da mesma base."),
+        + "porque é calculado a partir da mesma base. "
+        + "Quem tem a tela Financeiro vê todo o painel financeiro (DRE, caixa, aplicações, compromissos e contrapartes). Libere só para quem pode ver tudo isso."),
       msg && h("div", { className: "mb-3 p-3 rounded", style: {
         fontSize: 12,
         background: msg.tipo === "ok" ? COR.mintSoft : COR.coralSoft,
@@ -5628,7 +5637,8 @@
                     h("select", { value: v.perfil, disabled: euMesmo, style: estiloCampo,
                       onChange: function (e) { mudar(u, "perfil", e.target.value); } },
                       h("option", { value: "usuario" }, "Usuário"),
-                      h("option", { value: "admin" }, "Administrador"))),
+                      h("option", { value: "admin" }, "Administrador")),
+                    adminForaDoDominio(u.email, v.perfil) && h("div", { style: { fontSize: 11, color: COR.coral, marginTop: 4, maxWidth: 180 } }, AVISO_ADMIN_FORA)),
                   h("td", { style: estiloCel }, caixasDeTela(v.telas, function (t) { mudar(u, "telas", t); }, v.perfil === "admin")),
                   h("td", { style: estiloCel },
                     h("button", { disabled: euMesmo, onClick: function () { mudar(u, "ativo", !v.ativo); },
@@ -5650,7 +5660,7 @@
       lista && h("form", { onSubmit: adicionar, className: "mt-5 rounded p-4 flex flex-wrap items-center gap-3",
         style: { background: COR.surface, border: "1px dashed " + COR.brass } },
         h("div", { style: { fontSize: 12, fontWeight: 600, width: "100%" } }, "Adicionar pessoa"),
-        h("input", { value: novo.email, placeholder: "nome@" + DOMINIO_LOGIN, style: Object.assign({}, estiloCampo, { width: 220 }),
+        h("input", { value: novo.email, placeholder: "nome@empresa.com", style: Object.assign({}, estiloCampo, { width: 220 }),
           onChange: function (e) { setNovo(Object.assign({}, novo, { email: e.target.value })); } }),
         h("input", { value: novo.nome, placeholder: "nome", style: Object.assign({}, estiloCampo, { width: 170 }),
           onChange: function (e) { setNovo(Object.assign({}, novo, { nome: e.target.value })); } }),
@@ -5661,7 +5671,9 @@
         h("span", null, caixasDeTela(novo.perfil === "admin" ? TELAS_DO_PAINEL.map(function (t) { return t[0]; }) : novo.telas,
           function (t) { setNovo(Object.assign({}, novo, { telas: t })); }, novo.perfil === "admin")),
         h("button", { type: "submit", disabled: !!salvando, className: "px-3 py-1.5 rounded",
-          style: { fontSize: 11, background: COR.brass, color: "#FFFFFF", fontWeight: 600 } }, "Adicionar"))
+          style: { fontSize: 11, background: COR.brass, color: "#FFFFFF", fontWeight: 600 } }, "Adicionar"),
+        novo.email.indexOf("@") > 0 && adminForaDoDominio(novo.email, novo.perfil)
+          && h("div", { style: { fontSize: 11, color: COR.coral, width: "100%" } }, AVISO_ADMIN_FORA))
     );
   }
 
