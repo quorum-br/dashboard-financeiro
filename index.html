@@ -920,6 +920,15 @@
     caixa: { bg: "#E0ECFA", borda: "#AFC8E8" }
   };
 
+  /* Tom do numero pelo sinal (pedido de Alex, 23/10/2026): positivo    */
+  /* verde (COR.mint, o do EBITDA), negativo vermelho (COR.coral, o de   */
+  /* "abaixo da reserva"), zero no centavo fica neutro. So nos cartoes   */
+  /* que pedem: o componente continua neutro sem 'tom'.                 */
+  function tomPeloSinal(v) {
+    if (!isFinite(v) || Math.abs(v) < 0.005) return undefined;
+    return v < 0 ? "neg" : "pos";
+  }
+
   /* Cartao de indicador do topo, com tooltip de ajuda no hover. */
   function CartaoIndicador(props) {
     var estadoHover = useState(false);
@@ -7228,6 +7237,7 @@
       h(CartaoIndicador, {
         rotulo: "Receita bruta",
         valor: receitaBrutaPeriodo,
+        tom: tomPeloSinal(receitaBrutaPeriodo),
         fundo: "resultado", compacto: true,
         sub: "no período carregado" + sufixoVertical,
         ajuda: (verticalDoResumo ? "Só a vertical " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") + ". " : "") + "Tudo o que a QUORUM faturou no período, antes de imposto e de qualquer custo. Não inclui entrada de sócio, empréstimo nem transferência entre contas: isso é dinheiro que entra mas não é receita."
@@ -7235,7 +7245,7 @@
       h(CartaoIndicador, {
         rotulo: "EBITDA",
         valor: ebitdaPeriodo,
-        tom: ebitdaPeriodo < 0 ? "neg" : "pos",
+        tom: tomPeloSinal(ebitdaPeriodo),
         fundo: "resultado", compacto: true,
         sub: "acumulado" + sufixoVertical,
         ajuda: (verticalDoResumo ? "Só a vertical " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") + ". " : "") + "Resultado da operação: receita menos imposto sobre a receita, menos o custo direto dos eventos e produtos, menos as despesas fixas. Ainda não considera juros, tarifas e resultado não operacional."
@@ -7243,7 +7253,7 @@
       h(CartaoIndicador, {
         rotulo: "Lucro líquido",
         valor: ultimoMes ? dadosResumo.acumulado[ultimoMes] : 0,
-        tom: ultimoMes && dadosResumo.acumulado[ultimoMes] < 0 ? "neg" : "pos",
+        tom: ultimoMes ? tomPeloSinal(dadosResumo.acumulado[ultimoMes]) : undefined,
         fundo: "resultado", compacto: true,
         sub: "acumulado no período" + sufixoVertical,
         ajuda: (verticalDoResumo ? "Só a vertical " + (verticalDoResumo === "com" ? "Comunidade" : "Tech") + ". " : "") + "O que sobra depois de tudo, inclusive resultado financeiro e imposto sobre o lucro. É resultado, não é caixa: uma receita faturada e não recebida já está aqui, e o dinheiro ainda não entrou."
@@ -7252,7 +7262,7 @@
         h(CartaoIndicador, {
           rotulo: "Conta corrente",
           valor: posicao.corrente,
-          tom: posicao.corrente < 0 ? "neg" : "pos",
+          tom: tomPeloSinal(posicao.corrente),
           casas: 2, fundo: "caixa", compacto: true,
           sub: "saldo em " + rotuloMes(ultimoMes),
           ajuda: notaCaixaVertical + "Contas correntes e caixa (tipo CC e CX na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
@@ -7261,6 +7271,7 @@
         h(CartaoIndicador, {
           rotulo: "Aplicações",
           valor: posicao.aplicacoes,
+          tom: tomPeloSinal(posicao.aplicacoes),
           casas: 2, fundo: "caixa", compacto: true,
           sub: "saldo em " + rotuloMes(ultimoMes),
           ajuda: notaCaixaVertical + "Contas de aplicação (tipo CA na Omie) no fim de " + rotuloMes(ultimoMes) + ": "
@@ -7270,7 +7281,7 @@
         h(CartaoIndicador, {
           rotulo: "Caixa total",
           valor: posicao.total,
-          tom: posicao.total < 0 ? "neg" : "pos",
+          tom: tomPeloSinal(posicao.total),
           casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           sub: "corrente + aplicações + caução",
           ajuda: notaCaixaVertical + "Conta corrente " + formatarNumero(posicao.corrente, 2)
@@ -7282,7 +7293,7 @@
           rotulo: "Caixa livre",
           valor: posicao.livre,
           casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
-          tom: posicao.livre < 0 ? "neg" : "pos",
+          tom: tomPeloSinal(posicao.livre),
           sub: "o que sobra depois do já comprometido",
           ajuda: notaCaixaVertical + "Caixa total " + formatarNumero(posicao.total, 2)
             + " − caução " + formatarNumero(posicao.garantia, 2)
@@ -7770,17 +7781,17 @@
           + "No último dia de cada mês o saldo é conferido com o ponto do Fluxo de Caixa Livre Projetado. "
           + "Em vermelho, a primeira semana que fecha abaixo da reserva exigida (" + (pj.reservaExigida === null ? "–" : fmt(pj.reservaExigida)) + "); em vermelho forte, saldo negativo."),
         h("div", { className: "grid gap-2 grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 mb-3" },
-          h(CartaoIndicador, { rotulo: "A receber · títulos", valor: pj.receber13.titulos, casas: 2, fundo: "caixa", compacto: true,
+          h(CartaoIndicador, { rotulo: "A receber · títulos", valor: pj.receber13.titulos, tom: tomPeloSinal(pj.receber13.titulos), casas: 2, fundo: "caixa", compacto: true,
             sub: "nas 13 semanas", ajuda: "Títulos a receber em aberto na Omie com vencimento nas 13 semanas (vencidos entram na semana 1)." }),
-          h(CartaoIndicador, { rotulo: "A receber · previsto (OS)", valor: pj.receber13.previsoes, casas: 2, fundo: "caixa", compacto: true,
+          h(CartaoIndicador, { rotulo: "A receber · previsto (OS)", valor: pj.receber13.previsoes, tom: tomPeloSinal(pj.receber13.previsoes), casas: 2, fundo: "caixa", compacto: true,
             sub: "nas 13 semanas · ainda não faturado", ajuda: "Previsões de faturamento das ordens de serviço da Omie (situação PREVISAO) com vencimento nas 13 semanas. Viram título quando a OS é faturada." }),
-          h(CartaoIndicador, { rotulo: "A receber · total", valor: pj.receber13.titulos + pj.receber13.previsoes, casas: 2, fundo: "caixa", compacto: true,
+          h(CartaoIndicador, { rotulo: "A receber · total", valor: pj.receber13.titulos + pj.receber13.previsoes, tom: tomPeloSinal(pj.receber13.titulos + pj.receber13.previsoes), casas: 2, fundo: "caixa", compacto: true,
             sub: "títulos + previsões", ajuda: "Soma dos dois cartões anteriores: tudo o que entra como entrada na projeção das 13 semanas." }),
-          h(CartaoIndicador, { rotulo: "Saídas · títulos", valor: pj.totais.saidasFirmes, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          h(CartaoIndicador, { rotulo: "Saídas · títulos", valor: pj.totais.saidasFirmes, tom: tomPeloSinal(pj.totais.saidasFirmes), casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
             sub: "títulos a pagar nas 13 semanas", ajuda: "Títulos a pagar em aberto na Omie com vencimento nas 13 semanas (vencidos entram na semana 1)." }),
-          h(CartaoIndicador, { rotulo: "Saídas · estimativas", valor: pj.totais.saidasEstimadas, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          h(CartaoIndicador, { rotulo: "Saídas · estimativas", valor: pj.totais.saidasEstimadas, tom: tomPeloSinal(pj.totais.saidasEstimadas), casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
             sub: "DAS, custo direto, despesas e cartão", ajuda: "Estimativas do Fluxo de Caixa Livre Projetado nas 13 semanas: DAS no dia 20, custo direto, despesas médias e compras no cartão espalhados pelos dias. A conta de cada uma está na metodologia da tela Fluxo de Caixa Livre Projetado." }),
-          h(CartaoIndicador, { rotulo: "Saídas · total", valor: pj.totais.saidasFirmes + pj.totais.saidasEstimadas, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
+          h(CartaoIndicador, { rotulo: "Saídas · total", valor: pj.totais.saidasFirmes + pj.totais.saidasEstimadas, tom: tomPeloSinal(pj.totais.saidasFirmes + pj.totais.saidasEstimadas), casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
             sub: "títulos + estimativas", ajuda: "Soma dos dois cartões anteriores: tudo o que sai como saída na projeção das 13 semanas." })),
         h("div", { className: "rounded overflow-x-auto", style: { background: COR.surface, border: "1px solid " + COR.line } },
           h("table", { className: "w-full", style: { borderCollapse: "collapse" } },
