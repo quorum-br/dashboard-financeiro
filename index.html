@@ -5522,6 +5522,7 @@
     var estSalvando = useState("");     var salvando = estSalvando[0], setSalvando = estSalvando[1];
     var novoVazio = { email: "", nome: "", perfil: "usuario", telas: ["financeiro"], ativo: true };
     var estNovo = useState(novoVazio);  var novo = estNovo[0], setNovo = estNovo[1];
+    var estConfirma = useState("");     var confirmaExclusao = estConfirma[0], setConfirmaExclusao = estConfirma[1];
 
     function falhou(erro) {
       if (erro.sessaoRecusada && /expirad|inválid/i.test(erro.message)) {
@@ -5574,6 +5575,19 @@
         .catch(falhou)
         .then(function () { setSalvando(""); });
     }
+    /* Exclusao (pedido de Alex, 24/10/2026): so de quem ja esta        */
+    /* bloqueado e salvo, nunca de si mesmo. Quem decide e o n8n, que     */
+    /* repete as regras; aqui so a confirmacao dentro da linha.           */
+    function excluir(email) {
+      setSalvando(email); setMsg(null);
+      return chamarAcessos(props.token, { acao: "excluir", email: email })
+        .then(function (r) {
+          setLista(r.usuarios); setConfirmaExclusao("");
+          setMsg({ tipo: "ok", texto: "Cadastro de " + email + " excluído." });
+        })
+        .catch(falhou)
+        .then(function () { setSalvando(""); });
+    }
     function adicionar(evento) {
       evento.preventDefault();
       var email = novo.email.trim().toLowerCase();
@@ -5609,7 +5623,7 @@
       h("h1", { className: "mb-1", style: { margin: 0, fontSize: 20, fontWeight: 600 } }, "Acessos"),
       h("div", { className: "mb-4", style: { fontSize: 12, color: COR.faint } },
         "Só as contas liberadas aqui entram no painel, de qualquer domínio. Administrador vê as duas telas e gerencia acessos, e só pode ser e-mail @" + DOMINIO_LOGIN + ". "
-        + "Bloquear tira o acesso na hora, sem apagar o histórico. O Business Plan só pode ser liberado junto com o Financeiro, "
+        + "Bloquear tira o acesso na hora. Para apagar o cadastro, bloqueie, salve e depois exclua. O Business Plan só pode ser liberado junto com o Financeiro, "
         + "porque é calculado a partir da mesma base. "
         + "Quem tem a tela Financeiro vê todo o painel financeiro (DRE, caixa, aplicações, compromissos e contrapartes). Libere só para quem pode ver tudo isso."),
       msg && h("div", { className: "mb-3 p-3 rounded", style: {
@@ -5628,7 +5642,9 @@
                 var v = valorDe(u);
                 var euMesmo = u.email === props.usuario.email;
                 var mudou = !!edicao[u.email];
-                return h("tr", { key: u.email, style: { opacity: v.ativo ? 1 : 0.6 } },
+                var podeExcluir = !euMesmo && !mudou && u.ativo === false;
+                var confirmando = podeExcluir && confirmaExclusao === u.email;
+                return h(Fragment, { key: u.email }, h("tr", { style: { opacity: v.ativo ? 1 : 0.6 } },
                   h("td", { style: estiloCel },
                     h("input", { value: v.nome, placeholder: "nome", style: Object.assign({}, estiloCampo, { width: 170 }),
                       onChange: function (e) { mudar(u, "nome", e.target.value); } }),
@@ -5648,12 +5664,24 @@
                       v.ativo ? "Ativo" : "Bloqueado")),
                   h("td", { style: Object.assign({}, estiloCel, { color: COR.dim }) }, u.ultimoAcesso || "nunca entrou"),
                   h("td", { style: Object.assign({}, estiloCel, { textAlign: "right", whiteSpace: "nowrap" }) },
+                    podeExcluir && !confirmando && h("button", { disabled: !!salvando, onClick: function () { setConfirmaExclusao(u.email); setMsg(null); },
+                      className: "px-2 py-1 mr-2", style: { fontSize: 11, color: COR.coral } }, "Excluir"),
                     mudou && h("button", { onClick: function () { var c = Object.assign({}, edicao); delete c[u.email]; setEdicao(c); },
                       className: "px-2 py-1 mr-2", style: { fontSize: 11, color: COR.faint } }, "Desfazer"),
                     h("button", { disabled: !mudou || !!salvando, onClick: function () { salvar(v); },
                       className: "px-3 py-1 rounded",
                       style: { fontSize: 11, background: mudou ? COR.brass : COR.surfaceAlt, color: mudou ? "#FFFFFF" : COR.faint } },
-                      salvando === u.email ? "Gravando..." : "Salvar")));
+                      salvando === u.email ? "Gravando..." : "Salvar"))),
+                  confirmando && h("tr", null,
+                    h("td", { colSpan: 6, style: Object.assign({}, estiloCel, { background: COR.coralSoft, color: COR.coral }) },
+                      h("div", { className: "flex flex-wrap items-center gap-3" },
+                        h("span", null, "Excluir " + u.email + " de vez? Ele perde o acesso e o cadastro some da lista."),
+                        h("button", { disabled: !!salvando, onClick: function () { excluir(u.email); },
+                          className: "px-3 py-1 rounded", style: { fontSize: 11, background: COR.coral, color: "#FFFFFF", fontWeight: 600 } },
+                          salvando === u.email ? "Excluindo..." : "Excluir"),
+                        h("button", { disabled: !!salvando, onClick: function () { setConfirmaExclusao(""); },
+                          className: "px-3 py-1 rounded", style: { fontSize: 11, border: "1px solid " + COR.line, background: COR.surface, color: COR.dim } },
+                          "Cancelar")))));
               }))
             )
           ),
