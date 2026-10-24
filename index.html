@@ -5480,7 +5480,10 @@
         h("p", {
           className: "mt-5",
           style: { fontSize: 11, color: COR.faint, lineHeight: 1.5 }
-        }, "Só entram contas do domínio liberadas por um administrador. Para pedir acesso, fale com o Alex.")
+        }, "Só entram contas do domínio liberadas por um administrador. Para pedir acesso, fale com o Alex."),
+        /* Pagina publica e estatica, fora do painel (pedido de Alex, 24/10/2026). */
+        h("p", { className: "mt-4", style: { fontSize: 11 } },
+          h("a", { href: "privacidade.html", style: { color: COR.faint, textDecoration: "underline" } }, "Política de privacidade"))
       )
     );
   }
