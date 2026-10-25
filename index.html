@@ -4424,6 +4424,17 @@
       return Number(dados.exp) * 1000 || 0;
     } catch (e) { return 0; }
   }
+  /* Identifica a conta dona da credencial (sub do Google). Renovar a    */
+  /* credencial troca o token mas nao a conta: os efeitos que chamam o   */
+  /* n8n dependem da conta, nao do token, senao cada renovacao de hora   */
+  /* em hora disparava de novo o "eu" e a base (2 execucoes no n8n).     */
+  function contaDoToken(token) {
+    try {
+      var corpo = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      var dados = JSON.parse(decodeURIComponent(escape(window.atob(corpo))));
+      return String(dados.sub || dados.email || token);
+    } catch (e) { return token; }
+  }
   function tokenAindaValido(token) {
     return expiracaoDoToken(token) > Date.now() + 60000;
   }
@@ -5994,6 +6005,7 @@
       return salvo && tokenAindaValido(salvo) ? salvo : null;
     });
     var token = estToken[0], setToken = estToken[1];
+    var contaSessao = token ? contaDoToken(token) : null;
     var estUsuario = useState(null);            var usuario = estUsuario[0], setUsuario = estUsuario[1];
     var estErroLogin = useState("");            var erroLogin = estErroLogin[0], setErroLogin = estErroLogin[1];
     var estEntrando = useState(false);          var entrando = estEntrando[0], setEntrando = estEntrando[1];
@@ -6066,7 +6078,7 @@
         .catch(function (erro) { if (vivo) encerrarSessao(erro.message); })
         .then(function () { if (vivo) setEntrando(false); });
       return function () { vivo = false; };
-    }, [token]);
+    }, [contaSessao]);
 
     /* Preferencias persistidas entre visitas. */
     useEffect(function () { armazenamento.setItem("quorum_regime", regime); }, [regime]);
@@ -6217,7 +6229,8 @@
         .then(function () { setCarregando(false); });
     }
 
-    useEffect(function () { if (token && usuario) buscarBase(); }, [token, usuario && usuario.email]);
+    /* Busca na entrada (ou troca de conta); a renovacao de hora em hora nao refaz. */
+    useEffect(function () { if (token && usuario) buscarBase(); }, [contaSessao, usuario && usuario.email]);
 
     /* Premissas do Business Plan: vem do n8n, so para quem tem o BP e o  */
     /* Financeiro liberados (o n8n confere de novo). Falha ou recusa vira  */
