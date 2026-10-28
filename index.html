@@ -356,9 +356,13 @@
   /* departamentos cadastrados na Omie, senao o centro cai no fim da lista */
   /* silenciosamente. "AdmeFin" e "QUORUM" estavam faltando aqui.          */
   var ORDEM_CENTROS = [
-    "QUORUM", "CEO", "CFO", "QR Insights", "QR Review", "QR Advisory",
+    "QUORUM", "CEO", "CFO", "QR Insights", "Bench", "QR Advisory",
     "Comercial", "AdmeFin", "Contabilidade", "Jurídico", "Outros não listados"
   ];
+  /* Nome antigo -> nome atual do mesmo departamento da Omie (mesmo      */
+  /* codigo). "QR Review" passou a "Bench" em 27/10/2026; base antiga    */
+  /* com o nome velho fica na mesma posicao.                             */
+  var APELIDOS_CENTRO = { "qr review": "bench" };
 
   /* mesesFixos (opcional): usa esta lista de meses em vez da que sai dos */
   /* proprios lancamentos. Serve para calcular um recorte (uma vertical)  */
@@ -542,8 +546,9 @@
         ordenados = quorum.concat(demais);
       } else {
         var posicao = function (nome) {
+          var chave = APELIDOS_CENTRO[nome.toLowerCase()] || nome.toLowerCase();
           var indice = ORDEM_CENTROS.findIndex(function (c) {
-            return c.toLowerCase() === nome.toLowerCase();
+            return c.toLowerCase() === chave;
           });
           return indice < 0 ? ORDEM_CENTROS.length : indice;
         };
@@ -8479,13 +8484,13 @@
       dre: "Resultado no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos por trás dela.",
       cc: "Receita, saída e resultado por centro de custo, no regime de " + nomeRegime + ".",
       proj: "Receita, saída e resultado por projeto, no regime de " + nomeRegime + ".",
-      "dre-com": "DRE da vertical Comunidade, no regime de " + nomeRegime + ": lançamentos de centro de custo sem Insights, Review ou Advisory, inclusive sem centro · clique em qualquer linha para ver os lançamentos.",
-      "dre-tech": "DRE da vertical Tech, no regime de " + nomeRegime + ": lançamentos de centro de custo com Insights, Review ou Advisory · clique em qualquer linha para ver os lançamentos.",
-      "dre-comp": "Comunidade, Tech e Consolidado lado a lado, no regime de " + nomeRegime + ". Centro de custo com Insights, Review ou Advisory é Tech; o resto, inclusive sem centro, é Comunidade.",
+      "dre-com": "DRE da vertical Comunidade, no regime de " + nomeRegime + ": lançamentos de centro de custo sem Insights, Bench ou Advisory, inclusive sem centro · clique em qualquer linha para ver os lançamentos.",
+      "dre-tech": "DRE da vertical Tech, no regime de " + nomeRegime + ": lançamentos de centro de custo com Insights, Bench ou Advisory · clique em qualquer linha para ver os lançamentos.",
+      "dre-comp": "Comunidade, Tech e Consolidado lado a lado, no regime de " + nomeRegime + ". Centro de custo com Insights, Bench ou Advisory é Tech; o resto, inclusive sem centro, é Comunidade.",
       posicao: "Quanto há em conta corrente, em aplicações e na caução, e quanto já está comprometido.",
       caixa: "Do lucro líquido ao caixa livre, no regime de " + nomeRegime + " · clique em qualquer linha para ver os lançamentos.",
-      "caixa-com": "Fluxo de caixa da vertical Comunidade, no regime de " + nomeRegime + ": lançamentos de centro de custo sem Insights, Review ou Advisory, inclusive sem centro, como na DRE por vertical · clique em qualquer linha para ver os lançamentos.",
-      "caixa-tech": "Fluxo de caixa da vertical Tech, no regime de " + nomeRegime + ": lançamentos de centro de custo com Insights, Review ou Advisory · clique em qualquer linha para ver os lançamentos.",
+      "caixa-com": "Fluxo de caixa da vertical Comunidade, no regime de " + nomeRegime + ": lançamentos de centro de custo sem Insights, Bench ou Advisory, inclusive sem centro, como na DRE por vertical · clique em qualquer linha para ver os lançamentos.",
+      "caixa-tech": "Fluxo de caixa da vertical Tech, no regime de " + nomeRegime + ": lançamentos de centro de custo com Insights, Bench ou Advisory · clique em qualquer linha para ver os lançamentos.",
       "caixa-comp": "Comunidade, Tech, QUORUM (Corporativo) e Consolidado lado a lado, no regime de " + nomeRegime + ".",
       abertos: "",
       achados: "Conferências automáticas da base, da mais grave para a mais leve.",
@@ -8495,7 +8500,7 @@
       reserva: "Caixa Excedente e condições para distribuir acima de 25% do lucro (Acordo de Sócios v02, Art. 3º e Art. 26, §1º). Sempre em regime de caixa, com a base inteira.",
       "bp-cons": "Comunidade + Tech, 36 meses: realizado da Omie em competência e projeção.",
       "bp-com": "Vertical Comunidade, 36 meses.",
-      "bp-tech": "Vertical Tech (Insights, Review e Advisory), 36 meses.",
+      "bp-tech": "Vertical Tech (Insights, Bench e Advisory), 36 meses.",
       premissas: "Premissas mês a mês e parâmetros do BP online, editáveis e gravados neste navegador.",
       acessos: ""
     };
@@ -8603,8 +8608,9 @@
   /*                                                                     */
   /* Meses fechados usam o realizado da Omie, os mesmos lancamentos e a  */
   /* mesma regra de data (competencia) da tela Financeiro, separados por */
-  /* centro de custo: centro que contenha insights, review ou advisory e */
-  /* Tech, o resto e Comunidade. Do mes corrente em diante, projecao.    */
+  /* centro de custo: centro que contenha insights, bench (antigo QR     */
+  /* Review), review ou advisory e Tech, o resto e Comunidade. Do mes    */
+  /* corrente em diante, projecao.                                       */
   /* ------------------------------------------------------------------ */
 
   var BP_INICIO = { ano: 2026, mes: 6 };   /* jun/26 = mes 1 da planilha */
@@ -9090,9 +9096,11 @@
   }
   function bpVerticalDoCentro(centro) {
     /* regra de Alex (25/09/2026), igual a BD Omie da planilha: centro que */
-    /* contenha insights, review ou advisory e Tech; o resto, inclusive    */
-    /* lancamento sem centro de custo, e Comunidade.                       */
-    return /insights|review|advisory/i.test(centro || "") ? "tech" : "com";
+    /* contenha insights, bench, review ou advisory e Tech; o resto,       */
+    /* inclusive lancamento sem centro de custo, e Comunidade. "Bench" e o */
+    /* QR Review renomeado na Omie em 27/10/2026 (mesmo departamento);     */
+    /* "review" fica para bases antigas.                                   */
+    return /insights|bench|review|advisory/i.test(centro || "") ? "tech" : "com";
   }
   function bpRealizado(linhas) {
     function novo() { return { cat: {}, grp: {}, sec: {} }; }
@@ -10632,8 +10640,8 @@
             bpCelVazia("Q" + r, 112), bpCelVazia("R" + r, 112), bpCelVazia("S" + r, 112),
             bpCelTxt("T" + r, 112, l.situacao || ""),
             bpCelNum("U" + r, 112, 1),
-            bpCelForm("V" + r, 112, "IF(OR(ISNUMBER(SEARCH(\"insights\"," + F + ")),ISNUMBER(SEARCH(\"review\"," + F + ")),"
-              + "ISNUMBER(SEARCH(\"advisory\"," + F + "))),\"Tech\",\"Comunidade\")", null, true),
+            bpCelForm("V" + r, 112, "IF(OR(ISNUMBER(SEARCH(\"insights\"," + F + ")),ISNUMBER(SEARCH(\"bench\"," + F + ")),"
+              + "ISNUMBER(SEARCH(\"review\"," + F + ")),ISNUMBER(SEARCH(\"advisory\"," + F + "))),\"Tech\",\"Comunidade\")", null, true),
             bpCelTxt("W" + r, 113, String(g)),
             bpCelForm("X" + r, 112, "IFERROR(VLOOKUP(W" + r + ",$Z:$AA,2,FALSE),\"naoClassificado\")", null, true),
             bpCelVazia("Y" + r, 112));
