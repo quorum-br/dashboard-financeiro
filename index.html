@@ -1356,7 +1356,7 @@
           if (ctx.grupos && ctx.grupos.indexOf(l.grupo) < 0) return false;
           if (ctx.projeto && l.projeto !== ctx.projeto) return false;
           if (ctx.centro && l.centro !== ctx.centro) return false;
-          if (ctx.vertical && bpVerticalDoCentro(l.centro) !== ctx.vertical) return false;
+          if (ctx.vertical && bpVerticalDaLinha(l) !== ctx.vertical) return false;
           if (ctx.verticalFluxo && verticalDoFluxo(l) !== ctx.verticalFluxo) return false;
           if (ctx.somenteResultado && ctx.gruposResultado.indexOf(l.grupo) < 0) return false;
           if (ctx.mes && chaveMes(l.dataRegime) !== ctx.mes) return false;
@@ -5434,6 +5434,9 @@
       nota: "",
       projeto: linha.projeto || "Sem projeto",
       centro: linha.centro || "Sem centro de custo",
+      /* Codigo do departamento na Omie (cCodDep), desde 29/10/2026. Decide */
+      /* a vertical (bpVerticalDaLinha); o nome pode mudar, o codigo nao.   */
+      centroCodigo: String(linha.centro_codigo || ""),
       valor: Number(linha.valor_pago || linha.valor_titulo || 0),
       dPag: paraData(linha.pagamento),
       dEmi: paraData(linha.emissao),
@@ -5738,7 +5741,7 @@
     /* no topo das telas marcadas com resumo: true, e nao e tela propria.  */
     /* DRE como grupo (pedido de Alex, 21/10/2026), no mesmo desenho do   */
     /* Business Plan: Consolidado (a DRE de sempre, mesmo endereco),      */
-    /* Comunidade e Tech (calculo por vertical, bpVerticalDoCentro) e o   */
+    /* Comunidade e Tech (calculo por vertical, bpVerticalDaLinha) e o    */
     /* Comparativo lado a lado, que substitui a tela Resultado por        */
     /* Vertical.                                                          */
     { id: "dre", cat: "Resultado e Caixa", grupo: "DRE", rotulo: "Consolidado", hash: "resultado-e-caixa/dre", tela: "financeiro", icone: "tabela", resumo: true },
@@ -6275,13 +6278,13 @@
     }, [linhas, regime]);
 
     /* Realizado por vertical: o mesmo calcular, so com os lancamentos de  */
-    /* cada vertical (regra de bpVerticalDoCentro, a mesma da BD Omie) e   */
+    /* cada vertical (regra de bpVerticalDaLinha, a mesma da BD Omie) e    */
     /* com os meses da base inteira. O Consolidado da tela e o proprio     */
     /* 'dados': Comunidade + Tech tem que bater com ele (testado).         */
     var dadosVertical = useMemo(function () {
       if (!linhas || !dados) return null;
       function daVertical(v) {
-        return linhas.filter(function (l) { return bpVerticalDoCentro(l.centro) === v; });
+        return linhas.filter(function (l) { return bpVerticalDaLinha(l) === v; });
       }
       return {
         com: calcular(daVertical("com"), regime, dados.meses),
@@ -9092,7 +9095,21 @@
   /* o centro de custo (ex.: fatura de cartao e da empresa inteira).       */
   var SECOES_FLUXO_DA_EMPRESA = ["entradas", "saidas", "ativo", "transf", "naoClassificado"];
   function verticalDoFluxo(l) {
-    return SECOES_FLUXO_DA_EMPRESA.indexOf(secaoDaLinha(l)) >= 0 ? "emp" : bpVerticalDoCentro(l.centro);
+    return SECOES_FLUXO_DA_EMPRESA.indexOf(secaoDaLinha(l)) >= 0 ? "emp" : bpVerticalDaLinha(l);
+  }
+  /* Departamentos Tech na Omie, pelo codigo (Alex, 29/10/2026): QR       */
+  /* Insights, Bench (antigo QR Review) e QR Advisory. A mesma lista esta */
+  /* no n8n "QUORUM - Master Omie" (no Montar Linhas BD), que grava a     */
+  /* coluna V da BD Omie. Departamento Tech novo: incluir o codigo aqui e */
+  /* la. Codigo e identificador interno da Omie, nao dado sensivel.       */
+  var CENTROS_TECH_CODIGOS = ["9684988871", "9684988930", "9684988997"];
+  /* Vertical do lancamento: Tech se o codigo do departamento estiver na  */
+  /* lista; sem codigo na lista, vale o nome (bpVerticalDoCentro), como   */
+  /* reserva para base antiga e para departamento Tech novo com nome que  */
+  /* siga a regra. Assim um rename na Omie nao muda a vertical.           */
+  function bpVerticalDaLinha(l) {
+    if (CENTROS_TECH_CODIGOS.indexOf(String(l.centroCodigo || "")) >= 0) return "tech";
+    return bpVerticalDoCentro(l.centro);
   }
   function bpVerticalDoCentro(centro) {
     /* regra de Alex (25/09/2026), igual a BD Omie da planilha: centro que */
@@ -9110,7 +9127,7 @@
       var data = l.dEmi || l.dPag;
       if (!data) return;
       var mes = chaveMes(data);
-      var V = R[bpVerticalDoCentro(l.centro)];
+      var V = R[bpVerticalDaLinha(l)];
       soma(V.sec, secaoDaLinha(l), mes, l.valor);
       if (l.codigoCategoria) soma(V.cat, String(l.codigoCategoria), mes, l.valor);
       var g = l.codigoGrupo || CODIGO_DO_GRUPO.get(l.grupo) || "";
@@ -10640,8 +10657,9 @@
             bpCelVazia("Q" + r, 112), bpCelVazia("R" + r, 112), bpCelVazia("S" + r, 112),
             bpCelTxt("T" + r, 112, l.situacao || ""),
             bpCelNum("U" + r, 112, 1),
-            bpCelForm("V" + r, 112, "IF(OR(ISNUMBER(SEARCH(\"insights\"," + F + ")),ISNUMBER(SEARCH(\"bench\"," + F + ")),"
-              + "ISNUMBER(SEARCH(\"review\"," + F + ")),ISNUMBER(SEARCH(\"advisory\"," + F + "))),\"Tech\",\"Comunidade\")", null, true),
+            /* Vertical gravada como texto, como na BD Omie da planilha (o n8n */
+            /* grava a coluna V): pelo codigo do departamento, nome de reserva. */
+            bpCelTxt("V" + r, 112, bpVerticalDaLinha(l) === "tech" ? "Tech" : "Comunidade"),
             bpCelTxt("W" + r, 113, String(g)),
             bpCelForm("X" + r, 112, "IFERROR(VLOOKUP(W" + r + ",$Z:$AA,2,FALSE),\"naoClassificado\")", null, true),
             bpCelVazia("Y" + r, 112));
