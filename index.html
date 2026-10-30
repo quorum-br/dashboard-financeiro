@@ -9623,13 +9623,20 @@
         }),
         hojeTs >= pos.entrega.ts && hojeTs <= pos.vencimento && h("div", { style: { position: "absolute", left: pctT(hojeTs) + "%", top: 22, height: 20, width: 2, background: COR.coral, transform: "translateX(-1px)" } }),
         hojeTs >= pos.entrega.ts && hojeTs <= pos.vencimento && h("div", { style: { position: "absolute", left: pctT(hojeTs) + "%", top: -10, transform: "translateX(-50%)", fontSize: 10, color: COR.coral, fontWeight: 700 } }, "hoje")),
-      h("div", { className: "grid gap-x-6 gap-y-1 mt-3", style: { gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))" } },
-        marcos.map(function (m, i) {
-          return h("div", { key: i, className: "flex", style: { gap: 8, fontSize: 12, lineHeight: 1.45, color: m.ts <= hojeTs ? COR.faint : COR.text } },
-            h("span", { style: { flex: "none", width: 18, fontWeight: 700, color: COR.brass } }, (i + 1) + "."),
-            h("span", { style: { flex: "none", width: 78, fontVariantNumeric: "tabular-nums" } }, mutuoBr(m.ts)),
-            h("span", null, m.rotulo, h("span", { style: { color: COR.faint } }, " · " + m.nota)));
-        })));
+      /* Marcos empilhados em tabela, como as demais da tela (pedido de Alex, 30/10/2026). */
+      h("div", { className: "overflow-x-auto mt-3" },
+        h("table", { style: { borderCollapse: "collapse", fontSize: 12 } },
+          h("thead", null, h("tr", { style: { color: COR.dim } },
+            ["", "Data", "Marco", "Observação"].map(function (t, i) {
+              return h("th", { key: i, className: "py-1 pr-5 text-left uppercase whitespace-nowrap", style: { fontSize: 10, letterSpacing: "0.1em", fontWeight: 400 } }, t);
+            }))),
+          h("tbody", null, marcos.map(function (m, i) {
+            return h("tr", { key: i, style: { borderTop: "1px solid " + COR.lineSoft, verticalAlign: "top", color: m.ts <= hojeTs ? COR.faint : COR.text } },
+              h("td", { className: "py-1.5 pr-3", style: { fontWeight: 700, color: COR.brass } }, (i + 1) + "."),
+              h("td", { className: "py-1.5 pr-5 whitespace-nowrap", style: { fontVariantNumeric: "tabular-nums" } }, mutuoBr(m.ts)),
+              h("td", { className: "py-1.5 pr-5" }, m.rotulo),
+              h("td", { className: "py-1.5 pr-5", style: { color: COR.faint } }, m.nota || "–"));
+          })))));
 
     /* Contratual x salvaguarda */
     function linhaComp(rotulo, c, s, selo) {
