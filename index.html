@@ -4689,7 +4689,14 @@
   /* saidas pagas marcadas com o projeto do mutuo na Omie. Sempre a      */
   /* partir dos lancamentos, nunca valor fixo.                           */
   var MUTUO_CONVERSIVEL_CATEGORIA = "1.11.95";
-  var MUTUO_CONVERSIVEL_PROJETO = "Mútuo Conversível ACW Till 09/2026";
+  /* Projeto do mutuo na Omie: reconhecido pelo comeco do nome ("Mutuo   */
+  /* Conversivel ..."), sem o resto do nome, que identifica o contrato e  */
+  /* nao pode ficar no repositorio publico (Alex, 29/10/2026).            */
+  var MUTUO_CONVERSIVEL_PREFIXO_PROJETO = "Mútuo Conversível";
+  function ehProjetoDoMutuo(nome) {
+    function sem(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+    return sem(nome).indexOf(sem(MUTUO_CONVERSIVEL_PREFIXO_PROJETO)) === 0;
+  }
   /* Saidas do projeto que contam como uso do mutuo: so categorias de DRE */
   /* (impostos, custo, despesas e financeiras). Transferencias 0.01 e     */
   /* movimentos 1.11, 2.16, 2.17 e 2.18 ficam fora (ajuste de Alex,       */
@@ -5333,7 +5340,7 @@
     /* Mutuo: entradas da categoria e saidas pagas do projeto ate o fim do mes. */
     var lancamentosMutuo = dadosCaixa.linhas.filter(function (l) {
       return l.dPag && (l.codigoCategoria === MUTUO_CONVERSIVEL_CATEGORIA
-        || (l.projeto === MUTUO_CONVERSIVEL_PROJETO && l.tipo === "pagar"
+        || (ehProjetoDoMutuo(l.projeto) && l.tipo === "pagar"
             && MUTUO_SECOES_DE_USO.indexOf(secaoDaLinha(l)) >= 0));
     }).sort(function (a, b) { return a.dPag - b.dPag; });
     function saldoMutuo(m) {
@@ -8166,10 +8173,10 @@
           ajuda: "Máximo entre zero e (caixa considerado " + fmt(hj.caixa) + " − reserva exigida " + fmt(hj.reserva) + ")." }),
         h(CartaoIndicador, { rotulo: "Saldo do mútuo", valor: hj.mutuo, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           sub: "a utilizar",
-          ajuda: "Recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " menos as saídas pagas do projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\" em categorias de DRE. Lista no fim da página." }),
+          ajuda: "Recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " menos as saídas pagas do projeto do mútuo na Omie (nome começando por \"" + MUTUO_CONVERSIVEL_PREFIXO_PROJETO + "\") em categorias de DRE. Lista no fim da página." }),
         h(CartaoIndicador, { rotulo: "Excedente líquido do mútuo", valor: hj.excedenteLiquido, casas: 2, fundo: "caixa", compacto: true, ajudaDireita: true,
           tom: hj.excedenteLiquido > 0 ? "pos" : null, sub: "disponível para dividendos",
-          ajuda: "Máximo entre zero e (Caixa Excedente " + fmt(hj.excedente) + " − saldo do mútuo " + fmt(hj.mutuo) + "). O contrato do mútuo veda usar esses recursos para dividendos." }),
+          ajuda: "Máximo entre zero e (Caixa Excedente " + fmt(hj.excedente) + " − saldo do mútuo " + fmt(hj.mutuo) + ")." }),
         h(CartaoIndicador, { rotulo: "Cobertura", valor: hj.cobertura === null ? 0 : hj.cobertura, casas: 1, sufixo: " meses", fundo: "caixa", compacto: true, ajudaDireita: true,
           tom: hj.reservaOk ? "pos" : "neg", sub: "caixa ÷ custo médio",
           ajuda: "Caixa considerado ÷ custo operacional médio em módulo: quantos meses de custo o caixa paga. A reserva exige " + RESERVA_MESES_DE_CUSTO + "." })
@@ -8285,8 +8292,8 @@
         ["Reserva exigida", RESERVA_MESES_DE_CUSTO + " × custo operacional médio em módulo (Art. 3º e Art. 26, §1º, i)."],
         ["Caixa considerado", "Caixa livre no fim do mês (no mês corrente, hoje): conta corrente + aplicações − fatura do cartão em aberto, sem a caução."],
         ["Caixa Excedente", "Máximo entre zero e (caixa considerado − reserva exigida). Art. 3º."],
-        ["Saldo do mútuo a utilizar", "Valor recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " (Mútuo Conversível - Captação) menos a soma das saídas pagas marcadas com o projeto \"" + MUTUO_CONVERSIVEL_PROJETO + "\" na Omie, até o fim do mês, só em categorias de DRE (impostos, custo, despesas e resultado financeiro); transferências 0.01 e movimentos 1.11, 2.16, 2.17 e 2.18 não contam. Calculado dos lançamentos, nunca valor fixo."],
-        ["Caixa Excedente líquido do mútuo", "Máximo entre zero e (Caixa Excedente − saldo do mútuo a utilizar). O contrato do mútuo veda usar esses recursos para dividendos."],
+        ["Saldo do mútuo a utilizar", "Valor recebido na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " (Mútuo Conversível - Captação) menos a soma das saídas pagas marcadas com o projeto do mútuo na Omie (nome começando por \"" + MUTUO_CONVERSIVEL_PREFIXO_PROJETO + "\"), até o fim do mês, só em categorias de DRE (impostos, custo, despesas e resultado financeiro); transferências 0.01 e movimentos 1.11, 2.16, 2.17 e 2.18 não contam. Calculado dos lançamentos, nunca valor fixo."],
+        ["Caixa Excedente líquido do mútuo", "Máximo entre zero e (Caixa Excedente − saldo do mútuo a utilizar)."],
         ["Cobertura", "Caixa considerado ÷ custo operacional médio em módulo, em meses."],
         ["Obrigações vencidas", "Títulos a pagar em aberto na Omie com vencimento anterior a hoje (Art. 26, §1º, ii)."],
         ["Burn líquido mensal", "Média dos 3 últimos meses fechados de entradas + saídas operacionais em regime de caixa: todas as linhas do DRE (o lucro líquido de caixa). Fora: transferências 0.x, fatura de cartão 2.17, aplicações 2.18, movimentos do passivo 1.11 (inclusive a captação do mútuo conversível 1.11.95) e distribuições 2.16. Negativo é queima."],
@@ -8479,11 +8486,12 @@
         blocoPrazosMutuo());
     }
 
-    /* Prazos contratuais do mutuo conversivel (Cl. 6.2 e 6.2.2): reporte */
-    /* ao mutuante e balanco anual vencidos e nao marcados como enviados. */
+    /* Prazos do mutuo conversivel: reporte ao mutuante e balanco anual   */
+    /* vencidos e nao marcados como enviados.                             */
     /* A marcacao de enviado fica na tela Mutuo conversivel.              */
     function blocoPrazosMutuo() {
-      var titulo = h("div", { className: "px-4 py-2 uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } }, "Prazos contratuais · mútuo conversível (Cl. 6.2 e 6.2.2)");
+      var titulo = h("div", { className: "px-4 py-2 uppercase", style: { fontSize: 10, letterSpacing: "0.12em", color: COR.faint } },
+        mutuoComRef(mutuo.dados ? mutuo.dados.params : null, "Prazos contratuais · mútuo conversível", "ref_reporte"));
       var caixa = function (conteudo) {
         return h("div", { className: "rounded overflow-x-auto mb-5", style: { background: COR.surface, border: "1px solid " + COR.line } }, titulo, conteudo);
       };
@@ -8673,11 +8681,11 @@
   /* fator diario por degrau da curva de DI (ou CDI diario realizado),   */
   /* consolidacao mensal.                                                */
   /* Regimes de juros:                                                   */
-  /*   "anual"    composto com capitalizacao anual (Cl. 4.2.1): dentro   */
+  /*   "anual"    composto com capitalizacao anual: dentro               */
   /*              de cada periodo anual o DI acumulado e o produto dos   */
   /*              fatores diarios; no aniversario a remuneracao do       */
   /*              periodo passa a compor o saldo, base do seguinte.      */
-  /*   "salvaguarda" (Cl. 4.2.2): cada periodo anual rende so sobre o    */
+  /*   "salvaguarda": cada periodo anual rende so sobre o                */
   /*              principal, sem incorporacao.                           */
   /*   "composto" composto diario (mercado), como no artefato.           */
   /*   "simples"  juro simples sobre o principal, como no artefato.      */
@@ -8730,7 +8738,7 @@
     return t;
   }
   /* CDI realizado: o Banco Central publica a serie 12 em % ao dia (6    */
-  /* casas). A Cl. 4.2.1 fala da Taxa DI da B3, publicada em % ao ano    */
+  /* casas). O contrato fala da Taxa DI da B3, publicada em % ao ano     */
   /* com 2 casas: a serie 12 anualizada em 252 dias e arredondada a 2    */
   /* casas e exatamente essa taxa (conferido em 27/10/2026 contra os     */
   /* arquivos diarios da B3). O fator do dia sai dela pela formula do    */
@@ -9065,7 +9073,7 @@
     }).sort(function (a, b) { return a.ts - b.ts; });
   }
 
-  /* Calendario de reporte ao mutuante (Cl. 6.2) e balancos (Cl. 6.2.2). */
+  /* Calendario de reporte ao mutuante e balancos.                      */
   /* Periodos em meses contratuais contados da entrega: o mes 1 comeca no */
   /* dia da entrega e o periodo termina na vespera do mesmo dia do mes    */
   /* seguinte ao ultimo mes do periodo. Prazo de envio = fim + N dias.    */
@@ -9125,9 +9133,10 @@
     };
   }
 
-  /* Parametros do motor a partir da tabela do contrato. */
-  function mutuoParametrosDoContrato(params, entregaIso, principal) {
-    var curva = (params.curva_di_projetada || []).map(function (c, i) { return { id: i + 1, data: c.data, taxa: c.taxa }; });
+  /* Parametros do motor a partir da tabela do contrato. curvaProjetada:  */
+  /* a curva escolhida (mutuoCurvaAtiva); sem ela, a curva manual.         */
+  function mutuoParametrosDoContrato(params, entregaIso, principal, curvaProjetada) {
+    var curva = (curvaProjetada || params.curva_di_projetada || []).map(function (c, i) { return { id: i + 1, data: c.data, taxa: c.taxa }; });
     return {
       aportes: [{ id: 1, data: entregaIso, valor: principal }],
       curvaDI: curva,
@@ -9135,17 +9144,79 @@
       carenciaMeses: Number(params.carencia_remuneracao_meses) || 0,
       prazoMeses: Number(params.prazo_meses) || 0,
       regraContagem: "aporte",
-      formaPagamento: "vencimento",
+      formaPagamento: /mensal/i.test(String(params.exigibilidade || "")) ? "mensal" : "vencimento",
       regimeJuros: params.capitalizacao === "anual" ? "anual" : "composto",
       marcoCapitalizacao: params.marco_capitalizacao === "entrega" ? "entrega" : "inicio_remuneracao",
       pctCDIMutuo: Number(params.pct_cdi) || 0,
       pctCDIRef: 100,
       refComCarencia: false,
-      carenciaTipo: "rendimento",
+      carenciaTipo: params.carencia_tipo === "pagamento" ? "pagamento" : "rendimento",
       iofAtivo: false, iofAliqDiaria: 0.0041, iofTetoAtivo: true, iofTetoDias: 365, iofAdicional: 0.38, iofAbsorve: "caixa",
       irrfRegime: "sem", irrfAliq: 15,
       precoPorPonto: Number(params.preco_por_ponto) || 0
     };
+  }
+
+  /* Curva de CDI projetada pelo Boletim Focus (Alex, 29/10/2026): a      */
+  /* mediana da Selic por reuniao do Copom vale a partir do dia seguinte  */
+  /* a reuniao; depois da ultima reuniao com mediana, a Selic de fim de   */
+  /* ano vale a partir do dia seguinte a R8 daquele ano (31/12 se o ano   */
+  /* nao tiver calendario). CDI projetado = Selic - spread (parametro     */
+  /* spread_cdi_selic, padrao 0,10 p.p.). O primeiro degrau e a meta      */
+  /* Selic do ultimo dia com CDI publicado (serie 432). Focus, calendario */
+  /* do Copom (2028 estimado ate o BCB publicar) e meta vem do n8n        */
+  /* (QUORUM - Painel Focus e Painel CDI); aqui so se monta a curva.      */
+  function mutuoCurvaFocus(md) {
+    var params = md.params || {};
+    var spread = Number(params.spread_cdi_selic);
+    if (!isFinite(spread)) spread = 0.1;
+    var focus = md.focus || {}, itens = focus.itens || [], copom = md.copom || [];
+    if (!focus.dataFocus || !itens.length || !copom.length) return { ok: false, spread: spread, motivo: "o Focus ainda não foi carregado no n8n" };
+    var porReuniao = {};
+    copom.forEach(function (c) { porReuniao[c.reuniao] = c; });
+    function estimada(c) { return /estimad/i.test(String(c && c.fonte || "")); }
+    var cdi = md.cdi || [];
+    var ultimo = cdi.length ? cdi[cdi.length - 1] : null;
+    var inicio = ultimo ? ultimo[0] : mutuoIso(mutuoHojeTs());
+    var degraus = [], semData = [];
+    if (ultimo && typeof ultimo[2] === "number") degraus.push({ data: ultimo[0], selic: ultimo[2], ref: "Meta Selic de " + mutuoBr(mutuoTs(ultimo[0])) + " (série 432)", estimada: false });
+    itens.filter(function (x) { return x.tipo === "reuniao"; }).forEach(function (x) {
+      var c = porReuniao[x.referencia];
+      if (!c) { semData.push(x.referencia); return; }
+      if (c.vigenteDesde <= inicio) return;
+      degraus.push({ data: c.vigenteDesde, selic: Number(x.selic), ref: x.referencia + " (reunião de " + mutuoBr(mutuoTs(c.dia2)) + ")", estimada: estimada(c) });
+    });
+    degraus.sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; });
+    itens.filter(function (x) { return x.tipo === "anual"; }).sort(function (a, b) { return Number(a.referencia) - Number(b.referencia); }).forEach(function (x) {
+      var r8 = porReuniao["R8/" + x.referencia];
+      var data = r8 ? r8.vigenteDesde : x.referencia + "-12-31";
+      var ultimaData = degraus.length ? degraus[degraus.length - 1].data : inicio;
+      if (data <= ultimaData) return;
+      degraus.push({ data: data, selic: Number(x.selic), ref: "Fim de " + x.referencia + (r8 ? " (após a R8/" + x.referencia + ")" : " (sem calendário, 31/12)"), estimada: r8 ? estimada(r8) : true });
+    });
+    degraus.forEach(function (d) { d.taxa = Math.round((d.selic - spread) * 100) / 100; });
+    if (!degraus.length) return { ok: false, spread: spread, motivo: "o Focus não trouxe reuniões futuras" };
+    return { ok: true, dataFocus: focus.dataFocus, spread: spread, degraus: degraus, semData: semData };
+  }
+  /* Curva usada no calculo: a do Focus (padrao) ou a manual, pela         */
+  /* escolha global curva_di_fonte (so o admin muda). Sem Focus carregado, */
+  /* cai na manual e avisa.                                                */
+  function mutuoCurvaAtiva(md) {
+    var params = md.params || {};
+    var focus = mutuoCurvaFocus(md);
+    var manual = (params.curva_di_projetada || []).map(function (c) { return { data: c.data, taxa: c.taxa }; });
+    var querFocus = params.curva_di_fonte !== "manual";
+    if (querFocus && focus.ok) return { fonte: "focus", curva: focus.degraus.map(function (d) { return { data: d.data, taxa: d.taxa }; }), focus: focus, manual: manual };
+    return { fonte: "manual", curva: manual, focus: focus, manual: manual, focusIndisponivel: querFocus && !focus.ok };
+  }
+  /* Spread realizado: meta Selic (serie 432) menos a Taxa DI anualizada  */
+  /* (serie 12, 2 casas), nos ultimos n dias uteis com as duas series.    */
+  function mutuoSpreadRealizado(md, n) {
+    var dias = (md.cdi || []).filter(function (x) { return typeof x[2] === "number"; }).slice(-(n || 30));
+    if (!dias.length) return null;
+    var sp = dias.map(function (x) { return Math.round((x[2] - mutuoDiDoCdiDiario(x[1])) * 100) / 100; });
+    var soma = sp.reduce(function (s, v) { return s + v; }, 0);
+    return { dias: dias.length, de: dias[0][0], ate: dias[dias.length - 1][0], media: soma / sp.length, min: Math.min.apply(null, sp), max: Math.max.apply(null, sp) };
   }
 
   /* Remuneracao acumulada ate o fim do dia hojeTs e se ela depende de    */
@@ -9169,7 +9240,8 @@
     var cdiDiario = {};
     (md.cdi || []).forEach(function (x) { cdiDiario[x[0]] = x[1]; });
     var ultimoCdi = md.cdi && md.cdi.length ? md.cdi[md.cdi.length - 1][0] : null;
-    var base = mutuoParametrosDoContrato(params, mutuoIso(entrega.ts), entrega.valor);
+    var curvaAtiva = mutuoCurvaAtiva(md);
+    var base = mutuoParametrosDoContrato(params, mutuoIso(entrega.ts), entrega.valor, curvaAtiva.curva);
     base.cdiDiario = cdiDiario;
     var contratual = mutuoSimular(Object.assign({}, base, { regimeJuros: "anual" }));
     var salvaguarda = mutuoSimular(Object.assign({}, base, { regimeJuros: "salvaguarda" }));
@@ -9186,7 +9258,7 @@
     var futuros = candidatos.filter(function (c) { return c.ts >= hojeTs; }).sort(function (x, y) { return x.ts - y.ts; });
     var proximoMarco = futuros[0] || { ts: a.vencimento, rotulo: "Vencimento" };
 
-    /* Prazo de entrega (Cl. 2.1.1 e 2.3), contado das duas datas. */
+    /* Prazo de entrega, contado das duas datas. */
     function prazos(dataIso) {
       if (!dataIso) return null;
       var t = mutuoTs(dataIso);
@@ -9197,14 +9269,14 @@
     var avisoEntrega = null;
     if (pzContrato && pzAssinatura) {
       var e = entrega.ts;
-      if (e > pzAssinatura.prorrogado) avisoEntrega = { tom: "vermelho", texto: "Entrega fora do prazo da Cl. 2.3: levar ao jurídico" };
-      else if (e > pzAssinatura.original) avisoEntrega = { tom: "neutro", texto: "Entrega após o prazo original: confirmar o e-mail de prorrogação (Cl. 2.1.1)" };
+      if (e > pzAssinatura.prorrogado) avisoEntrega = { tom: "vermelho", texto: mutuoTexto(params, "aviso_entrega_fora", null, "Entrega fora do prazo: levar ao jurídico") };
+      else if (e > pzAssinatura.original) avisoEntrega = { tom: "neutro", texto: mutuoTexto(params, "aviso_entrega_prorrogacao", null, "Entrega após o prazo original: confirmar o e-mail de prorrogação") };
       else if (e > pzContrato.original) avisoEntrega = { tom: "neutro", texto: "Entrega dentro do prazo contado da última assinatura; contado da data do contrato, depende do e-mail de prorrogação." };
       else avisoEntrega = { tom: "ok", texto: "Entrega dentro do prazo original nas duas contagens." };
     }
 
     return {
-      entrega: entrega, hojeTs: hojeTs, ultimoCdi: ultimoCdi, diasCdi: (md.cdi || []).length,
+      entrega: entrega, hojeTs: hojeTs, ultimoCdi: ultimoCdi, diasCdi: (md.cdi || []).length, curvaAtiva: curvaAtiva,
       contratual: contratual, salvaguarda: salvaguarda,
       apuradoC: mutuoApuradoAte(contratual, hojeTs), apuradoS: mutuoApuradoAte(salvaguarda, hojeTs),
       fimCarencia: fimCarencia, inicioRemuneracao: fimCarencia + MUTUO_MS_DIA,
@@ -9224,12 +9296,28 @@
     parcial: { cor: COR.brass, fundo: COR.brassSoft, texto: "parcial", titulo: "Parte realizada, parte projetada" }
   };
   var MUTUO_ROTULO_REGIME = {
-    anual: "Composto com capitalização anual (contrato)",
+    anual: "Composto com capitalização anual",
     composto: "Composto diário (mercado)",
     simples: "Simples linear (como o artefato)",
-    salvaguarda: "Salvaguarda da Cl. 4.2.2"
+    salvaguarda: "Salvaguarda"
   };
-  var MUTUO_NOTA_FISCAL = "O contrato não trata de IOF nem de IRRF; enquadramento a confirmar com o contador";
+  var MUTUO_NOTA_FISCAL = "IOF e IRRF: enquadramento a confirmar com o contador";
+  /* Textos que citam clausulas ou descrevem termos do contrato moram na  */
+  /* tabela "QUORUM Mutuo - Parametros" do n8n, linhas tipo "texto"       */
+  /* (chave texto_<id>), e so chegam depois do login: o repositorio e     */
+  /* publico (pedido de Alex, 29/10/2026). No codigo ficam so rotulos     */
+  /* neutros. {nome} no texto vira o valor calculado na tela; sem a       */
+  /* linha, vale o padrao neutro (ou nada).                               */
+  function mutuoTexto(params, id, vars, padrao) {
+    var t = params ? params["texto_" + id] : null;
+    if (typeof t !== "string" || !t) t = padrao || "";
+    return t.replace(/\{(\w+)\}/g, function (m, k) { return vars && vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m; });
+  }
+  /* titulo + referencia da tabela do n8n entre parenteses, se houver */
+  function mutuoComRef(params, rotulo, id) {
+    var ref = mutuoTexto(params, id);
+    return ref ? rotulo + " (" + ref + ")" : rotulo;
+  }
   var MUTUO_ROTULO_TITULO = { fontSize: 10, letterSpacing: "0.12em", color: COR.faint };
 
   function SeloMutuo(props) {
@@ -9434,6 +9522,7 @@
     var estErro = useState(""), erroGravacao = estErro[0], setErroGravacao = estErro[1];
     var estCurva = useState(null), curvaEd = estCurva[0], setCurvaEd = estCurva[1];
     var estCapt = useState(null), captEd = estCapt[0], setCaptEd = estCapt[1];
+    var estSpread = useState(null), spreadEd = estSpread[0], setSpreadEd = estSpread[1];
 
     function gravar(corpo, depois) {
       setGravando(true); setErroGravacao("");
@@ -9477,11 +9566,12 @@
         ajuda: "Entrada paga na categoria " + MUTUO_CONVERSIVEL_CATEGORIA + " (Mútuo Conversível - Captação) da Omie. A data da entrega é o marco de tudo: carência, vencimento e reporte." }),
       h(CartaoIndicador, { rotulo: "Remuneração apurada até hoje", valor: pos.apuradoC.valor, valorTexto: mutuoFmt(pos.apuradoC.valor, 2), fundo: "resultado", compacto: true,
         sub: (emCarencia ? "carência de remuneração até " + mutuoBr(pos.fimCarencia) + " · " : "") + "salvaguarda: " + mutuoR(pos.apuradoS.valor),
-        ajuda: "Leitura contratual (Cl. 4.2.1): remuneração apurada mês a mês desde o início da remuneração, com o CDI publicado até "
-          + (pos.ultimoCdi ? mutuoBr(mutuoTs(pos.ultimoCdi)) : "–") + ". Abaixo, a leitura da salvaguarda (Cl. 4.2.2). A remuneração só é exigível no vencimento (Cl. 4.4) e se extingue na conversão (Cl. 4.4.1)." }),
+        ajuda: mutuoTexto(params, "ajuda_remuneracao", { ultimoCdi: pos.ultimoCdi ? mutuoBr(mutuoTs(pos.ultimoCdi)) : "–" },
+          "Remuneração apurada mês a mês desde o início da remuneração, com o CDI publicado até {ultimoCdi}. Abaixo, a outra leitura.") }),
       h(CartaoIndicador, { rotulo: "Passivo se liquidar hoje", valor: passivoHoje, casas: 2, fundo: "resultado", compacto: true,
         sub: "principal + remuneração apurada",
-        ajuda: "Dívida contábil de hoje: principal " + mutuoR(principal) + " + remuneração apurada " + mutuoR(pos.apuradoC.valor) + ". A remuneração só é exigível no vencimento (Cl. 4.4); liquidação antecipada pede aviso de " + params.aviso_liquidacao_antecipada_dias + " dias (Cl. 4.6)." }),
+        ajuda: ("Dívida contábil de hoje: principal " + mutuoR(principal) + " + remuneração apurada " + mutuoR(pos.apuradoC.valor) + ". "
+          + mutuoTexto(params, "ajuda_passivo_hoje", { avisoLiquidacao: params.aviso_liquidacao_antecipada_dias })).trim() }),
       h(CartaoIndicador, { rotulo: h(Fragment, null, "Passivo no vencimento", h(SeloMutuo, { tipo: "projecao" })), valor: passivoVencC, casas: 2, fundo: "resultado", compacto: true, ajudaDireita: true,
         sub: "em " + mutuoBr(pos.vencimento) + " · salvaguarda: " + mutuoR(passivoVencS),
         ajuda: "Principal + remuneração até o vencimento, na leitura contratual: CDI realizado até " + (pos.ultimoCdi ? mutuoBr(mutuoTs(pos.ultimoCdi)) : "–") + " e, depois, a curva projetada. Muda com a curva." }),
@@ -9490,9 +9580,9 @@
         ajuda: "O mais próximo entre o fim da carência de remuneração, o fim da carência de conversão e o prazo do próximo reporte ao mutuante ainda não enviado." })
     );
 
-    /* Prazo de entrega (Cl. 2.1.1 e 2.3), so informacao */
+    /* Prazo de entrega, so informacao */
     var pzC = pos.prazoContrato, pzA = pos.prazoAssinatura;
-    var blocoEntrega = pzC && pzA && h(BlocoMutuo, { titulo: "Entrega do principal · prazo (Cl. 2.1.1 e 2.3)" },
+    var blocoEntrega = pzC && pzA && h(BlocoMutuo, { titulo: mutuoComRef(params, "Entrega do principal · prazo", "ref_entrega") },
       h("div", { className: "overflow-x-auto" },
         h("table", { style: { borderCollapse: "collapse", fontSize: 12 } },
           h("thead", null, h("tr", { style: { color: COR.dim } },
@@ -9513,12 +9603,12 @@
 
     /* D2. Linha do tempo */
     var marcos = [
-      { ts: pos.entrega.ts, rotulo: "Entrega do principal", nota: "Cl. 2.1" },
-      { ts: pos.fimCarencia, rotulo: "Fim da carência de remuneração", nota: params.carencia_remuneracao_meses + " meses (Cl. 4.1)" },
-      { ts: pos.inicioRemuneracao, rotulo: "Início da remuneração", nota: "Cl. 4.2" },
-      { ts: pos.fimCarenciaConversao, rotulo: "Fim da carência de conversão", nota: params.carencia_conversao_meses + " meses (Cl. 5.3): a partir daí o mutuante pode pedir a conversão, com " + params.aviso_previo_conversao_dias + " dias de aviso (Cl. 5.2, i)" }
-    ].concat(pos.aniversarios.map(function (t, i) { return { ts: t, rotulo: "Aniversário de capitalização " + (i + 1), nota: "Cl. 4.2.1" }; }))
-      .concat([{ ts: pos.vencimento, rotulo: "Vencimento", nota: params.prazo_meses + " meses (Cl. 4.3)" }]);
+      { ts: pos.entrega.ts, rotulo: "Entrega do principal", nota: mutuoTexto(params, "nota_tl_entrega") },
+      { ts: pos.fimCarencia, rotulo: "Fim da carência de remuneração", nota: mutuoTexto(params, "nota_tl_fim_carencia", { meses: params.carencia_remuneracao_meses }, "{meses} meses") },
+      { ts: pos.inicioRemuneracao, rotulo: "Início da remuneração", nota: mutuoTexto(params, "nota_tl_inicio_remuneracao") },
+      { ts: pos.fimCarenciaConversao, rotulo: "Fim da carência de conversão", nota: mutuoTexto(params, "nota_tl_fim_carencia_conversao", { meses: params.carencia_conversao_meses, aviso: params.aviso_previo_conversao_dias }, "{meses} meses") }
+    ].concat(pos.aniversarios.map(function (t, i) { return { ts: t, rotulo: "Aniversário de capitalização " + (i + 1), nota: mutuoTexto(params, "nota_tl_aniversario") }; }))
+      .concat([{ ts: pos.vencimento, rotulo: "Vencimento", nota: mutuoTexto(params, "nota_tl_vencimento", { meses: params.prazo_meses }, "{meses} meses") }]);
     var span = pos.vencimento - pos.entrega.ts;
     function pctT(t) { return Math.max(0, Math.min(100, (t - pos.entrega.ts) / span * 100)); }
     var linhaTempo = h(BlocoMutuo, { titulo: "Linha do tempo" },
@@ -9541,7 +9631,7 @@
             h("span", null, m.rotulo, h("span", { style: { color: COR.faint } }, " · " + m.nota)));
         })));
 
-    /* Contratual x salvaguarda (Cl. 4.2.1 e 4.2.2) */
+    /* Contratual x salvaguarda */
     function linhaComp(rotulo, c, s, selo) {
       return h("tr", { style: { borderTop: "1px solid " + COR.lineSoft } },
         h("td", { className: "py-2 pr-4", style: { fontSize: 12.5 } }, rotulo, selo ? h(SeloMutuo, { tipo: selo }) : null),
@@ -9554,7 +9644,7 @@
       h("div", { className: "overflow-x-auto" },
         h("table", { className: "w-full", style: { borderCollapse: "collapse", minWidth: 560 } },
           h("thead", null, h("tr", { style: { color: COR.dim } },
-            ["", "Contratual (Cl. 4.2.1)", "Salvaguarda (Cl. 4.2.2)", "Diferença"].map(function (t, i) {
+            ["", mutuoComRef(params, "Contratual", "ref_contratual"), mutuoComRef(params, "Salvaguarda", "ref_salvaguarda"), "Diferença"].map(function (t, i) {
               return h("th", { key: i, className: (i ? "pl-4 text-right" : "text-left") + " py-1 uppercase whitespace-nowrap", style: { fontSize: 10, letterSpacing: "0.1em", fontWeight: 400 } }, t);
             }))),
           h("tbody", null,
@@ -9565,8 +9655,7 @@
             linhaComp("Remuneração até o vencimento", rC.remuneracaoBruta, rS.remuneracaoBruta, "projecao"),
             linhaComp("Passivo no vencimento", passivoVencC, passivoVencS, "projecao")))),
       h("div", { className: "mt-3", style: { fontSize: 11.5, color: COR.dim, lineHeight: 1.6 } },
-        "Leitura contratual: a variação do DI dentro de cada período anual é composta (produto dos fatores diários); no aniversário a remuneração do período passa a compor o saldo devedor, que é a base do período seguinte. "
-        + "Salvaguarda (Cl. 4.2.2): cada período anual rende só sobre o principal, sem incorporação. "
+        (mutuoTexto(params, "nota_comparativo") ? mutuoTexto(params, "nota_comparativo") + " " : "")
         + "Os períodos anuais contam do início da remuneração (aniversários em " + pos.aniversarios.map(mutuoBr).join(" e ") + "). "
         + "O marco dos aniversários (início da remuneração ou data de entrega) é ponto para o contador e o jurídico confirmarem: parâmetro marco_capitalizacao na tabela do n8n, hoje \""
         + (params.marco_capitalizacao === "entrega" ? "entrega" : "inicio_remuneracao") + "\"."));
@@ -9608,9 +9697,12 @@
         admin && h("td", { className: "py-1.5 px-3 whitespace-nowrap" }, acao));
     });
     var vencidos = pos.reportes.filter(function (x) { return x.situacao === "vencido"; });
-    var calendario = h(BlocoMutuo, { titulo: "Calendário de reporte ao mutuante (Cl. 6.2 e 6.2.2)", semPadding: true,
-      subtitulo: "Reporte trimestral do 1º ao 12º mês, bimestral do 13º ao 24º e mensal do 25º ao 36º, contados da entrega; envio em até " + (params.reporte ? params.reporte.prazoEnvioDias : "") + " dias do fim de cada período. Balanço anual em até "
-        + params.balanco_anual_dias + " dias corridos do fim de cada exercício. Linha vencida e não enviada fica em vermelho e entra em Prazos e atrasos."
+    var faixasReporte = ((params.reporte || {}).faixas || []).map(function (f) {
+      return "a cada " + f.periodoMeses + (f.periodoMeses === 1 ? " mês" : " meses") + " do " + f.deMes + "º ao " + f.ateMes + "º mês";
+    });
+    var calendario = h(BlocoMutuo, { titulo: mutuoComRef(params, "Calendário de reporte ao mutuante", "ref_reporte"), semPadding: true,
+      subtitulo: "Reporte " + faixasReporte.join(", ") + ", contados da entrega; envio em até " + (params.reporte ? params.reporte.prazoEnvioDias : "") + " dias do fim de cada período. Balanço anual em até "
+        + params.balanco_anual_dias + " dias corridos do fim de cada exercício (parâmetros da tabela do n8n). Linha vencida e não enviada fica em vermelho e entra em Prazos e atrasos."
         + (admin ? " Só administrador marca como enviado (grava na tabela do n8n)." : "") },
       erroGravacao && h(AvisoMutuo, { tom: "vermelho", className: "mx-4 mt-2" }, erroGravacao),
       vencidos.length > 0 && h(AvisoMutuo, { tom: "vermelho", className: "mx-4 mt-2" }, vencidos.length + " envio(s) vencido(s) e não marcado(s) como enviado(s)."),
@@ -9630,7 +9722,7 @@
     capC.forEach(function (c) { capPorMes[mutuoIso(c.ts).slice(0, 7)] = c; });
     var provisao = h(BlocoMutuo, { titulo: "Provisão contábil mês a mês · leitura contratual", semPadding: true,
       subtitulo: h("span", null, h("strong", { style: { color: COR.text } }, "Lançar na Omie como provisão: débito 2.13.99 Juros sobre Empréstimos, crédito 2.2.01.003 Provisão de Remuneração sobre Mútuo Conversível"),
-        ". A tela não lança nada; o lançamento é com o Alex e a TKS. Remuneração apurada mês a mês, exigível só no vencimento (Cl. 4.4) e extinta na conversão (Cl. 4.4.1).") },
+        ". A tela não lança nada; o lançamento é com o Alex e a TKS. " + mutuoTexto(params, "nota_provisao", null, "Remuneração apurada mês a mês.")) },
       h("div", { className: "overflow-x-auto mt-2" },
         h("table", { className: "w-full", style: { borderCollapse: "collapse", minWidth: 640 } },
           h("thead", null, h("tr", { style: { background: COR.ink } },
@@ -9644,7 +9736,7 @@
               var selo = selosDoMes(m);
               return h("tr", { key: m.mes, style: { borderTop: "1px solid " + COR.lineSoft, background: m.mes === mesAtual ? COR.brassSoft : "transparent" } },
                 h("td", { className: "py-1.5 pl-4 pr-3 whitespace-nowrap", style: { fontSize: 12 } }, rotuloMes(m.mes) + (m.mes === mesAtual ? " · hoje" : ""),
-                  carencia ? h("div", { style: { fontSize: 10.5, color: COR.faint } }, "carência de remuneração (Cl. 4.1)") : null,
+                  carencia ? h("div", { style: { fontSize: 10.5, color: COR.faint } }, "carência de remuneração") : null,
                   cap ? h("div", { style: { fontSize: 10.5, color: COR.brass } }, "aniversário " + mutuoBr(cap.ts) + ": " + mutuoR(cap.valor) + " incorporados ao saldo") : null),
                 h("td", { className: "py-1.5 px-3 text-right", style: { fontSize: 12, fontVariantNumeric: "tabular-nums", color: COR.dim } }, String(m.du)),
                 h("td", { className: "py-1.5 px-3 text-right whitespace-nowrap", style: { fontSize: 12, fontVariantNumeric: "tabular-nums" } },
@@ -9660,10 +9752,15 @@
               h("td", { className: "py-2 px-3 text-right", style: { fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" } }, mutuoFmt(rC.remuneracaoBruta, 2)),
               h("td", null), h("td", null))))));
 
-    /* Curva de DI: realizado e projetado */
+    /* Curva de DI: realizado e projetado. Projecao pelo Boletim Focus     */
+    /* (padrao) ou pela curva manual, escolha global gravada no n8n que so */
+    /* o admin muda (Alex, 29/10/2026).                                    */
     var curva = params.curva_di_projetada || [];
     var metaCurva = (md.meta || {}).curva_di_projetada || {};
     var ultimaTaxa = md.cdi && md.cdi.length ? mutuoDiDoCdiDiario(md.cdi[md.cdi.length - 1][1]) : null;
+    var ativa = pos.curvaAtiva, foc = ativa.focus;
+    var spreadReal = mutuoSpreadRealizado(md, 30);
+    var vencIso = mutuoIso(pos.vencimento);
     var editorCurva = curvaEd && h("div", { className: "mt-3" },
       curvaEd.map(function (c, i) {
         return h("div", { key: i, className: "flex flex-wrap items-center mb-2", style: { gap: 8 } },
@@ -9679,21 +9776,60 @@
         } }, "Adicionar degrau"),
         h(BotaoMutuo, { cheio: true, desabilitado: gravando, aoClicar: function () { gravar({ acao: "salvar_curva", curva: curvaEd }, function () { setCurvaEd(null); }); } }, gravando ? "Gravando..." : "Gravar curva"),
         h(BotaoMutuo, { cor: COR.faint, aoClicar: function () { setCurvaEd(null); } }, "Cancelar")));
-    var blocoCurva = h(BlocoMutuo, { titulo: h(Fragment, null, "Curva de DI", h(SeloMutuo, { tipo: "projecao" })),
-      direita: admin && !curvaEd ? h(BotaoMutuo, { aoClicar: function () { setCurvaEd(curva.map(function (c) { return { data: c.data, taxa: c.taxa }; })); } }, "Editar curva") : null },
+    var estiloTh = { fontSize: 10, letterSpacing: "0.08em", fontWeight: 400 };
+    var tabelaFocus = foc.ok && h("div", { className: "overflow-x-auto mt-2" },
+      h("table", { style: { borderCollapse: "collapse", fontSize: 12 } },
+        h("thead", null, h("tr", { style: { color: COR.dim } },
+          ["Vigente desde", "Origem", "Selic % a.a.", "CDI % a.a."].map(function (t, i) {
+            return h("th", { key: i, className: (i > 1 ? "text-right pl-3" : "text-left pr-3") + " py-1 uppercase align-bottom", style: estiloTh }, t);
+          }))),
+        h("tbody", null, foc.degraus.filter(function (d) { return d.data <= vencIso; }).map(function (d, i) {
+          return h("tr", { key: i, style: { borderTop: "1px solid " + COR.lineSoft } },
+            h("td", { className: "py-1 pr-3 whitespace-nowrap" }, mutuoBr(mutuoTs(d.data))),
+            h("td", { className: "py-1 pr-3" }, d.ref, d.estimada && h("span", { style: { marginLeft: 6, fontSize: 10, color: COR.brass, letterSpacing: "0.06em", textTransform: "uppercase" } }, "estimada")),
+            h("td", { className: "py-1 pl-3 text-right", style: { fontVariantNumeric: "tabular-nums" } }, mutuoFmt(d.selic, 2)),
+            h("td", { className: "py-1 pl-3 text-right", style: { fontVariantNumeric: "tabular-nums", fontWeight: 600 } }, mutuoFmt(d.taxa, 2)));
+        }))));
+    var tabelaManual = h("table", { className: "mt-2", style: { borderCollapse: "collapse", fontSize: 12 } },
+      h("tbody", null, curva.map(function (c, i) {
+        return h("tr", { key: i, style: { borderTop: "1px solid " + COR.lineSoft } },
+          h("td", { className: "py-1 pr-5" }, "a partir de " + mutuoBr(mutuoTs(c.data))),
+          h("td", { className: "py-1 text-right", style: { fontVariantNumeric: "tabular-nums", fontWeight: 600 } }, mutuoFmt(c.taxa, 2) + "% a.a."));
+      })));
+    var seletorFonte = admin
+      ? h(OpcoesMutuo, { valor: ativa.fonte, aoMudar: function (v) { if (v !== params.curva_di_fonte && !gravando) gravar({ acao: "salvar_parametro", chave: "curva_di_fonte", valor: v }); },
+          itens: [{ v: "focus", r: "Focus (BCB)" }, { v: "manual", r: "Manual" }] })
+      : h("span", { style: { fontSize: 11.5, color: COR.dim } }, "Fonte: " + (ativa.fonte === "focus" ? "Focus (BCB)" : "Manual"));
+    var blocoSpread = h("div", { className: "mt-3 pt-3", style: { borderTop: "1px solid " + COR.lineSoft, fontSize: 12, color: COR.dim, lineHeight: 1.6 } },
+      h("strong", { style: { color: COR.text } }, "Spread CDI × meta Selic. "),
+      spreadReal
+        ? "Realizado nos últimos " + spreadReal.dias + " dias úteis (" + mutuoBr(mutuoTs(spreadReal.de)) + " a " + mutuoBr(mutuoTs(spreadReal.ate)) + "): média "
+          + mutuoFmt(spreadReal.media, 2) + " p.p. (mínimo " + mutuoFmt(spreadReal.min, 2) + ", máximo " + mutuoFmt(spreadReal.max, 2) + "), meta Selic da série 432 menos a Taxa DI da série 12. "
+        : "Sem meta Selic carregada ainda para medir o realizado. ",
+      "Spread usado na projeção: ", h("strong", { style: { color: COR.text } }, mutuoFmt(foc.spread, 2) + " p.p."),
+      admin && spreadEd === null && h("span", { className: "ml-2" }, h(BotaoMutuo, { aoClicar: function () { setSpreadEd(foc.spread); } }, "Editar spread")),
+      admin && spreadEd !== null && h("div", { className: "flex flex-wrap items-center mt-2", style: { gap: 8 } },
+        h(NumMutuo, { valor: spreadEd, aoMudar: setSpreadEd, passo: "0.01", sufixo: "p.p." }),
+        h(BotaoMutuo, { cheio: true, desabilitado: gravando, aoClicar: function () { gravar({ acao: "salvar_parametro", chave: "spread_cdi_selic", valor: Number(spreadEd) }, function () { setSpreadEd(null); }); } }, gravando ? "Gravando..." : "Gravar spread"),
+        h(BotaoMutuo, { cor: COR.faint, aoClicar: function () { setSpreadEd(null); } }, "Cancelar")));
+    var blocoCurva = h(BlocoMutuo, { titulo: h(Fragment, null, "Curva de DI", h(SeloMutuo, { tipo: "projecao" })), direita: seletorFonte },
       h("div", { style: { fontSize: 12, color: COR.dim, lineHeight: 1.6 } },
         "CDI realizado: ", h("strong", { style: { color: COR.text } }, pos.diasCdi + " dias úteis"),
         pos.ultimoCdi ? " de " + mutuoBr(pos.entrega.ts) + " a " + mutuoBr(mutuoTs(pos.ultimoCdi)) + " (último publicado; Taxa DI " + mutuoFmt(ultimaTaxa, 2) + "% a.a.)" : " (nenhum dia carregado ainda)",
-        ". Série 12 do Banco Central, carregada todo dia útil; anualizada, é a Taxa DI da B3 da Cl. 4.2.1. Do dia seguinte ao último publicado até o vencimento vale a curva projetada abaixo; todo número que depende dela leva o selo ",
+        ". Série 12 do Banco Central, carregada todo dia útil; anualizada, é a Taxa DI da B3. Do dia seguinte ao último publicado até o vencimento vale a curva projetada abaixo; todo número que depende dela leva o selo ",
         h(SeloMutuo, { tipo: "projecao" }), "."),
-      !curvaEd && h("table", { className: "mt-2", style: { borderCollapse: "collapse", fontSize: 12 } },
-        h("tbody", null, curva.map(function (c, i) {
-          return h("tr", { key: i, style: { borderTop: "1px solid " + COR.lineSoft } },
-            h("td", { className: "py-1 pr-5" }, "a partir de " + mutuoBr(mutuoTs(c.data))),
-            h("td", { className: "py-1 text-right", style: { fontVariantNumeric: "tabular-nums", fontWeight: 600 } }, mutuoFmt(c.taxa, 2) + "% a.a."));
-        }))),
-      editorCurva,
-      h("div", { className: "mt-2", style: { fontSize: 11, color: COR.faint } }, "Última edição: " + (metaCurva.alteradoEm || "–") + (metaCurva.alteradoPor ? " por " + metaCurva.alteradoPor : "") + "."));
+      ativa.fonte === "focus" && h("div", { className: "mt-2", style: { fontSize: 12.5, color: COR.text } },
+        h("strong", null, "Projeção: Focus de " + mutuoBr(mutuoTs(foc.dataFocus)) + ", mediana, spread de " + mutuoFmt(foc.spread, 2) + " p.p."),
+        h("span", { style: { color: COR.dim } }, " Selic por reunião do Copom a partir do dia seguinte à reunião e, depois da última reunião com mediana, a Selic de fim de ano; CDI = Selic − spread. Reunião sem calendário publicado pelo BCB usa a data da mesma reunião do ano anterior + 364 dias (marcada estimada)."
+          + (foc.semData.length ? " Sem data de reunião, fora da curva: " + foc.semData.join(", ") + "." : ""))),
+      ativa.fonte === "manual" && h("div", { className: "mt-2", style: { fontSize: 12.5, color: COR.text } },
+        h("strong", null, "Projeção: curva manual."),
+        ativa.focusIndisponivel && h("span", { style: { color: COR.coral } }, " A fonte escolhida é o Focus, mas " + foc.motivo + "; vale a curva manual até ele chegar.")),
+      ativa.fonte === "focus" ? tabelaFocus : (!curvaEd && tabelaManual),
+      ativa.fonte === "manual" && admin && !curvaEd && h("div", { className: "mt-2" }, h(BotaoMutuo, { aoClicar: function () { setCurvaEd(curva.map(function (c) { return { data: c.data, taxa: c.taxa }; })); } }, "Editar curva manual")),
+      ativa.fonte === "manual" && editorCurva,
+      ativa.fonte === "manual" && h("div", { className: "mt-2", style: { fontSize: 11, color: COR.faint } }, "Última edição da curva manual: " + (metaCurva.alteradoEm || "–") + (metaCurva.alteradoPor ? " por " + metaCurva.alteradoPor : "") + "."),
+      blocoSpread);
 
     /* D5. Gatilhos e limites */
     var captacoes = params.captacoes_mesmo_preco || [];
@@ -9713,32 +9849,30 @@
         h(BotaoMutuo, { cor: COR.faint, aoClicar: function () { setCaptEd(null); } }, "Cancelar")));
     var gatilhos = h(BlocoMutuo, { titulo: "Gatilhos e limites" },
       h(ProgressoMutuo, { rotulo: "Receita bruta acumulada desde a constituição", atual: props.receitaAcumulada.valor, limite: Number(params.gatilho_receita_acumulada) || 0,
-        nota: "Ao atingir o limite, o Valuation Travado de " + mutuoR(Number(params.valuation_travado) || 0, 0) + " se encerra (Acordo, Art. 3º, ii). Faturamento em competência (emissão): receita bruta da DRE com os títulos emitidos e ainda não pagos, sem as previsões de OS, de "
+        nota: (mutuoTexto(params, "nota_gatilho_receita", { valuation: mutuoR(Number(params.valuation_travado) || 0, 0) }) + " ").trimStart() + "Faturamento em competência (emissão): receita bruta da DRE com os títulos emitidos e ainda não pagos, sem as previsões de OS, de "
           + rotuloMes(props.receitaAcumulada.de) + " a " + rotuloMes(props.receitaAcumulada.ate) + "." }),
       h(ProgressoMutuo, { rotulo: "Captações ao preço de " + mutuoR(Number(params.preco_por_ponto) || 0) + " por ponto", atual: somaCapt, limite: Number(params.teto_captacoes_mesmo_preco) || 0,
-        nota: "Teto do Anexo I, item 4. Valor atual: o principal deste mútuo (" + mutuoR(principal) + ")" + (captacoes.length ? " + " + captacoes.length + " captação(ões) futura(s) no mesmo preço: "
+        nota: mutuoTexto(params, "nota_teto_captacoes", null, "Teto de captações ao mesmo preço.") + " Valor atual: o principal deste mútuo (" + mutuoR(principal) + ")" + (captacoes.length ? " + " + captacoes.length + " captação(ões) futura(s) no mesmo preço: "
           + captacoes.map(function (c) { return mutuoBr(mutuoTs(c.data)) + " " + mutuoR(c.valor) + (c.descricao ? " (" + c.descricao + ")" : ""); }).join("; ") : "") + "." }),
       admin && !captEd && h("div", { className: "mb-2" }, h(BotaoMutuo, { aoClicar: function () { setCaptEd(captacoes.map(function (c) { return Object.assign({}, c); })); } }, "Editar captações futuras")),
       editorCapt,
-      h("div", { className: "py-2", style: { fontSize: 12.5, color: COR.text, lineHeight: 1.55 } },
-        h("strong", null, "Rodada Qualificada (" + mutuoR(Number(params.rodada_qualificada_min) || 0) + "). "),
-        "Captação agregada igual ou acima de " + mutuoR(Number(params.rodada_qualificada_min) || 0) + " converte este mútuo automaticamente; o mutuante tem "
-        + params.prazo_opcao_credor_dias + " dias para optar por continuar credor (Cl. 5.2.1)."));
+      mutuoTexto(params, "rodada") && h("div", { className: "py-2", style: { fontSize: 12.5, color: COR.text, lineHeight: 1.55 } },
+        mutuoTexto(params, "rodada", { rodada: mutuoR(Number(params.rodada_qualificada_min) || 0), prazoOpcao: params.prazo_opcao_credor_dias })));
 
     /* D6. Conversao */
     var cedentes = (params.cedentes || []).map(function (c) { var q = Number(params[c.chave]) || 0; return { nome: c.nome, quotas: q, credito: q * (Number(params.preco_por_quota) || 0) }; });
     var totalQuotas = cedentes.reduce(function (s, c) { return s + c.quotas; }, 0);
     var conversao = h(BlocoMutuo, { titulo: "Conversão integral" },
-      h(LinhaMutuo, { rotulo: "Quotas transferidas ao mutuante", valor: totalQuotas + " quotas", forte: true,
-        nota: cedentes.map(function (c) { return c.quotas + " de " + c.nome; }).join(" e ") + ", a " + mutuoR(Number(params.preco_por_quota) || 0) + " por quota (Cl. 5.4.1 e 5.5.1)" }),
+      h(LinhaMutuo, { rotulo: "Quotas na conversão", valor: totalQuotas + " quotas", forte: true,
+        nota: mutuoTexto(params, "nota_quotas", { lista: cedentes.map(function (c) { return c.quotas + " de " + c.nome; }).join(" e "), precoQuota: mutuoR(Number(params.preco_por_quota) || 0) }, "{lista}, a {precoQuota} por quota") }),
       h(LinhaMutuo, { rotulo: "Participação no capital", valor: mutuoFmt(Number(params.participacao_conversao_pct) || 0, 2) + "%", forte: true,
-        nota: "O capital social continua inalterado (Cl. 5.1)." }),
-      h(LinhaMutuo, { rotulo: "Remuneração apurada", valor: "extinta", nota: "Na conversão, a remuneração apurada se extingue (Cl. 4.4.1)." }),
+        nota: mutuoTexto(params, "nota_capital") }),
+      mutuoTexto(params, "valor_remuneracao_conversao") && h(LinhaMutuo, { rotulo: "Remuneração apurada", valor: mutuoTexto(params, "valor_remuneracao_conversao"), nota: mutuoTexto(params, "nota_remuneracao_conversao") }),
       h(LinhaMutuo, { rotulo: "Crédito do principal", valor: mutuoR(principal), forte: true,
-        nota: "Passa aos Cedentes (" + cedentes.map(function (c) { return mutuoR(c.credito) + " para " + c.nome; }).join(" e ") + ") e fica subordinado, sem remuneração (Cl. 5.4.3)." }),
+        nota: mutuoTexto(params, "nota_credito", { creditos: cedentes.map(function (c) { return mutuoR(c.credito) + " para " + c.nome; }).join(" e ") }, "{creditos}") }),
       h("div", { className: "pt-2", style: { fontSize: 11, color: COR.faint } }, "Sem cap table aqui: a composição pactuada mudou depois do contrato, e esse cálculo é de outra tela."));
 
-    /* D7. Uso dos recursos (Cl. 2.2) */
+    /* D7. Uso dos recursos */
     var vedadas = (props.linhas || []).filter(function (l) {
       if (!l.dPag || Number(l.valor) >= 0) return false;
       var t = Date.UTC(l.dPag.getFullYear(), l.dPag.getMonth(), l.dPag.getDate());
@@ -9747,9 +9881,8 @@
       return /pr[óo]\s*-?\s*labore/i.test(cat) || /lucro|dividend/i.test(cat) || String(l.codigoCategoria || "").indexOf("2.16") === 0;
     });
     var totalVedadas = vedadas.reduce(function (s, l) { return s + Number(l.valor); }, 0);
-    var usoRecursos = h(BlocoMutuo, { titulo: "Uso dos recursos (Cl. 2.2)" },
-      h("div", { style: { fontSize: 12.5, color: COR.text, lineHeight: 1.6 } },
-        "Enquanto o principal não for convertido ou liquidado, os recursos do mútuo não podem pagar pró-labore, retirada, remuneração de administrador, lucros ou amortização de crédito de sócio."),
+    var usoRecursos = h(BlocoMutuo, { titulo: mutuoComRef(params, "Uso dos recursos", "ref_uso_recursos") },
+      mutuoTexto(params, "uso_recursos") && h("div", { style: { fontSize: 12.5, color: COR.text, lineHeight: 1.6 } }, mutuoTexto(params, "uso_recursos")),
       vedadas.length > 0 && h(AvisoMutuo, { tom: "neutro", className: "mt-2" },
         "Há saídas em categorias vedadas para os recursos do mútuo desde a entrega; conferir a origem do caixa. ",
         h("strong", null, vedadas.length + " lançamento(s), total " + mutuoR(totalVedadas)), ": ",
@@ -9767,22 +9900,31 @@
   function mutuoContratoNoSimulador(md, entrega) {
     var params = md.params;
     var entregaIso = mutuoIso(entrega.ts);
-    var base = mutuoParametrosDoContrato(params, entregaIso, entrega.valor);
+    var ativa = mutuoCurvaAtiva(md);
+    var base = mutuoParametrosDoContrato(params, entregaIso, entrega.valor, ativa.curva);
     var ultima = md.cdi && md.cdi.length ? mutuoDiDoCdiDiario(md.cdi[md.cdi.length - 1][1]) : null;
-    var curva = (params.curva_di_projetada || []).filter(function (c) { return c.data > entregaIso; });
-    var primeira = ultima !== null ? ultima : ((params.curva_di_projetada || [])[0] || { taxa: 0 }).taxa;
-    curva = [{ data: entregaIso, taxa: primeira }].concat(curva).map(function (c, i) { return { id: i + 1, data: c.data, taxa: c.taxa }; });
+    /* primeiro degrau: Taxa DI do ultimo dia publicado, desde a entrega   */
+    var vencIso = mutuoIso(mutuoAddMeses(entrega.ts, Number(params.prazo_meses) || 0));
+    function comPrimeiro(lista) {
+      var primeira = ultima !== null ? ultima : (lista[0] || { taxa: 0 }).taxa;
+      return [{ data: entregaIso, taxa: primeira }].concat(lista.filter(function (c) { return c.data > entregaIso && c.data <= vencIso; }))
+        .map(function (c, i) { return { id: i + 1, data: c.data, taxa: c.taxa }; });
+    }
+    var curva = comPrimeiro(ativa.curva);
+    var curvaFocus = ativa.focus.ok ? comPrimeiro(ativa.focus.degraus.map(function (d) { return { data: d.data, taxa: d.taxa }; })) : null;
     return {
       principalAlvo: entrega.valor,
       aportes: base.aportes,
       curvaDI: curva,
+      curvaFocus: curvaFocus,
+      focus: ativa.focus,
       p: Object.assign({}, base, { iofAtivo: true, irrfRegime: "regressiva", aportes: undefined, curvaDI: undefined })
     };
   }
 
   var MUTUO_CENARIOS = {
     mercado: { regimeJuros: "composto", carenciaTipo: "pagamento", formaPagamento: "vencimento" },
-    quorum: { regimeJuros: "anual", carenciaTipo: "rendimento", formaPagamento: "vencimento" }
+    quorum: {}
   };
 
   function MutuoSimulador(props) {
@@ -9795,7 +9937,10 @@
     var estP = useState(contrato.p), p = estP[0], setP = estP[1];
     var estEq = useState(null), equivalencia = estEq[0], setEquivalencia = estEq[1];
     var estAviso = useState(""), aviso = estAviso[0], setAviso = estAviso[1];
-    var cenarioQuorum = Object.assign({}, MUTUO_CENARIOS.quorum, { carenciaMeses: contrato.p.carenciaMeses });
+    /* cenario do contrato: os valores vem da tabela do n8n */
+    var cenarioQuorum = { regimeJuros: contrato.p.regimeJuros, carenciaTipo: contrato.p.carenciaTipo, formaPagamento: contrato.p.formaPagamento, carenciaMeses: contrato.p.carenciaMeses };
+    var pc = md.params || {};
+    function doContrato(campo, v) { return contrato.p[campo] === v ? " (contrato)" : ""; }
 
     function carregarContrato() {
       setPrincipalAlvo(contrato.principalAlvo);
@@ -9918,7 +10063,7 @@
           h(BlocoMutuo, { titulo: "Cenários de referência", subtitulo: "Atalho para as duas pontas da negociação. Trocam regime de juros, o que a carência suspende e a forma de pagamento; o de QUORUM traz também a carência do contrato." },
             h("div", { className: "flex flex-wrap", style: { gap: 8 } },
               [["mercado", "Parâmetros de mercado", "Composto diário, carência só de pagamento, parcela única"],
-               ["quorum", "Parâmetros QUORUM (contrato assinado)", "Carência de rendimento de " + contrato.p.carenciaMeses + " meses, composto com capitalização anual, parcela única"]].map(function (c) {
+               ["quorum", "Parâmetros QUORUM (contrato assinado)", "Carência de " + contrato.p.carenciaMeses + " meses, " + (MUTUO_ROTULO_REGIME[contrato.p.regimeJuros] || "").toLowerCase() + ", " + (contrato.p.formaPagamento === "mensal" ? "pagamento mensal" : "parcela única no vencimento")]].map(function (c) {
                 var on = cenarioAtivo === c[0];
                 return h("button", { key: c[0], type: "button", onClick: function () { aplicarCenario(c[0]); }, className: "rounded px-3 py-2 text-left",
                   style: { flex: "1 1 220px", border: "1px solid " + (on ? COR.brass : COR.line), background: on ? COR.brassSoft : COR.surface } },
@@ -9927,10 +10072,10 @@
               })),
             h("div", { className: "mt-2", style: { fontSize: 11.5, color: COR.dim, lineHeight: 1.55 } },
               cenarioAtivo === "mercado" ? "Nesta configuração o mútuo replica a estrutura do papel de referência, então a comparação da aba Investidor deve fechar em 100% e o que sobrar de diferença vem só do percentual do CDI."
-                : cenarioAtivo === "quorum" ? "Esta é a estrutura do contrato assinado: carência de rendimento (Cl. 4.1), remuneração composta com capitalização anual (Cl. 4.2.1) e parcela única no vencimento (Cl. 4.4)."
+                : cenarioAtivo === "quorum" ? mutuoTexto(pc, "nota_sim_cenario_contrato", null, "Esta é a estrutura do contrato assinado, com os parâmetros da tabela do n8n.")
                 : "Nenhum dos dois está ativo agora, porque algum dos campos foi ajustado à mão."))),
         h("div", { style: { gridColumn: "1 / -1" } },
-          h(BlocoMutuo, { titulo: h(Fragment, null, "Curva de DI", h(SeloMutuo, { tipo: "projecao" })), subtitulo: "Cada linha vale a partir da data informada até a próxima. Ao abrir, o primeiro degrau é a Taxa DI do último dia publicado e os seguintes são a curva projetada da Posição." },
+          h(BlocoMutuo, { titulo: h(Fragment, null, "Curva de DI", h(SeloMutuo, { tipo: "projecao" })), subtitulo: "Cada linha vale a partir da data informada até a próxima. Ao abrir, o primeiro degrau é a Taxa DI do último dia publicado e os seguintes são a curva projetada da Posição (Focus ou manual, a que estiver escolhida lá). \"Carregar curva Focus\" troca a curva pela do Boletim Focus." },
             h("div", { className: "overflow-x-auto" },
               h("table", { style: { borderCollapse: "collapse", fontSize: 12.5 } },
                 h("thead", null, h("tr", { style: { color: COR.dim } },
@@ -9944,31 +10089,38 @@
                     h("td", { className: "py-2 pl-3 text-right", style: { color: COR.faint, fontVariantNumeric: "tabular-nums" } }, mutuoFmt((Number(c.taxa) / (p.baseDiasUteis || 252)) * 21, 4) + "%"),
                     h("td", { className: "py-2 pl-3 text-right" }, curvaDI.length > 1 && h(BotaoMutuo, { cor: COR.faint, aoClicar: function () { setCurvaDI(curvaDI.filter(function (x) { return x.id !== c.id; })); } }, "Remover")));
                 })))),
-            h("div", { className: "mt-3" }, h(BotaoMutuo, { aoClicar: function () {
-              var ult = curvaDI[curvaDI.length - 1];
-              setCurvaDI(curvaDI.concat([{ id: Date.now(), data: mutuoIso(mutuoAddMeses(ult ? mutuoTs(ult.data) : mutuoHojeTs(), 6)), taxa: ult ? ult.taxa : 10 }]));
-            } }, "Adicionar degrau")),
+            h("div", { className: "mt-3 flex flex-wrap items-center", style: { gap: 8 } },
+              h(BotaoMutuo, { aoClicar: function () {
+                var ult = curvaDI[curvaDI.length - 1];
+                setCurvaDI(curvaDI.concat([{ id: Date.now(), data: mutuoIso(mutuoAddMeses(ult ? mutuoTs(ult.data) : mutuoHojeTs(), 6)), taxa: ult ? ult.taxa : 10 }]));
+              } }, "Adicionar degrau"),
+              h(BotaoMutuo, { desabilitado: !contrato.curvaFocus, aoClicar: function () {
+                setCurvaDI(contrato.curvaFocus.map(function (c) { return Object.assign({}, c); }));
+                setAviso("Curva Focus carregada: Focus de " + mutuoBr(mutuoTs(contrato.focus.dataFocus)) + ", mediana, spread de " + mutuoFmt(contrato.focus.spread, 2) + " p.p.");
+                setTimeout(function () { setAviso(""); }, 6000);
+              } }, "Carregar curva Focus"),
+              !contrato.curvaFocus && h("span", { style: { fontSize: 11.5, color: COR.faint } }, "Focus indisponível: " + contrato.focus.motivo + ".")),
             h("div", { className: "mt-3", style: { maxWidth: 260 } },
-              h(CampoMutuo, { rotulo: "Percentual do CDI pago pelo mútuo", nota: "O contrato assinado (Cl. 4.2) diz " + mutuoFmt(contrato.p.pctCDIMutuo, 0) + "%. Se a negociação mudar isso, ajuste aqui." },
+              h(CampoMutuo, { rotulo: "Percentual do CDI pago pelo mútuo", nota: "O contrato assinado (tabela do n8n) diz " + mutuoFmt(contrato.p.pctCDIMutuo, 0) + "%. Se a negociação mudar isso, ajuste aqui." },
                 h(NumMutuo, { valor: p.pctCDIMutuo, aoMudar: set("pctCDIMutuo"), passo: "1", sufixo: "% do CDI" }))),
             h("div", { className: "mt-2", style: { fontSize: 11.5, color: COR.faint, lineHeight: 1.55 } },
               "O equivalente ao mês usa 21 dias úteis como referência de leitura e não inclui o percentual do CDI. No motor, cada mês usa o número real de dias úteis do calendário: a coluna a.m. da aba Fluxo mensal mostra o valor efetivo já aplicado."))),
         h(BlocoMutuo, { titulo: "Prazo e base", subtitulo: "Contratual na forma" },
           h("div", { className: "grid", style: { gap: 12 } },
-            h(CampoMutuo, { rotulo: "Base de dias úteis", nota: "252 é o padrão da Cl. 4.2.1." }, h(NumMutuo, { valor: p.baseDiasUteis, aoMudar: set("baseDiasUteis"), sufixo: "dias" })),
+            h(CampoMutuo, { rotulo: "Base de dias úteis", nota: "O contrato assinado (tabela do n8n) usa " + contrato.p.baseDiasUteis + "." }, h(NumMutuo, { valor: p.baseDiasUteis, aoMudar: set("baseDiasUteis"), sufixo: "dias" })),
             h("div", { className: "grid grid-cols-2", style: { gap: 12 } },
               h(CampoMutuo, { rotulo: "Carência" }, h(NumMutuo, { valor: p.carenciaMeses, aoMudar: set("carenciaMeses"), sufixo: "meses" })),
               h(CampoMutuo, { rotulo: "Prazo total" }, h(NumMutuo, { valor: p.prazoMeses, aoMudar: set("prazoMeses"), sufixo: "meses" }))),
-            h(CampoMutuo, { rotulo: "O que a carência suspende", nota: "O contrato assinado suspende o rendimento inteiro (Cl. 4.1). Suspender só o pagamento mantém o juro correndo desde o primeiro dia e apenas adia a saída de caixa; o acumulado da carência é liquidado no vencimento." },
-              h(OpcoesMutuo, { valor: p.carenciaTipo, aoMudar: set("carenciaTipo"), itens: [{ v: "rendimento", r: "O rendimento inteiro (contrato)" }, { v: "pagamento", r: "Só o pagamento" }] })),
+            h(CampoMutuo, { rotulo: "O que a carência suspende", nota: (mutuoTexto(pc, "nota_sim_carencia") + " ").trimStart() + "Suspender só o pagamento mantém o juro correndo desde o primeiro dia e apenas adia a saída de caixa; o acumulado da carência é liquidado no vencimento." },
+              h(OpcoesMutuo, { valor: p.carenciaTipo, aoMudar: set("carenciaTipo"), itens: [{ v: "rendimento", r: "O rendimento inteiro" + doContrato("carenciaTipo", "rendimento") }, { v: "pagamento", r: "Só o pagamento" + doContrato("carenciaTipo", "pagamento") }] })),
             h(CampoMutuo, { rotulo: "Preço por ponto percentual" }, h(NumMutuo, { valor: p.precoPorPonto, aoMudar: set("precoPorPonto"), sufixo: "R$ / p.p." })),
             h(LinhaMutuo, { rotulo: "Participação se converter integralmente", valor: mutuoFmt(r.pontosConversao, 2) + "%", forte: true }),
-            h(CampoMutuo, { rotulo: "Regime de juros", nota: "O contrato assinado (Cl. 4.2.1) é composto, com a variação do DI acumulada dentro de cada período anual e capitalização no aniversário. A salvaguarda da Cl. 4.2.2 é o cálculo da tela Posição: cada período anual rende composto pelo DI sobre o principal, sem incorporação no aniversário. Leitura da Cl. 4.2.2 a confirmar com o jurídico. O simples linear repete o artefato original. Papel de mercado é composto diário." },
-              h(OpcoesMutuo, { valor: p.regimeJuros, aoMudar: set("regimeJuros"), itens: [{ v: "anual", r: MUTUO_ROTULO_REGIME.anual }, { v: "composto", r: MUTUO_ROTULO_REGIME.composto }, { v: "simples", r: MUTUO_ROTULO_REGIME.simples }, { v: "salvaguarda", r: MUTUO_ROTULO_REGIME.salvaguarda }] })),
+            h(CampoMutuo, { rotulo: "Regime de juros", nota: "Composto com capitalização anual: a variação do DI acumula dentro de cada período anual e passa a compor o saldo no aniversário. Salvaguarda: o cálculo da tela Posição, cada período anual composto pelo DI sobre o principal, sem incorporação. O simples linear repete o artefato original. Papel de mercado é composto diário. " + mutuoTexto(pc, "nota_sim_regime") },
+              h(OpcoesMutuo, { valor: p.regimeJuros, aoMudar: set("regimeJuros"), itens: ["anual", "composto", "simples", "salvaguarda"].map(function (v) { return { v: v, r: MUTUO_ROTULO_REGIME[v] + doContrato("regimeJuros", v) }; }) })),
             (p.regimeJuros === "anual" || p.regimeJuros === "salvaguarda") && h(CampoMutuo, { rotulo: "Marco dos aniversários de capitalização", nota: "Ponto para o contador e o jurídico confirmarem. Com carência só de pagamento, os aniversários contam da entrega." },
               h(OpcoesMutuo, { valor: p.marcoCapitalizacao, aoMudar: set("marcoCapitalizacao"), itens: [{ v: "inicio_remuneracao", r: "Início da remuneração" }, { v: "entrega", r: "Data de entrega" }] })),
-            h(CampoMutuo, { rotulo: "Pagamento da remuneração", nota: "O contrato assinado é parcela única no vencimento (Cl. 4.4). Encerrada a carência, os juros podem sair todo mês ou ficar acumulados até o vencimento." },
-              h(OpcoesMutuo, { valor: p.formaPagamento, aoMudar: set("formaPagamento"), itens: [{ v: "vencimento", r: "Parcela única no vencimento" }, { v: "mensal", r: "Mensal, após a carência" }] })),
+            h(CampoMutuo, { rotulo: "Pagamento da remuneração", nota: "Encerrada a carência, os juros podem sair todo mês ou ficar acumulados até o vencimento." },
+              h(OpcoesMutuo, { valor: p.formaPagamento, aoMudar: set("formaPagamento"), itens: [{ v: "vencimento", r: "Parcela única no vencimento" + doContrato("formaPagamento", "vencimento") }, { v: "mensal", r: "Mensal, após a carência" + doContrato("formaPagamento", "mensal") }] })),
             p.formaPagamento === "mensal" && p.regimeJuros !== "simples" && h(AvisoMutuo, { tom: "hipotese" },
               "Atenção: pagando mensalmente, o composto rende menos que o simples, e não mais. O fator diário composto é menor que a taxa linear, e é a capitalização ao longo do tempo que compensa isso. Pagando todo mês, sobra capitalização de cerca de 21 dias úteis, insuficiente para cobrir a diferença. Para comparar com papel de mercado em igualdade, use parcela única no vencimento."),
             p.formaPagamento === "mensal" && p.regimeJuros === "simples" && p.irrfRegime === "regressiva" && h(AvisoMutuo, { tom: "hipotese" },
@@ -10003,7 +10155,7 @@
         h(BlocoMutuo, { titulo: "Caminho 1 · levar até o vencimento", cor: corInv },
           h(LinhaMutuo, { rotulo: "Desembolso total", valor: mutuoR(r.principalTotal), forte: true }),
           h(LinhaMutuo, { rotulo: p.carenciaTipo === "pagamento" ? "Período sem pagamento" : "Período sem rendimento", valor: p.carenciaMeses + " meses",
-            nota: p.carenciaTipo === "pagamento" ? "O juro corre desde o primeiro dia e é liquidado no vencimento." : "Nada rende no período (Cl. 4.1 no contrato assinado)." }),
+            nota: p.carenciaTipo === "pagamento" ? "O juro corre desde o primeiro dia e é liquidado no vencimento." : "Nada rende no período." }),
           h(LinhaMutuo, { rotulo: "Dias úteis remunerados", valor: String(duRemun) }),
           h(LinhaMutuo, { rotulo: "Remuneração bruta", valor: mutuoR(r.remuneracaoBruta), selo: "hipotese", cor: corInv,
             nota: p.formaPagamento === "mensal" ? "Paga em " + r.pagamentos.length + " parcelas mensais" : "Paga em parcela única no vencimento" }),
@@ -10169,7 +10321,7 @@
           ["Carência (meses)", p.carenciaMeses, "contratual"], ["A carência suspende", p.carenciaTipo === "pagamento" ? "Só o pagamento" : "O rendimento inteiro", "contratual"],
           ["Prazo total (meses)", p.prazoMeses, "contratual"], ["Base de dias úteis", p.baseDiasUteis, "contratual"],
           ["Contagem de carência e prazo", p.regraContagem === "aporte" ? "De cada aporte" : p.regraContagem === "primeiro" ? "Do primeiro aporte" : "Do último aporte", "definição"],
-          ["Pagamento da remuneração", forma, "definição"], ["Regime de juros", regime, "contratual (Cl. 4.2.1)"],
+          ["Pagamento da remuneração", forma, "definição"], ["Regime de juros", regime, "contratual"],
           ["Número de pagamentos de juros", r.pagamentos.length, "calculado"], ["Vencimento final", mutuoBr(r.vencimentoGeral), "calculado"], ["Dias úteis no período", r.duAcum, "calculado"]] },
         { rotulo: ["RESULTADO", "", O], linhas: [
           ["Remuneração bruta", r.remuneracaoBruta, "HIPÓTESE"], ["IRRF retido", r.irrf, "HIPÓTESE"], ["Alíquota efetiva de IRRF (%)", r.irrfAliq, "HIPÓTESE"],
@@ -10191,7 +10343,7 @@
         { rotulo: ["PRAZO E BASE", "", O], linhas: [["Base de dias úteis", p.baseDiasUteis, "contratual"], ["Carência (meses)", p.carenciaMeses, "contratual"],
           ["A carência suspende", p.carenciaTipo === "pagamento" ? "Só o pagamento, o juro corre desde o 1º dia" : "O rendimento inteiro", "contratual"],
           ["Prazo total (meses)", p.prazoMeses, "contratual"], ["Preço por ponto percentual", p.precoPorPonto, "contratual"]] },
-        { rotulo: ["REMUNERAÇÃO", "", O], linhas: [["Percentual do CDI do mútuo (%)", p.pctCDIMutuo, "contratual"], ["Regime de juros", regime, "contratual (Cl. 4.2.1)"],
+        { rotulo: ["REMUNERAÇÃO", "", O], linhas: [["Percentual do CDI do mútuo (%)", p.pctCDIMutuo, "contratual"], ["Regime de juros", regime, "contratual"],
           ["Marco dos aniversários", p.marcoCapitalizacao === "entrega" ? "Data de entrega" : "Início da remuneração", "a confirmar"],
           ["Forma de pagamento", forma, "definição"], ["Percentual do CDI do papel de referência (%)", p.pctCDIRef, "premissa"],
           ["Papel de referência tem carência", p.refComCarencia ? "Sim, a mesma" : "Não, rende desde o 1º dia", "premissa"]] },
@@ -10251,7 +10403,7 @@
     var aba = estAba[0], setAba = estAba[1];
     useEffect(function () { armazenamento.setItem("quorum_aba_mutuo", aba); }, [aba]);
     var estado = props.mutuo;
-    /* Receita acumulada do gatilho de R$ 500 mil = faturamento em          */
+    /* Receita acumulada do gatilho de receita = faturamento em            */
     /* competencia desde a constituicao (decisao de Alex, 29/10/2026):      */
     /* receita bruta da DRE pela emissao, com os titulos emitidos e ainda   */
     /* nao pagos (emissao ate hoje) e sem as previsoes de OS nao faturadas  */
@@ -11207,9 +11359,9 @@
     ["review_lancamento", "Mês de lançamento do QR Review (mês 1 da rampa)", "mes", "Da planilha."],
     ["mutuo_valor", "Mútuo conversível: valor", "rs", "Contrato v07."],
     ["mutuo_mes", "Mútuo conversível: mês de entrada do dinheiro", "mes", "Contrato v07."],
-    ["mutuo_carencia", "Mútuo conversível: carência de juros (meses)", "qtd", "Contrato v07, Cláusula 4.1."],
+    ["mutuo_carencia", "Mútuo conversível: carência de juros (meses)", "qtd", "Do contrato do mútuo."],
     ["mutuo_cdi", "Mútuo conversível: CDI anual (estimativa de mercado)", "pct", "Não está no contrato: é estimativa."],
-    ["mutuo_prazo", "Mútuo conversível: prazo até a parcela única (meses)", "qtd", "Contrato v07, Cláusula 4.3. Assume que não converte."],
+    ["mutuo_prazo", "Mútuo conversível: prazo até a parcela única (meses)", "qtd", "Do contrato do mútuo. Assume que não converte."],
     ["dist_pct", "Distribuição de lucros, % do acumulado não distribuído", "pct", "Só no online."],
     ["dist_periodo", "Distribuição de lucros, a cada quantos meses", "qtd", "Só no online."],
     ["conservador", "Cenário conservador, fração da receita do cenário base", "pct", "Só no online."],
