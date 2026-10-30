@@ -5762,9 +5762,6 @@
     { id: "posicao", cat: "Resultado e Caixa", rotulo: "Posição de caixa", hash: "resultado-e-caixa/posicao", tela: "financeiro", icone: "carteira", resumo: true },
     { id: "fcf", cat: "Resultado e Caixa", rotulo: "Fluxo de Caixa Livre Projetado", hash: "resultado-e-caixa/fluxo-de-caixa-livre", tela: "financeiro", icone: "tendencia", semFiltros: true },
     { id: "reserva", cat: "Resultado e Caixa", rotulo: "Reserva e runway", hash: "resultado-e-caixa/reserva-de-caixa", tela: "financeiro", icone: "escudo", semFiltros: true },
-    /* Mutuo conversivel (especificacao de 25/10/2026): Posicao do contrato */
-    /* assinado e Simulador. Parametros do contrato so no n8n.             */
-    { id: "mutuo", cat: "Resultado e Caixa", rotulo: "Mútuo conversível", hash: "resultado-e-caixa/mutuo-conversivel", tela: "financeiro", icone: "contrato", semFiltros: true },
     { id: "abertos", cat: "Resultado e Caixa", rotulo: "Compromissos futuros", hash: "resultado-e-caixa/compromissos", tela: "financeiro", icone: "agenda", resumo: true },
     { id: "cc", cat: "Resultado e Caixa", rotulo: "Resultado por Centro de Custo", hash: "resultado-e-caixa/centro-de-custo", tela: "financeiro", icone: "centro", resumo: true },
     { id: "proj", cat: "Resultado e Caixa", rotulo: "Resultado por Projeto", hash: "resultado-e-caixa/projeto", tela: "financeiro", icone: "pasta", resumo: true },
@@ -5776,6 +5773,11 @@
     { id: "achados", cat: "Controle", rotulo: "Achados", hash: "controle/achados", tela: "financeiro", icone: "alerta" },
     { id: "prazos", cat: "Controle", rotulo: "Prazos e atrasos", hash: "controle/prazos", tela: "financeiro", icone: "relogio", semRegime: true },
     { id: "fiscal", cat: "Controle", rotulo: "Fiscal (Simples)", hash: "controle/fiscal", tela: "financeiro", icone: "recibo", semFiltros: true },
+    /* Mutuo conversivel (especificacao de 25/10/2026): Posicao do contrato */
+    /* assinado e Simulador. Parametros do contrato so no n8n. Em Controle, */
+    /* entre Fiscal e Exportacoes (pedido de Alex, 30/10/2026); o endereco */
+    /* antigo em Resultado e Caixa continua levando a ela.                 */
+    { id: "mutuo", cat: "Controle", rotulo: "Mútuo conversível", hash: "controle/mutuo-conversivel", tela: "financeiro", icone: "contrato", semFiltros: true },
     { id: "exportacoes", cat: "Controle", rotulo: "Exportações", hash: "controle/exportacoes", tela: "financeiro", icone: "baixar" },
     { id: "acessos", cat: "Administração", rotulo: "Acessos", hash: "administracao/acessos", tela: "admin", icone: "pessoas" }
   ];
@@ -5783,7 +5785,7 @@
 
   function rotaPorId(id) { return ROTAS.filter(function (r) { return r.id === id; })[0] || null; }
   /* Enderecos antigos que levam a uma tela nova (favoritos). */
-  var ENDERECOS_ANTIGOS = { "resultado-e-caixa/vertical": "dre-comp" };
+  var ENDERECOS_ANTIGOS = { "resultado-e-caixa/vertical": "dre-comp", "resultado-e-caixa/mutuo-conversivel": "mutuo" };
   function rotaDoEndereco() {
     var trecho = String(window.location.hash || "").replace(/^#\/?/, "").replace(/\/+$/, "");
     var achada = ROTAS.filter(function (r) { return r.hash === trecho; })[0];
@@ -8518,7 +8520,7 @@
                   h("td", { className: "px-3 py-2 text-right whitespace-nowrap", style: { fontSize: 12, color: COR.coral } }, mutuoBr(x.prazo)),
                   h("td", { className: "px-3 py-2 text-right whitespace-nowrap", style: { fontSize: 12, color: COR.coral, fontVariantNumeric: "tabular-nums" } }, String(mutuoDias(x.prazo, hojeTs))));
               }))),
-        h("div", { className: "px-4 pb-3 pt-1", style: { fontSize: 11, color: COR.faint } }, "Calendário completo e marcação de enviado em Resultado e Caixa > Mútuo conversível.")));
+        h("div", { className: "px-4 pb-3 pt-1", style: { fontSize: 11, color: COR.faint } }, "Calendário completo e marcação de enviado em Controle > Mútuo conversível.")));
     }
 
     /* Exportacoes: os tres arquivos, cada um com o que ele gera. */
